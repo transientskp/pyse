@@ -715,7 +715,7 @@ class ImageData(object):
 
                 except IndexError as e:
                     logger.warning("Input pixel coordinates (%.2f, %.2f) "
-                                   "could not be fit because: " + e.message,
+                                   "could not be fit because: " + str(e),
                                    posn[0], posn[1])
         if ids:
             return successful_fits, successful_ids

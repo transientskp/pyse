@@ -78,6 +78,9 @@ class Uncertain(object):
     def __pos__(self):
         return self
 
+    def __round__(self, pos):
+        return round(self.value, pos)
+
     def __div__(self, other):
         return self * (1. / other)  # other.__div__ and __mul__
 
@@ -113,10 +116,16 @@ class Uncertain(object):
             return cmp(self.value, compare)
 
     def __lt__(self, compare):
-        return self.value < compare
+        try:
+            return self.value < compare.value
+        except AttributeError:
+            return self.value < compare
 
     def __gt__(self, compare):
-        return self.value > compare
+        try:
+            return self.value > compare.value
+        except AttributeError:
+            return self.value > compare
 
     def exp(self):
         return math.e ** self

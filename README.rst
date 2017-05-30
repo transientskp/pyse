@@ -1,18 +1,18 @@
 Python Source Extractor
 =======================
 
-This has been quite rigorously taken from TraP
+This is the Python Source Extractor (PySE) for radio astronomical images.
+
+This project was formally part of the Transient Detection Pipeline:
 
 https://github.com/transientskp/tkp/
 
-and is probably not really ready for public usage yet!
 
-available on pypi:
+Installation
+------------
 
-https://pypi.python.org/pypi/radio-pyse/0.1
+Pyse available on pypi::
 
-```
-$ pip install radio-pyse
-```
+    $ pip install radio-pyse
 
-
+PySE is Python 2 and Python 3 compatible.

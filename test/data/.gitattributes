@@ -1,0 +1,10 @@
+corrected-all.fits filter=lfs diff=lfs merge=lfs -text
+correlated_noise.fits filter=lfs diff=lfs merge=lfs -text
+deconvolved.fits filter=lfs diff=lfs merge=lfs -text
+model-all.fits filter=lfs diff=lfs merge=lfs -text
+NCP_sample_image_1.fits filter=lfs diff=lfs merge=lfs -text
+observed-all.fits filter=lfs diff=lfs merge=lfs -text
+uncorrelated_noise.fits filter=lfs diff=lfs merge=lfs -text
+GRB120422A-120429.fits filter=lfs diff=lfs merge=lfs -text
+SWIFT_554620-130504.fits filter=lfs diff=lfs merge=lfs -text
+SWIFT_554620-130504.image filter=lfs diff=lfs merge=lfs -text

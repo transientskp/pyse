@@ -1,0 +1,21 @@
+language: python
+python:
+- 2.7
+- 3.4
+- 3.5
+- 3.6
+install:
+- pip install .
+script:
+- nosetests --with-coverage --cover-package=sourcefinder
+after_success:
+- coveralls
+deploy:
+  provider: pypi
+  user: gijzelaerr
+  password:
+    secure: VSY4u7OVLtE3dcLDIMV6JkaBrvO3qrocLPFXKF74uzlwn2c+RDOYQDh3vstCjJJF2VrUFCXvrRveyYUtqVzyhWMMiXRSFAChY92PW+4gozCIqJ5FBIH7CT7VbpiCn4sY32/snYsrndQReeQy1sTagTJijucm0v0NKTkDKtG6WbUvNT101XgKveHJ6nykaEsEalz9inraPyrU56vwp7fqzwBrV0C+12P9HPJ02SmMrUxA77a4zaE0rN1sk/6Dfe0o3ECCdRXe4AHeCwrU4Tlk7LxFnSkGTR66TSKHBVnnA732DhlxkkKYMFNRrUWvoln5lEsK85HWB8OjYzZ4wATw44QcBsFDZ5HCaTLHHkI1nWYKGB4WPSMi6UZRy+InW+fWG9aVO8fHPaSTQZRC4G0bK+uzWvfUx5YklafAB+lwsRW7M3Sz2LZIkjvAJ2MX+Es6zRc3Bksmg+q7bicvWKdz7+h0FY42cuSXhR/l/mTTUHHho6g6p8uexbg5tu+QOuSJrGiHcHWrLF7c+6nqmwIJ/HHctrI+/pdNgwszHzt8ox79MonD+oqEzMN2PsvdXOJnYHcQfb0tYIi85FXX9Ag/wxk1ybXcspnyaXyOwjzcNctiN3/MOmqmyW86GqlECjOBv9H/r3ajgtPEfQzTrh/IxUc4ovD167b1FQVmE6hRBYY=
+  on:
+    tags: true
+    distributions: sdist bdist_wheel
+    repo: transientskp/pyse
