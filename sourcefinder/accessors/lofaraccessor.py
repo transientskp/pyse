@@ -1,8 +1,8 @@
 from sourcefinder.accessors.requiredatts import RequiredAttributesMetaclass
+from six import with_metaclass
 
 
-class LofarAccessor(object):
-    __metaclass__ = RequiredAttributesMetaclass
+class LofarAccessor(with_metaclass(RequiredAttributesMetaclass, object)):
     """
     Additional metadata required for processing LOFAR images through QC
     checks.

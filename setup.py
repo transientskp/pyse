@@ -8,6 +8,7 @@ install_requires = """
     pytz
     python-casacore
     python-dateutil
+    six
     """.split()
 
 

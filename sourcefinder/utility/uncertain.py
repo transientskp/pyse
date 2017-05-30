@@ -81,6 +81,9 @@ class Uncertain(object):
     def __div__(self, other):
         return self * (1. / other)  # other.__div__ and __mul__
 
+    def __truediv__(self, other):
+        return self * (1. / other)
+
     def __rdiv__(self, other):
         return (self / other) ** -1.  # __pow__ and __div__
 
@@ -108,6 +111,12 @@ class Uncertain(object):
             return cmp(self.value, compare.value)
         except AttributeError:
             return cmp(self.value, compare)
+
+    def __lt__(self, compare):
+        return self.value < compare
+
+    def __gt__(self, compare):
+        return self.value > compare
 
     def exp(self):
         return math.e ** self

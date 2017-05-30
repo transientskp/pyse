@@ -1,14 +1,12 @@
 import logging
 from math import degrees, sqrt, sin, pi, cos
-
+from six import with_metaclass
 from sourcefinder.accessors.requiredatts import RequiredAttributesMetaclass
 
 logger = logging.getLogger(__name__)
 
 
-class DataAccessor(object):
-    __metaclass__ = RequiredAttributesMetaclass
-
+class DataAccessor(with_metaclass(RequiredAttributesMetaclass, object)):
     _required_attributes = [
         'beam',
         'centre_ra',

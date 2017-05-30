@@ -7,7 +7,7 @@ import math
 import numpy
 import scipy.optimize
 
-import utils
+from . import utils
 from .gaussian import gaussian
 from .stats import indep_pixels
 
