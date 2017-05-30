@@ -20,7 +20,7 @@ package_list = find_packages(where='.', exclude=['tests'])
 
 setup(
     name="radio-pyse",
-    version="0.2",
+    version="0.2.1",
     packages=package_list,
     scripts=tkp_scripts,
     description="Python Source Extractor",
