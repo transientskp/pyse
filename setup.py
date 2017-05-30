@@ -18,7 +18,7 @@ tkp_scripts = [
 package_list = find_packages(where='.', exclude=['tests'])
 
 setup(
-    name="pyse",
+    name="radio-pyse",
     version="0.1",
     packages=package_list,
     scripts=tkp_scripts,
