@@ -29,6 +29,7 @@ Authors
 
 The list of authors, sorted by the number of commits:
 
+- Hanno Spreeuw
 - John Swinbank
 - Gijs Molenaar
 - Tim Staley
