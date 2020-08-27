@@ -7,6 +7,7 @@ import numpy
 from numpy.ma import MaskedArray
 from scipy.special import erf
 from scipy.special import erfcinv
+from scipy.optimize import fsolve
 
 from .utils import calculate_correlation_lengths
 
@@ -25,6 +26,10 @@ def var_helper(N):
     term2 = 2. * N * numpy.exp(-N ** 2 / 2.)
     return term1 / (term1 - term2)
 
+def find_true_std(sigma, clip_limit, clipped_std):
+    help1=clip_limit/(sigma*np.sqrt(2))
+    help2=np.sqrt(2*np.pi)*erf(help1)
+    return sigma**2*(help2-2*np.sqrt(2)*help1*np.exp(-help1**2))-clipped_std**2*help2
 
 def indep_pixels(N, beam):
     corlengthlong, corlengthshort = calculate_correlation_lengths(
@@ -32,33 +37,9 @@ def indep_pixels(N, beam):
     correlated_area = 0.25 * numpy.pi * corlengthlong * corlengthshort
     return N / correlated_area
 
-
-def unbiased_sigma(N_indep):
-    """Calculate an unbiased sigma for using in sigma clipping.
-
-    The formula below for cliplim is pretty subtle. Kappa, sigma
-    clipping should be such that the noise is not biased by
-    it. Consequently, the clipping boundaries should be such that
-    exactly half an independent pixel should exceed it if the map were
-    source free. A rigid boundary of 3 sigma is appropriate only if the
-    number of independent pixels is about 185 (the number of
-    independent pixels equals the number of pixels divided by the
-    beamsize in pixels).
-
-    The condition that kappa, sigma clipping may not bias the noise is
-    translated in the formula below, using Gaussian statistics. A
-    disadvantage of this is that more iterations of kappa, sigma
-    clipping are needed, compared to 3 sigma clipping. However, the
-    noise values derived are generally significantly different (lower)
-    compared to 3 sigma clipping.
-    """
-
-    return 1.4142135623730951 * erfcinv(0.5 / N_indep)
-
-
-def sigma_clip(data, beam, sigma=unbiased_sigma, max_iter=100,
+def sigma_clip(data, beam, kappa=1.5, max_iter=100,
                centref=numpy.median, distf=numpy.var, my_iterations=0,
-               corr_clip=1.):
+               corr_clip=True):
     """Iterative clipping
 
     By default, this performs clipping of the standard deviation about the
@@ -95,13 +76,6 @@ def sigma_clip(data, beam, sigma=unbiased_sigma, max_iter=100,
         # This chunk is too small for processing; return an empty array.
         return numpy.array([]), 0, 0, 0
 
-    # If sigma is callable, use it to dynamically calculate the clipping
-    # limits.
-    if callable(sigma):
-        my_sigma = sigma(N_indep)
-    else:
-        my_sigma = sigma
-
     # distf=numpy.var is a sample variance with the factor N/(N-1)
     # already built in, N being the number of pixels. So, we are
     # going to remove that and replace it by N_indep/(N_indep-1)
@@ -115,14 +89,16 @@ def sigma_clip(data, beam, sigma=unbiased_sigma, max_iter=100,
     c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
     unbiased_std = numpy.sqrt(unbiased_var) / c4
 
-    limit = my_sigma * unbiased_std
+    limit = kappa * unbiased_std
 
     newdata = data.compress(abs(data - centre) <= limit)
 
     if len(newdata) != len(data) and len(newdata) > 0:
         corr_clip = var_helper(my_sigma)
         my_iterations += 1
-        return sigma_clip(newdata, beam, sigma, max_iter, centref, distf,
-                          my_iterations, corr_clip)
+        return sigma_clip(newdata, beam, kappa, max_iter, centref, distf,
+                          my_iterations, corr_clip=True)
     else:
+        if corr_clip==True:
+            unbiased_std=fsolve(find_true_std, unbiased_std, args=(limit,unbiased_std))[0]
         return newdata, unbiased_std, centre, my_iterations
