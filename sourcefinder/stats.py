@@ -27,9 +27,9 @@ def var_helper(N):
     return term1 / (term1 - term2)
 
 def find_true_std(sigma, clip_limit, clipped_std):
-    help1=clip_limit/(sigma*np.sqrt(2))
-    help2=np.sqrt(2*np.pi)*erf(help1)
-    return sigma**2*(help2-2*np.sqrt(2)*help1*np.exp(-help1**2))-clipped_std**2*help2
+    help1 = clip_limit/(sigma*numpy.sqrt(2))
+    help2 = numpy.sqrt(2*numpy.pi)*erf(help1)
+    return sigma**2*(help2-2*numpy.sqrt(2)*help1*numpy.exp(-help1**2))-clipped_std**2*help2
 
 def indep_pixels(N, beam):
     corlengthlong, corlengthshort = calculate_correlation_lengths(
@@ -38,8 +38,7 @@ def indep_pixels(N, beam):
     return N / correlated_area
 
 def sigma_clip(data, beam, kappa=1.5, max_iter=100,
-               centref=numpy.median, distf=numpy.var, my_iterations=0,
-               corr_clip=True):
+               centref=numpy.median, distf=numpy.var, my_iterations=0):
     """Iterative clipping
 
     By default, this performs clipping of the standard deviation about the
@@ -80,25 +79,23 @@ def sigma_clip(data, beam, kappa=1.5, max_iter=100,
     # already built in, N being the number of pixels. So, we are
     # going to remove that and replace it by N_indep/(N_indep-1)
     clipped_var = distf(data) * (N - 1.) * N_indep / (N * (N_indep - 1.))
-    unbiased_var = corr_clip * clipped_var
+    # unbiased_var = corr_clip * clipped_var
 
     # There is an extra factor c4 needed to get a unbiased standard
     # deviation, unbiased if we disregard clipping bias, see
     # http://en.wikipedia.org/wiki/Unbiased_estimation_of_standard_deviation\
     #         #Results_for_the_normal_distribution
     c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
-    unbiased_std = numpy.sqrt(unbiased_var) / c4
-
-    limit = kappa * unbiased_std
+    std_corr_for_limited_sample_size = numpy.sqrt(clipped_var) / c4
+    limit = kappa * std_corr_for_limited_sample_size
+    unbiased_std = fsolve(find_true_std, std_corr_for_limited_sample_size,
+                          args=(limit, std_corr_for_limited_sample_size))[0]
 
     newdata = data.compress(abs(data - centre) <= limit)
 
     if len(newdata) != len(data) and len(newdata) > 0:
-        corr_clip = var_helper(my_sigma)
         my_iterations += 1
         return sigma_clip(newdata, beam, kappa, max_iter, centref, distf,
-                          my_iterations, corr_clip=True)
+                          my_iterations)
     else:
-        if corr_clip==True:
-            unbiased_std=fsolve(find_true_std, unbiased_std, args=(limit,unbiased_std))[0]
         return newdata, unbiased_std, centre, my_iterations
