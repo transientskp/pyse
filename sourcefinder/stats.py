@@ -14,18 +14,6 @@ from .utils import calculate_correlation_lengths
 
 # CODE & NUMBER HANDLING ROUTINES
 #
-def var_helper(N):
-    """Correct for the fact the rms noise is computed from a clipped
-    distribution.
-
-    That noise will always be lower than the noise from the complete
-    distribution.  The correction factor is a function of the computed
-    rms noise only.
-    """
-    term1 = numpy.sqrt(2. * numpy.pi) * erf(N / numpy.sqrt(2.))
-    term2 = 2. * N * numpy.exp(-N ** 2 / 2.)
-    return term1 / (term1 - term2)
-
 def find_true_std(sigma, clip_limit, clipped_std):
     help1 = clip_limit/(sigma*numpy.sqrt(2))
     help2 = numpy.sqrt(2*numpy.pi)*erf(help1)
