@@ -25,7 +25,7 @@ def indep_pixels(N, beam):
     correlated_area = 0.25 * numpy.pi * corlengthlong * corlengthshort
     return N / correlated_area
 
-def sigma_clip(data, beam, kappa=2.0, max_iter=100,
+def sigma_clip(data, kappa=2.0, max_iter=100,
                centref=numpy.median, distf=numpy.var, my_iterations=0, limit=None):
     """Iterative clipping
 
@@ -58,8 +58,7 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
         data = data.compressed()
     centre = centref(data)
     N = numpy.size(data)
-    N_indep = indep_pixels(N, beam)
-    if N_indep < 1:
+    if N < 1:
         # This chunk is too small for processing; return an empty array.
         return numpy.array([]), 0, 0, 0
 
@@ -79,7 +78,7 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
 
     if len(newdata) != len(data) and len(newdata) > 0:
         my_iterations += 1
-        return sigma_clip(newdata, beam, kappa, max_iter, centref, distf,
+        return sigma_clip(newdata, kappa, max_iter, centref, distf,
                           my_iterations, limit=limit)
     else:
         return newdata, std_corr_for_clipping_bias, centre, my_iterations
