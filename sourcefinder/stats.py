@@ -38,7 +38,7 @@ def indep_pixels(N, beam):
     return N / correlated_area
 
 def sigma_clip(data, beam, kappa=2.0, max_iter=100,
-               centref=numpy.median, distf=numpy.var, my_iterations=0):
+               centref=numpy.median, distf=numpy.var, my_iterations=0, limit=None):
     """Iterative clipping
 
     By default, this performs clipping of the standard deviation about the
@@ -87,15 +87,20 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
     #         #Results_for_the_normal_distribution
     c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
     std_corr_for_limited_sample_size = numpy.sqrt(clipped_var) / c4
-    limit = kappa * std_corr_for_limited_sample_size
+
+    if limit is not None:
+        std_corr_for_clipping_bias = fsolve(find_true_std, std_corr_for_limited_sample_size,
+                              args=(limit, std_corr_for_limited_sample_size))[0]
+    else:
+        std_corr_for_clipping_bias = std_corr_for_limited_sample_size
+
+    limit = kappa * std_corr_for_clipping_bias
 
     newdata = data.compress(abs(data - centre) <= limit)
 
     if len(newdata) != len(data) and len(newdata) > 0:
         my_iterations += 1
         return sigma_clip(newdata, beam, kappa, max_iter, centref, distf,
-                          my_iterations)
+                          my_iterations, limit=limit)
     else:
-        unbiased_std = fsolve(find_true_std, std_corr_for_limited_sample_size,
-                              args=(limit, std_corr_for_limited_sample_size))[0]
-        return newdata, unbiased_std, centre, my_iterations
+        return newdata, std_corr_for_clipping_bias, centre, my_iterations
