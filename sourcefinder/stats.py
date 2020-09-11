@@ -63,10 +63,7 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
         # This chunk is too small for processing; return an empty array.
         return numpy.array([]), 0, 0, 0
 
-    # distf=numpy.var is a sample variance with the factor N/(N-1)
-    # already built in, N being the number of pixels. So, we are
-    # going to remove that and replace it by N_indep/(N_indep-1)
-    clipped_var = distf(data) * (N - 1.) * N_indep / (N * (N_indep - 1.))
+    clipped_var = distf(data)
 
     std_corr_for_limited_sample_size = numpy.sqrt(clipped_var)
 
