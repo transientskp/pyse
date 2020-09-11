@@ -65,13 +65,13 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
 
     clipped_var = distf(data)
 
-    std_corr_for_limited_sample_size = numpy.sqrt(clipped_var)
+    std = numpy.sqrt(clipped_var)
 
     if limit is not None:
-        std_corr_for_clipping_bias = fsolve(find_true_std, std_corr_for_limited_sample_size,
-                              args=(limit, std_corr_for_limited_sample_size))[0]
+        std_corr_for_clipping_bias = fsolve(find_true_std, std,
+                              args=(limit, std))[0]
     else:
-        std_corr_for_clipping_bias = std_corr_for_limited_sample_size
+        std_corr_for_clipping_bias = std
 
     limit = kappa * std_corr_for_clipping_bias
 
