@@ -79,13 +79,7 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
     # already built in, N being the number of pixels. So, we are
     # going to remove that and replace it by N_indep/(N_indep-1)
     clipped_var = distf(data) * (N - 1.) * N_indep / (N * (N_indep - 1.))
-    # unbiased_var = corr_clip * clipped_var
 
-    # There is an extra factor c4 needed to get a unbiased standard
-    # deviation, unbiased if we disregard clipping bias, see
-    # http://en.wikipedia.org/wiki/Unbiased_estimation_of_standard_deviation\
-    #         #Results_for_the_normal_distribution
-    # c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
     std_corr_for_limited_sample_size = numpy.sqrt(clipped_var)
 
     if limit is not None:
