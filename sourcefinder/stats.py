@@ -85,8 +85,8 @@ def sigma_clip(data, beam, kappa=2.0, max_iter=100,
     # deviation, unbiased if we disregard clipping bias, see
     # http://en.wikipedia.org/wiki/Unbiased_estimation_of_standard_deviation\
     #         #Results_for_the_normal_distribution
-    c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
-    std_corr_for_limited_sample_size = numpy.sqrt(clipped_var) / c4
+    # c4 = 1. - 0.25 / N_indep - 0.21875 / N_indep ** 2
+    std_corr_for_limited_sample_size = numpy.sqrt(clipped_var)
 
     if limit is not None:
         std_corr_for_clipping_bias = fsolve(find_true_std, std_corr_for_limited_sample_size,
