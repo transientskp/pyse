@@ -19,11 +19,11 @@ def find_true_std(sigma, clip_limit, clipped_std):
     return sigma**2*(help2-2*numpy.sqrt(2)*help1*numpy.exp(-help1**2))-clipped_std**2*help2
 
 
-def indep_pixels(N, beam):
+def indep_pixels(n, beam):
     corlengthlong, corlengthshort = calculate_correlation_lengths(
         beam[0], beam[1])
     correlated_area = 0.25 * numpy.pi * corlengthlong * corlengthshort
-    return N / correlated_area
+    return n / correlated_area
 
 
 def sigma_clip(data, kappa=2.0, max_iter=100,
@@ -58,8 +58,8 @@ def sigma_clip(data, kappa=2.0, max_iter=100,
     if isinstance(data, MaskedArray):
         data = data.compressed()
     centre = centref(data)
-    N = numpy.size(data)
-    if N < 1:
+    n = numpy.size(data)
+    if n < 1:
         # This chunk is too small for processing; return an empty array.
         return numpy.array([]), 0, 0, 0
 
