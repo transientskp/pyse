@@ -18,6 +18,7 @@ def find_true_std(sigma, clip_limit, clipped_std):
     help2 = numpy.sqrt(2*numpy.pi)*erf(help1)
     return sigma**2*(help2-2*numpy.sqrt(2)*help1*numpy.exp(-help1**2))-clipped_std**2*help2
 
+
 def indep_pixels(N, beam):
     corlengthlong, corlengthshort = calculate_correlation_lengths(
         beam[0], beam[1])
