@@ -6,7 +6,6 @@ variances used by the TKP sourcefinder.
 import numpy
 from numpy.ma import MaskedArray
 from scipy.special import erf
-from scipy.special import erfcinv
 from scipy.optimize import fsolve
 
 from .utils import calculate_correlation_lengths
