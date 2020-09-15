@@ -69,7 +69,7 @@ def sigma_clip(data, kappa=2.0, max_iter=100,
 
     if limit is not None:
         std_corr_for_clipping_bias = fsolve(find_true_std, std,
-                              args=(limit, std))[0]
+                                            args=(limit, std))[0]
     else:
         std_corr_for_clipping_bias = std
 
