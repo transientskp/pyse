@@ -19,3 +19,5 @@ deploy:
     tags: true
     distributions: sdist bdist_wheel
     repo: transientskp/pyse
+git:
+  depth: false
