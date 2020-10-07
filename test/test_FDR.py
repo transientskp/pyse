@@ -61,13 +61,35 @@ class test_maps(unittest.TestCase):
         corr_map = accessors.open(corr_path)
         map_with_sources = accessors.open(deconv_path)
 
+        # The FDR algorithm computes a threshold level as a factor for multiplying
+        # the rms noise background map. This multiplication factor is the same for
+        # the entire image.
+        # The 'deconvolved.fits' image comes from 'correlated_noise.fits' with
+        # sources inserted. The average noise in 'correlated_noise.fits' is 5.3 Jy,
+        # but if you compute the rms noise on 32 * 32 subimages, the grid values range
+        # between 2.4 and 11.1. It is not clear if FDR is applicable if the image is
+        # split up into subimages, all with their local noise levels.
+        # For now I set it back_size_x and back_size_y to 2048. This gives a uniform noise
+        # level of 6.1 Jy. Not very close to the ground truth of 5.3 Jy, but no spatial
+        # variation as for the 32 by 32 subimage sizes.
+        # FDR may still be applicable, but I was unable to find any research on this.
+        # Other aspects include non-normal aspects of the distribution of the correlated
+        # noise, see paragraphs 3.6, 3.8 and the last column of table 3.4 of my thesis.
+        # The last aspect is that the FDR algorithm holds for an average over a large
+        # ensemble of images. So for a single image it may fail. Lastly, FDR applies to
+        # pixels, not to sources.
+        # These are all arguments to make unit tests for our FDR implementation a bit
+        # less strict as coded previously.
         self.uncorr_image = image.ImageData(uncorr_map.data, uncorr_map.beam,
-                                            uncorr_map.wcs)
+                                            uncorr_map.wcs,
+                                            back_size_x = 2048, back_size_y = 2048)
         self.corr_image = image.ImageData(corr_map.data, uncorr_map.beam,
-                                          uncorr_map.wcs)
+                                          uncorr_map.wcs,
+                                          back_size_x = 2048, back_size_y = 2048)
         self.image_with_sources = image.ImageData(map_with_sources.data,
                                                   map_with_sources.beam,
-                                                  map_with_sources.wcs)
+                                                  map_with_sources.wcs,
+                                                  back_size_x=2048, back_size_y=2048)
 
     def test_normal(self):
         self.number_detections_uncorr = len(self.uncorr_image.fd_extract(1e-2))

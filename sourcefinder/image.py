@@ -239,7 +239,7 @@ class ImageData(object):
                     bgrow.append(False)
                     continue
                 chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                    chunk, self.beam)
+                    chunk)
                 if len(chunk) == 0 or not chunk.any():
                     rmsrow.append(False)
                     bgrow.append(False)
