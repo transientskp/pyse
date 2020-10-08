@@ -93,7 +93,11 @@ def moments(data, beam, threshold=0):
         # short circuit!
         theta = 0.
     else:
-        theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+        if xxbar!=yybar:
+            theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+        else:
+            theta = numpy.sign(xybar) * math.pi / 4.0
+
         if theta * xybar > 0.:
             if theta < 0.:
                 theta += math.pi / 2.0
