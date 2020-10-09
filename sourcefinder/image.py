@@ -14,6 +14,26 @@ from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.memoize import Memoize
 
+import psutil
+import time
+import ray
+
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
+        return result
+    return timed
+
+num_cpus = psutil.cpu_count(logical=True)
+ray.init(num_cpus=num_cpus)
+
 try:
     import ndimage
 except ImportError:
@@ -205,6 +225,7 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
+    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -223,8 +244,12 @@ class ImageData(object):
         my_xdim, my_ydim = useful_data.shape
 
         rmsgrid, bggrid = [], []
+        inner_result_ids = []
+        inner_result_ids.append([self.inner_loop_for_subimages.remote(useful_data, my_ydim, startx)
+                                for startx in range(0, my_xdim, self.back_size_x)])
+
         for startx in range(0, my_xdim, self.back_size_x):
-            rmsrow, bgrow = self.inner_loop_for_subimages(useful_data, my_ydim, startx)
+            rmsrow, bgrow = self.inner_loop_for_subimages.remote(useful_data, my_ydim, startx)
             rmsgrid.append(rmsrow)
             bggrid.append(bgrow)
 
@@ -235,7 +260,8 @@ class ImageData(object):
 
         return {'rms': rmsgrid, 'bg': bggrid}
 
-    def inner_loop_for_subimages(self, useful_data, my_ydim, startx):
+    @ray.remote
+    def inner_loop_for_subimages(useful_data, my_ydim, startx):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
