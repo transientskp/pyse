@@ -215,10 +215,6 @@ class ImageData(object):
         ImageData.rmsmap or ImageData.fdrmap is first accessed.
         """
 
-        # We set up a dedicated logging subchannel, as the sigmaclip loop
-        # logging is very chatty:
-        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
-
         # there's no point in working with the whole of the data array
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
@@ -228,41 +224,7 @@ class ImageData(object):
 
         rmsgrid, bggrid = [], []
         for startx in range(0, my_xdim, self.back_size_x):
-            rmsrow, bgrow = [], []
-            for starty in range(0, my_ydim, self.back_size_y):
-                chunk = useful_data[
-                        startx:startx + self.back_size_x,
-                        starty:starty + self.back_size_y
-                        ].ravel()
-                if not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
-                    continue
-                chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                    chunk)
-                if len(chunk) == 0 or not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
-                else:
-                    mean = numpy.mean(chunk)
-                    rmsrow.append(sigma)
-                    # In the case of a crowded field, the distribution will be
-                    # skewed and we take the median as the background level.
-                    # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
-                    # same as SExtractor: see discussion at
-                    # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
-                    # (mean - median) / sigma is a quick n' dirty skewness
-                    # estimator devised by Karl Pearson.
-                    if numpy.fabs(mean - median) / sigma >= 0.3:
-                        sigmaclip_logger.debug(
-                            'bg skewed, %f clipping iterations', num_clip_its)
-                        bgrow.append(median)
-                    else:
-                        sigmaclip_logger.debug(
-                            'bg not skewed, %f clipping iterations',
-                            num_clip_its)
-                        bgrow.append(2.5 * median - 1.5 * mean)
-
+            rmsrow, bgrow = self.inner_loop_for_subimages(useful_data, my_ydim, startx)
             rmsgrid.append(rmsrow)
             bggrid.append(bgrow)
 
@@ -272,6 +234,49 @@ class ImageData(object):
             bggrid, mask=numpy.where(numpy.array(bggrid) == False, 1, 0))
 
         return {'rms': rmsgrid, 'bg': bggrid}
+
+    def inner_loop_for_subimages(self, useful_data, my_ydim, startx):
+
+        # We set up a dedicated logging subchannel, as the sigmaclip loop
+        # logging is very chatty:
+        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
+
+        rmsrow, bgrow = [], []
+        for starty in range(0, my_ydim, self.back_size_y):
+            chunk = useful_data[
+                    startx:startx + self.back_size_x,
+                    starty:starty + self.back_size_y
+                    ].ravel()
+            if not chunk.any():
+                rmsrow.append(False)
+                bgrow.append(False)
+                continue
+            chunk, sigma, median, num_clip_its = stats.sigma_clip(
+                chunk)
+            if len(chunk) == 0 or not chunk.any():
+                rmsrow.append(False)
+                bgrow.append(False)
+            else:
+                mean = numpy.mean(chunk)
+                rmsrow.append(sigma)
+                # In the case of a crowded field, the distribution will be
+                # skewed and we take the median as the background level.
+                # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
+                # same as SExtractor: see discussion at
+                # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
+                # (mean - median) / sigma is a quick n' dirty skewness
+                # estimator devised by Karl Pearson.
+                if numpy.fabs(mean - median) / sigma >= 0.3:
+                    sigmaclip_logger.debug(
+                        'bg skewed, %f clipping iterations', num_clip_its)
+                    bgrow.append(median)
+                else:
+                    sigmaclip_logger.debug(
+                        'bg not skewed, %f clipping iterations',
+                        num_clip_its)
+                    bgrow.append(2.5 * median - 1.5 * mean)
+
+        return rmsrow, bgrow
 
     def _interpolate(self, grid, roundup=False):
         """
