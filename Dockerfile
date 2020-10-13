@@ -19,10 +19,10 @@ RUN docker-apt-install \
     python-coverage \
     python-nose \
     python3-nose \
-    python-ray \
-    python3-ray \
     python-psutil \
-    python3-psutil
+    python3-psutil \
+    python-ray \
+    python3-ray
 
 
 ADD . /code
