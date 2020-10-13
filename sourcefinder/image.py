@@ -31,6 +31,7 @@ def timeit(method):
         return result
     return timed
 
+
 num_cpus = psutil.cpu_count(logical=True)
 ray.init(num_cpus=num_cpus)
 
@@ -53,19 +54,6 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
-
-# Helper to convert a nested list of object ids to a nested list of corresponding objects.
-def ids_to_vals(ids):
-    if isinstance(ids, ray.ObjectID):
-        ids = ray.get(ids)
-    if isinstance(ids, ray.ObjectID):
-        return ids_to_vals(ids)
-    if isinstance(ids, list):
-        results = []
-        for id in ids:
-            results.append(ids_to_vals(id))
-        return results
-    return ids
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
