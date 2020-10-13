@@ -54,6 +54,18 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
 
+# Helper to convert a nested list of object ids to a nested list of corresponding objects.
+def ids_to_vals(ids):
+    if isinstance(ids, ray.ObjectID):
+        ids = ray.get(ids)
+    if isinstance(ids, ray.ObjectID):
+        return ids_to_vals(ids)
+    if isinstance(ids, list):
+        results = []
+        for id in ids:
+            results.append(ids_to_vals(id))
+        return results
+    return ids
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -242,14 +254,21 @@ class ImageData(object):
         assert (len(useful_chunk) == 1)
         useful_data = self.data[useful_chunk[0]]
         my_xdim, my_ydim = useful_data.shape
+        useful_data_id = ray.put(useful_data)
 
         rmsgrid, bggrid = [], []
-        inner_result_ids = []
-        inner_result_ids.append([self.inner_loop_for_subimages.remote(useful_data, my_ydim, startx)
-                                for startx in range(0, my_xdim, self.back_size_x)])
-
+        inner_results_ids = []
         for startx in range(0, my_xdim, self.back_size_x):
-            rmsrow, bgrow = self.inner_loop_for_subimages.remote(useful_data, my_ydim, startx)
+            inner_results_id = self.inner_loop_for_subimages.remote(useful_data_id, my_ydim,
+                                                                    startx,
+                                                                    back_size_x=self.back_size_x,
+                                                                    back_size_y=self.back_size_y)
+            inner_results_ids.append(inner_results_id)
+
+        inner_results = ray.get(inner_results_ids)
+
+        for counter, dummy in enumerate(range(0, my_xdim, self.back_size_x)):
+            rmsrow, bgrow = inner_results[counter]
             rmsgrid.append(rmsrow)
             bggrid.append(bgrow)
 
@@ -261,17 +280,17 @@ class ImageData(object):
         return {'rms': rmsgrid, 'bg': bggrid}
 
     @ray.remote
-    def inner_loop_for_subimages(useful_data, my_ydim, startx):
+    def inner_loop_for_subimages(useful_data, my_ydim, startx, back_size_x, back_size_y):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
         sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
 
         rmsrow, bgrow = [], []
-        for starty in range(0, my_ydim, self.back_size_y):
+        for starty in range(0, my_ydim, back_size_y):
             chunk = useful_data[
-                    startx:startx + self.back_size_x,
-                    starty:starty + self.back_size_y
+                    startx:startx + back_size_x,
+                    starty:starty + back_size_y
                     ].ravel()
             if not chunk.any():
                 rmsrow.append(False)
