@@ -18,20 +18,6 @@ import psutil
 import time
 import ray
 
-def timeit(method):
-    def timed(*args, **kw):
-        ts = time.time()
-        result = method(*args, **kw)
-        te = time.time()
-        if 'log_time' in kw:
-            name = kw.get('log_name', method.__name__.upper())
-            kw['log_time'][name] = int((te - ts) * 1000)
-        else:
-            print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
-        return result
-    return timed
-
-
 num_cpus = psutil.cpu_count(logical=True)
 ray.init(num_cpus=num_cpus)
 
@@ -225,7 +211,6 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
-    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
