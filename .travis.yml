@@ -21,3 +21,5 @@ deploy:
     repo: transientskp/pyse
 git:
   depth: false
+  lfs_skip_smudge: true
+
