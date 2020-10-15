@@ -1,4 +1,4 @@
-FROM kernsuite/base:5
+FROM kernsuite/base:3
 RUN docker-apt-install \
     python-pip \
     python-numpy \
@@ -24,7 +24,6 @@ RUN docker-apt-install \
 
 ADD . /code
 WORKDIR /code
-RUN pip3 install --upgrade pip
 RUN pip3 install ray
 RUN pip install .
 RUN pip3 install .
