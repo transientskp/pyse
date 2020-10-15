@@ -20,12 +20,10 @@ RUN docker-apt-install \
     python-nose \
     python3-nose \
     python-psutil \
-    python3-psutil \
-    python-ray \
-    python3-ray
-
+    python3-psutil
 
 ADD . /code
 WORKDIR /code
+RUN pip3 install ray
 RUN pip install .
 RUN pip3 install .
