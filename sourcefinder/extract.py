@@ -947,9 +947,12 @@ class Detection(object):
         self.theta_celes = Uncertain(
             (numpy.degrees(self.theta.value) + yoffset_angle) % 180,
             numpy.degrees(self.theta.error))
-        self.theta_dc_celes = Uncertain(
-            (self.theta_dc.value + yoffset_angle) % 180,
-            numpy.degrees(self.theta_dc.error))
+        if not numpy.isnan(self.theta_dc.value):
+            self.theta_dc_celes = Uncertain(
+                (self.theta_dc.value + yoffset_angle) % 180,
+                 numpy.degrees(self.theta_dc.error))
+        else:
+             self.theta_dc_celes = Uncertain(numpy.nan, numpy.nan)
 
         # Next, the axes.
         # Note that the signs of numpy.sin and numpy.cos in the
