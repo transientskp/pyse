@@ -7,8 +7,7 @@ before_install:
 install:
   - docker build -t transientskp/pyse .
 script:
-  - docker run transientskp/pyse nosetests --with-coverage --cover-package=sourcefinder
-  - docker run transientskp/pyse nosetests3
+  - docker run transientskp/pyse nosetests3 --with-coverage --cover-package=sourcefinder
   - docker run transientskp/pyse pyse --detection 5 --radius 400 --csv --force-beam  test/data/GRB120422A-120429.fits
 deploy:
   provider: pypi
@@ -21,3 +20,4 @@ deploy:
     repo: transientskp/pyse
 git:
   depth: false
+

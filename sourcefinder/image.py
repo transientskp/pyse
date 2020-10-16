@@ -14,6 +14,13 @@ from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.memoize import Memoize
 
+import psutil
+import time
+import ray
+
+num_cpus = psutil.cpu_count(logical=True)
+ray.init(num_cpus=num_cpus)
+
 try:
     import ndimage
 except ImportError:
@@ -33,7 +40,6 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
-
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -215,54 +221,27 @@ class ImageData(object):
         ImageData.rmsmap or ImageData.fdrmap is first accessed.
         """
 
-        # We set up a dedicated logging subchannel, as the sigmaclip loop
-        # logging is very chatty:
-        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
-
         # there's no point in working with the whole of the data array
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
         useful_data = self.data[useful_chunk[0]]
         my_xdim, my_ydim = useful_data.shape
+        useful_data_id = ray.put(useful_data)
 
         rmsgrid, bggrid = [], []
+        inner_results_ids = []
         for startx in range(0, my_xdim, self.back_size_x):
-            rmsrow, bgrow = [], []
-            for starty in range(0, my_ydim, self.back_size_y):
-                chunk = useful_data[
-                        startx:startx + self.back_size_x,
-                        starty:starty + self.back_size_y
-                        ].ravel()
-                if not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
-                    continue
-                chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                    chunk)
-                if len(chunk) == 0 or not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
-                else:
-                    mean = numpy.mean(chunk)
-                    rmsrow.append(sigma)
-                    # In the case of a crowded field, the distribution will be
-                    # skewed and we take the median as the background level.
-                    # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
-                    # same as SExtractor: see discussion at
-                    # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
-                    # (mean - median) / sigma is a quick n' dirty skewness
-                    # estimator devised by Karl Pearson.
-                    if numpy.fabs(mean - median) / sigma >= 0.3:
-                        sigmaclip_logger.debug(
-                            'bg skewed, %f clipping iterations', num_clip_its)
-                        bgrow.append(median)
-                    else:
-                        sigmaclip_logger.debug(
-                            'bg not skewed, %f clipping iterations',
-                            num_clip_its)
-                        bgrow.append(2.5 * median - 1.5 * mean)
+            inner_results_id = self.inner_loop_for_subimages.remote(useful_data_id, my_ydim,
+                                                                    startx,
+                                                                    back_size_x=self.back_size_x,
+                                                                    back_size_y=self.back_size_y)
+            inner_results_ids.append(inner_results_id)
 
+        inner_results = ray.get(inner_results_ids)
+
+        for counter, dummy in enumerate(range(0, my_xdim, self.back_size_x)):
+            rmsrow, bgrow = inner_results[counter]
             rmsgrid.append(rmsrow)
             bggrid.append(bgrow)
 
@@ -272,6 +251,50 @@ class ImageData(object):
             bggrid, mask=numpy.where(numpy.array(bggrid) == False, 1, 0))
 
         return {'rms': rmsgrid, 'bg': bggrid}
+
+    @ray.remote
+    def inner_loop_for_subimages(useful_data, my_ydim, startx, back_size_x, back_size_y):
+
+        # We set up a dedicated logging subchannel, as the sigmaclip loop
+        # logging is very chatty:
+        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
+
+        rmsrow, bgrow = [], []
+        for starty in range(0, my_ydim, back_size_y):
+            chunk = useful_data[
+                    startx:startx + back_size_x,
+                    starty:starty + back_size_y
+                    ].ravel()
+            if not chunk.any():
+                rmsrow.append(False)
+                bgrow.append(False)
+                continue
+            chunk, sigma, median, num_clip_its = stats.sigma_clip(
+                chunk)
+            if len(chunk) == 0 or not chunk.any():
+                rmsrow.append(False)
+                bgrow.append(False)
+            else:
+                mean = numpy.mean(chunk)
+                rmsrow.append(sigma)
+                # In the case of a crowded field, the distribution will be
+                # skewed and we take the median as the background level.
+                # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
+                # same as SExtractor: see discussion at
+                # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
+                # (mean - median) / sigma is a quick n' dirty skewness
+                # estimator devised by Karl Pearson.
+                if numpy.fabs(mean - median) / sigma >= 0.3:
+                    sigmaclip_logger.debug(
+                        'bg skewed, %f clipping iterations', num_clip_its)
+                    bgrow.append(median)
+                else:
+                    sigmaclip_logger.debug(
+                        'bg not skewed, %f clipping iterations',
+                        num_clip_its)
+                    bgrow.append(2.5 * median - 1.5 * mean)
+
+        return rmsrow, bgrow
 
     def _interpolate(self, grid, roundup=False):
         """
