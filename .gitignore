@@ -8,8 +8,8 @@
 *pointer_files*
 
 # Do not include FITS files
-test/data/*.fits
-test/data/*.FITS
+**/test/data/*.fits
+**/test/data/*.FITS
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
