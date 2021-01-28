@@ -7,6 +7,10 @@
 # Do not include the pointer_files directory.
 *pointer_files*
 
+# Do not include FITS files
+test/data/*.fits
+test/data/*.FITS
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
