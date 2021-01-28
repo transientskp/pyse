@@ -758,6 +758,7 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
+    @timeit
     def label_islands(self, detectionthresholdmap, analysisthresholdmap):
         """
         Return a lablled array of pixels for fitting.
@@ -841,6 +842,7 @@ class ImageData(object):
 
         return labels_above_det_thr, labelled_data
 
+    @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None, labels=[]
