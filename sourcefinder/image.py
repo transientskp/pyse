@@ -16,10 +16,7 @@ from sourcefinder.utility.memoize import Memoize
 
 import psutil
 import time
-import ray
-
-num_cpus = psutil.cpu_count(logical=True)
-ray.init(num_cpus=num_cpus)
+import dask.array as da
 
 try:
     import ndimage
@@ -239,9 +236,8 @@ class ImageData(object):
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        useful_data = self.data[useful_chunk[0]]
+        useful_data = da.from_array(self.data[useful_chunk[0]], chunks=(self.back_size_x, self.back_size_y))
         my_xdim, my_ydim = useful_data.shape
-        useful_data_id = ray.put(useful_data)
 
         rmsgrid, bggrid = [], []
         inner_results_ids = []
@@ -266,7 +262,6 @@ class ImageData(object):
 
         return {'rms': rmsgrid, 'bg': bggrid}
 
-    @ray.remote
     def inner_loop_for_subimages(useful_data, my_ydim, startx, back_size_x, back_size_y):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
