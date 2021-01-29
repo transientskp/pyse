@@ -17,6 +17,8 @@ from sourcefinder.utility.memoize import Memoize
 import psutil
 import time
 import dask.array as da
+import dask
+dask.config.set(scheduler='threads')
 
 try:
     import ndimage
@@ -236,56 +238,48 @@ class ImageData(object):
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        useful_data = da.from_array(self.data[useful_chunk[0]], chunks=(self.back_size_x, self.back_size_y))
-        my_xdim, my_ydim = useful_data.shape
+        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, self.back_size_y))
 
-        rmsgrid, bggrid = [], []
-        inner_results_ids = []
-        for startx in range(0, my_xdim, self.back_size_x):
-            inner_results_id = self.inner_loop_for_subimages.remote(useful_data_id, my_ydim,
-                                                                    startx,
-                                                                    back_size_x=self.back_size_x,
-                                                                    back_size_y=self.back_size_y)
-            inner_results_ids.append(inner_results_id)
+        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,\
+                                              chunks=(1,1)).compute()
 
-        inner_results = ray.get(inner_results_ids)
+        # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
+        # output multiple arrays. One can however output to a complex array and take real and imaginary
+        # parts afterwards. Not a very clean solution, I admit.
+        mode_grid = mode_and_rms.real
+        rms_grid = mode_and_rms.imag
 
-        for counter, dummy in enumerate(range(0, my_xdim, self.back_size_x)):
-            rmsrow, bgrow = inner_results[counter]
-            rmsgrid.append(rmsrow)
-            bggrid.append(bgrow)
+        rms_grid = numpy.ma.array(
+            rms_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+        # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
+        # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
+        # we determine it.
+        mode_grid = numpy.ma.array(
+            mode_grid, mask=numpy.where(rms_grid == 0, 1, 0))
 
-        rmsgrid = numpy.ma.array(
-            rmsgrid, mask=numpy.where(numpy.array(rmsgrid) == False, 1, 0))
-        bggrid = numpy.ma.array(
-            bggrid, mask=numpy.where(numpy.array(bggrid) == False, 1, 0))
+        return { 'bg': mode_grid, 'rms': rms_grid,}
 
-        return {'rms': rmsgrid, 'bg': bggrid}
-
-    def inner_loop_for_subimages(useful_data, my_ydim, startx, back_size_x, back_size_y):
+    def compute_mode_and_rms_of_subimages(self, chunk):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
         sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
 
-        rmsrow, bgrow = [], []
-        for starty in range(0, my_ydim, back_size_y):
-            chunk = useful_data[
-                    startx:startx + back_size_x,
-                    starty:starty + back_size_y
-                    ].ravel()
-            if not chunk.any():
-                rmsrow.append(False)
-                bgrow.append(False)
-                continue
+
+        if not chunk.any():
+            # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
+            # so I'll set these values to zero instead and use these zeroes to create the mask.
+            rms=0
+            mode=0
+        else:
             chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                chunk)
+                chunk.ravel())
             if len(chunk) == 0 or not chunk.any():
-                rmsrow.append(False)
-                bgrow.append(False)
+                rms=0
+                mode=0
             else:
                 mean = numpy.mean(chunk)
-                rmsrow.append(sigma)
+                rms=sigma
                 # In the case of a crowded field, the distribution will be
                 # skewed and we take the median as the background level.
                 # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
@@ -296,14 +290,18 @@ class ImageData(object):
                 if numpy.fabs(mean - median) / sigma >= 0.3:
                     sigmaclip_logger.debug(
                         'bg skewed, %f clipping iterations', num_clip_its)
-                    bgrow.append(median)
+                    mode=median
                 else:
                     sigmaclip_logger.debug(
                         'bg not skewed, %f clipping iterations',
                         num_clip_its)
-                    bgrow.append(2.5 * median - 1.5 * mean)
+                    mode=2.5 * median - 1.5 * mean
 
-        return rmsrow, bgrow
+        # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
+        # but presently that module does not seem to provide that. But I can, however, output to a
+        # complex array and later take the real part of that for the mode and the imaginary part
+        # for the rms.
+        return numpy.array(mode + 1j*rms)[None, None]
 
     def _interpolate(self, grid, roundup=False):
         """
