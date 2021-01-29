@@ -17,8 +17,7 @@ from sourcefinder.utility.memoize import Memoize
 import psutil
 import time
 import dask.array as da
-import dask
-dask.config.set(scheduler='threads')
+
 
 try:
     import ndimage
