@@ -238,7 +238,7 @@ class ImageData(object):
         assert (len(useful_chunk) == 1)
         useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, self.back_size_y))
 
-        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,
+        mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,
                                               chunks=(1, 1)).compute()
 
         # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
