@@ -18,7 +18,6 @@ import psutil
 import time
 import dask.array as da
 
-
 try:
     import ndimage
 except ImportError:
@@ -239,8 +238,8 @@ class ImageData(object):
         assert (len(useful_chunk) == 1)
         useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, self.back_size_y))
 
-        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,\
-                                              chunks=(1,1)).compute()
+        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,
+                                              chunks=(1, 1)).compute()
 
         # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
         # output multiple arrays. One can however output to a complex array and take real and imaginary
@@ -258,7 +257,8 @@ class ImageData(object):
 
         return { 'bg': mode_grid, 'rms': rms_grid,}
 
-    def compute_mode_and_rms_of_subimages(self, chunk):
+    @staticmethod
+    def compute_mode_and_rms_of_subimages(chunk):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
