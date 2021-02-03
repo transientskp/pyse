@@ -236,9 +236,12 @@ class ImageData(object):
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, self.back_size_y))
+        y_dim = self.data[useful_chunk[0]].data.shape[1]
+        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, y_dim))
 
-        mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_subimages, dtype=numpy.complex64,
+        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_row_of_subimages,
+                                              y_dim,  self.back_size_y,
+                                              dtype=numpy.complex64,
                                               chunks=(1, 1)).compute()
 
         # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
@@ -258,49 +261,51 @@ class ImageData(object):
         return { 'bg': mode_grid, 'rms': rms_grid,}
 
     @staticmethod
-    def compute_mode_and_rms_of_subimages(chunk):
+    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages, y_dim, back_size_y):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
         sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
+        row_of_complex_values = numpy.empty((0), numpy.complex64)
 
-
-        if not chunk.any():
-            # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
-            # so I'll set these values to zero instead and use these zeroes to create the mask.
-            rms=0
-            mode=0
-        else:
-            chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                chunk.ravel())
-            if len(chunk) == 0 or not chunk.any():
-                rms=0
-                mode=0
+        for starty in range(0, y_dim, back_size_y):
+            chunk = row_of_subimages[:, starty:starty+back_size_y]
+            if not chunk.any():
+                # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
+                # so I'll set these values to zero instead and use these zeroes to create the mask.
+                rms = 0
+                mode = 0
             else:
-                mean = numpy.mean(chunk)
-                rms=sigma
-                # In the case of a crowded field, the distribution will be
-                # skewed and we take the median as the background level.
-                # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
-                # same as SExtractor: see discussion at
-                # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
-                # (mean - median) / sigma is a quick n' dirty skewness
-                # estimator devised by Karl Pearson.
-                if numpy.fabs(mean - median) / sigma >= 0.3:
-                    sigmaclip_logger.debug(
-                        'bg skewed, %f clipping iterations', num_clip_its)
-                    mode=median
+                chunk, sigma, median, num_clip_its = stats.sigma_clip(
+                    chunk.ravel())
+                if len(chunk) == 0 or not chunk.any():
+                    rms = 0
+                    mode = 0
                 else:
-                    sigmaclip_logger.debug(
-                        'bg not skewed, %f clipping iterations',
-                        num_clip_its)
-                    mode=2.5 * median - 1.5 * mean
-
+                    mean = numpy.mean(chunk)
+                    rms=sigma
+                    # In the case of a crowded field, the distribution will be
+                    # skewed and we take the median as the background level.
+                    # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
+                    # same as SExtractor: see discussion at
+                    # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
+                    # (mean - median) / sigma is a quick n' dirty skewness
+                    # estimator devised by Karl Pearson.
+                    if numpy.fabs(mean - median) / sigma >= 0.3:
+                        sigmaclip_logger.debug(
+                            'bg skewed, %f clipping iterations', num_clip_its)
+                        mode=median
+                    else:
+                        sigmaclip_logger.debug(
+                            'bg not skewed, %f clipping iterations',
+                            num_clip_its)
+                        mode=2.5 * median - 1.5 * mean
+            row_of_complex_values = numpy.append(row_of_complex_values,  numpy.array(mode + 1j*rms))[None]
         # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
-        # but presently that module does not seem to provide that. But I can, however, output to a
+        # but presently that module does not seem to provide for that. But I can, however, output to a
         # complex array and later take the real part of that for the mode and the imaginary part
         # for the rms.
-        return numpy.array(mode + 1j*rms)[None, None]
+        return row_of_complex_values
 
     def _interpolate(self, grid, roundup=False):
         """
