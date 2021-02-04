@@ -9,7 +9,8 @@ RUN docker-apt-install \
     python3-dateutil \
     python3-six \
     python3-nose \
-    python3-psutil
+    python3-psutil \
+    python3-dask
 
 ADD . /code
 WORKDIR /code
