@@ -307,6 +307,7 @@ class ImageData(object):
         # for the rms.
         return row_of_complex_values
 
+    @timeit
     def _interpolate(self, grid, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
