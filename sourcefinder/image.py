@@ -14,9 +14,9 @@ from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.memoize import Memoize
 
-import psutil
 import time
 import dask.array as da
+from scipy.interpolate import interp1d
 
 try:
     import ndimage
@@ -351,8 +351,9 @@ class ImageData(object):
         # First arg: starting point. Second arg: ending point. Third arg:
         # 1j * number of points. (Why is this complex? Sometimes, NumPy has an
         # utterly baffling API...)
-        slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
-        slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+        # slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
+        # slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+
         my_map = numpy.ma.MaskedArray(numpy.zeros(self.data.shape),
                                       mask=self.data.mask)
 
@@ -360,9 +361,29 @@ class ImageData(object):
         # behavior
         my_map.unshare_mask()
 
-        my_map[useful_chunk[0]] = ndimage.map_coordinates(
-            grid, numpy.mgrid[slicex, slicey],
-            mode='nearest', order=INTERPOLATE_ORDER)
+        # Inspired by https://stackoverflow.com/questions/13242382/resampling-a-numpy-array-representing-an-image
+        # Should be much faster than scipy.ndimage.map_coordinates.
+        # scipy.ndimage.zoom should also be an option for speedup, but zoom dit not let me produce the exact
+        # same output as map_coordinates. My bad.
+
+        x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0], endpoint=True)
+        y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1], endpoint=True)
+        x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim, endpoint=True)
+        y_sought = numpy.linspace(-0.5, -0.5 + yratio, my_ydim, endpoint=True)
+
+        primary_interpolation = interp1d(y_initial, grid, kind='slinear', assume_sorted=True,
+                                         axis=1, copy=False, bounds_error=False,
+                                         fill_value=(grid[:, 0], grid[:, -1]))
+        transposed = primary_interpolation(y_sought).T
+
+        perpendicular_interpolation = interp1d(x_initial, transposed, kind='slinear', assume_sorted=True,
+                                               axis=1, copy=False, bounds_error=False,
+                                               fill_value=(transposed[:, 0], transposed[:, -1]))
+        my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+
+        # my_map[useful_chunk[0]] = ndimage.map_coordinates(
+        #    grid, numpy.mgrid[slicex, slicey],
+        #    mode='nearest', order=INTERPOLATE_ORDER)
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
