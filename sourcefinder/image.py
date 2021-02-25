@@ -793,23 +793,13 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        start_time=time.time()
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
             (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
             1, 0
         ).filled(fill_value=0)
-        # clipped_data = numpy.ma.where(
-        #     (self.data_bgsubbed > analysisthresholdmap),
-        #     1, 0
-        # ).filled(fill_value=0)
-        end_clipping = time.time()
-        print("clipping time amounts to {}".format(end_clipping-start_time))
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
-        end_labeling = time.time()
-        print("labeling time amounts to {}".format(end_labeling - end_clipping))
-        print("total time for both tasks amounts to {}".format(end_labeling - start_time))
         labels_below_det_thr, labels_above_det_thr = [], []
         if num_labels > 0:
             # Select the labels of the islands above the analysis threshold
