@@ -794,15 +794,15 @@ class ImageData(object):
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
         start_time=time.time()
-        # clipped_data = numpy.ma.where(
-        #     (self.data_bgsubbed > analysisthresholdmap) &
-        #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.rmsmap))),
-        #     1, 0
-        # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap),
+            (self.data_bgsubbed > analysisthresholdmap) &
+            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
             1, 0
         ).filled(fill_value=0)
+        # clipped_data = numpy.ma.where(
+        #     (self.data_bgsubbed > analysisthresholdmap),
+        #     1, 0
+        # ).filled(fill_value=0)
         end_clipping = time.time()
         print("clipping time amounts to {}".format(end_clipping-start_time))
         labelled_data, num_labels = ndimage.label(clipped_data,
