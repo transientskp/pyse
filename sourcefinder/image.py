@@ -816,12 +816,11 @@ class ImageData(object):
         RMS_FILTER = 0.001
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.rmsmap))),
+            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
-
         labels_below_det_thr, labels_above_det_thr = [], []
         if num_labels > 0:
             # Select the labels of the islands above the analysis threshold
