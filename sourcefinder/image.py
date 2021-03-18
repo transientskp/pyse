@@ -362,8 +362,12 @@ class ImageData(object):
         # same output as map_coordinates. My bad.
         # I checked, using fitsdiff, that it gives the exact same output as the original code
         # up to and including --relative-tolerance=1e-15 for INTERPOLATE_ORDER=1.
+        # It was actually quite a hassle to get the same output and the fill_value is essential
+        # in interp1d. However, for some unit tests, grid.shape=(1,1) and then it will break
+        # with "ValueError: x and y arrays must have at least 2 entries". So in that case
+        # map_coordinates should be used.
 
-        if INTERPOLATE_ORDER==1:
+        if INTERPOLATE_ORDER==1 and grid.shape[0]>1 and grid.shape[1]>1:
             x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0], endpoint=True)
             y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1], endpoint=True)
             x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim, endpoint=True)
