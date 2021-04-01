@@ -8,8 +8,8 @@
 *pointer_files*
 
 # Do not include FITS files
-**/test/data/*.fits
-**/test/data/*.FITS
+**.fits
+**.FITS
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -114,3 +114,4 @@ ENV/
 
 # mypy
 .mypy_cache/
+/test/data/

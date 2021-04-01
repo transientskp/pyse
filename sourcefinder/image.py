@@ -14,12 +14,9 @@ from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.memoize import Memoize
 
-import psutil
 import time
-import ray
-
-num_cpus = psutil.cpu_count(logical=True)
-ray.init(num_cpus=num_cpus)
+import dask.array as da
+from scipy.interpolate import interp1d
 
 try:
     import ndimage
@@ -44,7 +41,7 @@ logger = logging.getLogger(__name__)
 #
 # Hard-coded configuration parameters; not user settable.
 #
-INTERPOLATE_ORDER = 1  # Spline order for grid interpolation
+INTERPOLATE_ORDER = 1
 MEDIAN_FILTER = 0  # If non-zero, apply a median filter of size
 # MEDIAN_FILTER to the background and RMS grids prior
 # to interpolating.
@@ -239,77 +236,78 @@ class ImageData(object):
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        useful_data = self.data[useful_chunk[0]]
-        my_xdim, my_ydim = useful_data.shape
-        useful_data_id = ray.put(useful_data)
+        y_dim = self.data[useful_chunk[0]].data.shape[1]
+        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, y_dim))
 
-        rmsgrid, bggrid = [], []
-        inner_results_ids = []
-        for startx in range(0, my_xdim, self.back_size_x):
-            inner_results_id = self.inner_loop_for_subimages.remote(useful_data_id, my_ydim,
-                                                                    startx,
-                                                                    back_size_x=self.back_size_x,
-                                                                    back_size_y=self.back_size_y)
-            inner_results_ids.append(inner_results_id)
+        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_row_of_subimages,
+                                              y_dim,  self.back_size_y,
+                                              dtype=numpy.complex64,
+                                              chunks=(1, 1)).compute()
 
-        inner_results = ray.get(inner_results_ids)
+        # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
+        # output multiple arrays. One can however output to a complex array and take real and imaginary
+        # parts afterwards. Not a very clean solution, I admit.
+        mode_grid = mode_and_rms.real
+        rms_grid = mode_and_rms.imag
 
-        for counter, dummy in enumerate(range(0, my_xdim, self.back_size_x)):
-            rmsrow, bgrow = inner_results[counter]
-            rmsgrid.append(rmsrow)
-            bggrid.append(bgrow)
+        rms_grid = numpy.ma.array(
+            rms_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+        # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
+        # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
+        # we determine it.
+        mode_grid = numpy.ma.array(
+            mode_grid, mask=numpy.where(rms_grid == 0, 1, 0))
 
-        rmsgrid = numpy.ma.array(
-            rmsgrid, mask=numpy.where(numpy.array(rmsgrid) == False, 1, 0))
-        bggrid = numpy.ma.array(
-            bggrid, mask=numpy.where(numpy.array(bggrid) == False, 1, 0))
+        return { 'bg': mode_grid, 'rms': rms_grid,}
 
-        return {'rms': rmsgrid, 'bg': bggrid}
-
-    @ray.remote
-    def inner_loop_for_subimages(useful_data, my_ydim, startx, back_size_x, back_size_y):
+    @staticmethod
+    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages, y_dim, back_size_y):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
         sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
+        row_of_complex_values = numpy.empty((0), numpy.complex64)
 
-        rmsrow, bgrow = [], []
-        for starty in range(0, my_ydim, back_size_y):
-            chunk = useful_data[
-                    startx:startx + back_size_x,
-                    starty:starty + back_size_y
-                    ].ravel()
+        for starty in range(0, y_dim, back_size_y):
+            chunk = row_of_subimages[:, starty:starty+back_size_y]
             if not chunk.any():
-                rmsrow.append(False)
-                bgrow.append(False)
-                continue
-            chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                chunk)
-            if len(chunk) == 0 or not chunk.any():
-                rmsrow.append(False)
-                bgrow.append(False)
+                # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
+                # so I'll set these values to zero instead and use these zeroes to create the mask.
+                rms = 0
+                mode = 0
             else:
-                mean = numpy.mean(chunk)
-                rmsrow.append(sigma)
-                # In the case of a crowded field, the distribution will be
-                # skewed and we take the median as the background level.
-                # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
-                # same as SExtractor: see discussion at
-                # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
-                # (mean - median) / sigma is a quick n' dirty skewness
-                # estimator devised by Karl Pearson.
-                if numpy.fabs(mean - median) / sigma >= 0.3:
-                    sigmaclip_logger.debug(
-                        'bg skewed, %f clipping iterations', num_clip_its)
-                    bgrow.append(median)
+                chunk, sigma, median, num_clip_its = stats.sigma_clip(
+                    chunk.ravel())
+                if len(chunk) == 0 or not chunk.any():
+                    rms = 0
+                    mode = 0
                 else:
-                    sigmaclip_logger.debug(
-                        'bg not skewed, %f clipping iterations',
-                        num_clip_its)
-                    bgrow.append(2.5 * median - 1.5 * mean)
+                    mean = numpy.mean(chunk)
+                    rms=sigma
+                    # In the case of a crowded field, the distribution will be
+                    # skewed and we take the median as the background level.
+                    # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
+                    # same as SExtractor: see discussion at
+                    # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
+                    # (mean - median) / sigma is a quick n' dirty skewness
+                    # estimator devised by Karl Pearson.
+                    if numpy.fabs(mean - median) / sigma >= 0.3:
+                        sigmaclip_logger.debug(
+                            'bg skewed, %f clipping iterations', num_clip_its)
+                        mode=median
+                    else:
+                        sigmaclip_logger.debug(
+                            'bg not skewed, %f clipping iterations',
+                            num_clip_its)
+                        mode=2.5 * median - 1.5 * mean
+            row_of_complex_values = numpy.append(row_of_complex_values,  numpy.array(mode + 1j*rms))[None]
+        # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
+        # but presently that module does not seem to provide for that. But I can, however, output to a
+        # complex array and later take the real part of that for the mode and the imaginary part
+        # for the rms.
+        return row_of_complex_values
 
-        return rmsrow, bgrow
-
+    @timeit
     def _interpolate(self, grid, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
@@ -350,11 +348,7 @@ class ImageData(object):
         # Bicubic spline interpolation
         xratio = float(my_xdim) / self.back_size_x
         yratio = float(my_ydim) / self.back_size_y
-        # First arg: starting point. Second arg: ending point. Third arg:
-        # 1j * number of points. (Why is this complex? Sometimes, NumPy has an
-        # utterly baffling API...)
-        slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
-        slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+
         my_map = numpy.ma.MaskedArray(numpy.zeros(self.data.shape),
                                       mask=self.data.mask)
 
@@ -362,9 +356,38 @@ class ImageData(object):
         # behavior
         my_map.unshare_mask()
 
-        my_map[useful_chunk[0]] = ndimage.map_coordinates(
-            grid, numpy.mgrid[slicex, slicey],
-            mode='nearest', order=INTERPOLATE_ORDER)
+        # Inspired by https://stackoverflow.com/questions/13242382/resampling-a-numpy-array-representing-an-image
+        # Should be much faster than scipy.ndimage.map_coordinates.
+        # scipy.ndimage.zoom should also be an option for speedup, but zoom dit not let me produce the exact
+        # same output as map_coordinates. My bad.
+        # I checked, using fitsdiff, that it gives the exact same output as the original code
+        # up to and including --relative-tolerance=1e-15 for INTERPOLATE_ORDER=1.
+        # It was actually quite a hassle to get the same output and the fill_value is essential
+        # in interp1d. However, for some unit tests, grid.shape=(1,1) and then it will break
+        # with "ValueError: x and y arrays must have at least 2 entries". So in that case
+        # map_coordinates should be used.
+
+        if INTERPOLATE_ORDER==1 and grid.shape[0]>1 and grid.shape[1]>1:
+            x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0], endpoint=True)
+            y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1], endpoint=True)
+            x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim, endpoint=True)
+            y_sought = numpy.linspace(-0.5, -0.5 + yratio, my_ydim, endpoint=True)
+
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear', assume_sorted=True,
+                                             axis=1, copy=False, bounds_error=False,
+                                             fill_value=(grid[:, 0], grid[:, -1]))
+            transposed = primary_interpolation(y_sought).T
+
+            perpendicular_interpolation = interp1d(x_initial, transposed, kind='slinear', assume_sorted=True,
+                                                   axis=1, copy=False, bounds_error=False,
+                                                   fill_value=(transposed[:, 0], transposed[:, -1]))
+            my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+        else:
+            slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
+            slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+            my_map[useful_chunk[0]] = ndimage.map_coordinates(
+               grid, numpy.mgrid[slicex, slicey],
+               mode='nearest', order=INTERPOLATE_ORDER)
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -797,12 +820,11 @@ class ImageData(object):
         RMS_FILTER = 0.001
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.rmsmap))),
+            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
-
         labels_below_det_thr, labels_above_det_thr = [], []
         if num_labels > 0:
             # Select the labels of the islands above the analysis threshold

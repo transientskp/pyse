@@ -35,6 +35,10 @@ from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.utility.cli import parse_monitoringlist_positions
 from sourcefinder.utils import generate_result_maps
 from six import print_
+from dask.distributed import Client
+
+if __name__ == '__main__':
+    client = Client()  #
 
 def regions(sourcelist):
     """
