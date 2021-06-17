@@ -869,6 +869,32 @@ class ImageData(object):
 
         return labels_above_det_thr, labelled_data
 
+    def fit_islands(self, island_sublist, results, fixed):
+        for island in island_sublist:
+            # fit_results_to_compute = delayed(island.fit(fixed=fixed))
+            fit_results = island.fit(fixed=fixed)
+            if fit_results:
+                measurement, residual = fit_results
+            else:
+                # Failed to fit; drop this island and go to the next.
+                continue
+            try:
+                det = extract.Detection(measurement, self, chunk=island.chunk)
+                if (det.ra.error == float('inf') or
+                        det.dec.error == float('inf')):
+                    logger.warn('Bad fit from blind extraction at pixel coords:'
+                                '%f %f - measurement discarded'
+                                '(increase fitting margin?)', det.x, det.y)
+                else:
+                    results.append(det)
+            except RuntimeError as e:
+                logger.error("Island not processed; unphysical?")
+
+            if self.residuals:
+                self.residuals_from_deblending[island.chunk] -= (
+                    island.data.filled(fill_value=0.))
+                self.residuals_from_gauss_fitting[island.chunk] += residual
+
     @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
@@ -981,32 +1007,8 @@ class ImageData(object):
         n = psutil.cpu_count()
         chunk_size = len(island_list)//n
         # for island in island_list:
-        for island_block in (island_list[i:i+chunk_size] for i in range(0, len(island_list), chunk_size)):
-            for island in island_block:
-                # fit_results_to_compute = delayed(island.fit(fixed=fixed))
-                fit_results = island.fit(fixed=fixed)
-                if fit_results:
-                    measurement, residual = fit_results
-                else:
-                    # Failed to fit; drop this island and go to the next.
-                    continue
-                try:
-                    det = extract.Detection(measurement, self, chunk=island.chunk)
-                    if (det.ra.error == float('inf') or
-                                det.dec.error == float('inf')):
-                        logger.warn('Bad fit from blind extraction at pixel coords:'
-                                    '%f %f - measurement discarded'
-                                    '(increase fitting margin?)', det.x, det.y)
-                    else:
-                        results.append(det)
-                except RuntimeError as e:
-                    logger.error("Island not processed; unphysical?")
-
-                if self.residuals:
-                    self.residuals_from_deblending[island.chunk] -= (
-                        island.data.filled(fill_value=0.))
-                    self.residuals_from_gauss_fitting[island.chunk] += residual
-
+        for island_sublist in (island_list[i:i+chunk_size] for i in range(0, len(island_list), chunk_size)):
+            self.fit_islands(island_sublist, results, fixed)
         end_of_fitting_loop = time.time()
         print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
