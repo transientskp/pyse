@@ -16,7 +16,9 @@ from sourcefinder.utility.memoize import Memoize
 
 import time
 import dask.array as da
+from dask import delayed
 from scipy.interpolate import interp1d
+import psutil
 
 try:
     import ndimage
@@ -35,6 +37,9 @@ def timeit(method):
             print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
         return result
     return timed
+
+def gather(*args):
+    return list(args)
 
 logger = logging.getLogger(__name__)
 
@@ -899,6 +904,8 @@ class ImageData(object):
         by John Swinbank, available from TKP svn.
         """
         # Map our chunks onto a list of islands.
+
+        start_pre_labelling = time.time()
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
@@ -910,6 +917,10 @@ class ImageData(object):
         # 'None' returned for missing label indices.
         slices = ndimage.find_objects(labelled_data)
 
+        end_pre_labelling = time.time()
+        print ("pre_labelling took {} seconds".format(end_pre_labelling-start_pre_labelling))
+
+        start_of_label_loop = time.time()
         for label in labels:
             chunk = slices[label - 1]
             analysis_threshold = (analysisthresholdmap[chunk] /
@@ -938,7 +949,8 @@ class ImageData(object):
                     STRUCTURING_ELEMENT
                 )
             )
-
+        end_of_label_loop = time.time()
+        print("Labeling took {} seconds.".format(end_of_label_loop-start_of_label_loop))
         # If required, we can save the 'left overs' from the deblending and
         # fitting processes for later analysis. This needs setting up here:
         if self.residuals:
@@ -965,29 +977,38 @@ class ImageData(object):
         # Iterate over the list of islands and measure the source in each,
         # appending it to the results list.
         results = containers.ExtractionResults()
-        for island in island_list:
-            fit_results = island.fit(fixed=fixed)
-            if fit_results:
-                measurement, residual = fit_results
-            else:
-                # Failed to fit; drop this island and go to the next.
-                continue
-            try:
-                det = extract.Detection(measurement, self, chunk=island.chunk)
-                if (det.ra.error == float('inf') or
-                            det.dec.error == float('inf')):
-                    logger.warn('Bad fit from blind extraction at pixel coords:'
-                                '%f %f - measurement discarded'
-                                '(increase fitting margin?)', det.x, det.y)
+        start_of_fitting_loop = time.time()
+        n = psutil.cpu_count()
+        chunk_size = len(island_list)//n
+        # for island in island_list:
+        for island_block in (island_list[i:i+chunk_size] for i in range(0, len(island_list), chunk_size)):
+            for island in island_block:
+                # fit_results_to_compute = delayed(island.fit(fixed=fixed))
+                fit_results = island.fit(fixed=fixed)
+                if fit_results:
+                    measurement, residual = fit_results
                 else:
-                    results.append(det)
-            except RuntimeError as e:
-                logger.error("Island not processed; unphysical?")
+                    # Failed to fit; drop this island and go to the next.
+                    continue
+                try:
+                    det = extract.Detection(measurement, self, chunk=island.chunk)
+                    if (det.ra.error == float('inf') or
+                                det.dec.error == float('inf')):
+                        logger.warn('Bad fit from blind extraction at pixel coords:'
+                                    '%f %f - measurement discarded'
+                                    '(increase fitting margin?)', det.x, det.y)
+                    else:
+                        results.append(det)
+                except RuntimeError as e:
+                    logger.error("Island not processed; unphysical?")
 
-            if self.residuals:
-                self.residuals_from_deblending[island.chunk] -= (
-                    island.data.filled(fill_value=0.))
-                self.residuals_from_gauss_fitting[island.chunk] += residual
+                if self.residuals:
+                    self.residuals_from_deblending[island.chunk] -= (
+                        island.data.filled(fill_value=0.))
+                    self.residuals_from_gauss_fitting[island.chunk] += residual
+
+        end_of_fitting_loop = time.time()
+        print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
         def is_usable(det):
             # Check that both ends of each axis are usable; that is, that they
