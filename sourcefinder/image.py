@@ -244,7 +244,7 @@ class ImageData(object):
         y_dim = self.data[useful_chunk[0]].data.shape[1]
         useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, y_dim))
 
-        mode_and_rms = useful_data.map_blocks(self.compute_mode_and_rms_of_row_of_subimages,
+        mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_row_of_subimages,
                                               y_dim,  self.back_size_y,
                                               dtype=numpy.complex64,
                                               chunks=(1, 1)).compute()
@@ -288,7 +288,7 @@ class ImageData(object):
                     mode = 0
                 else:
                     mean = numpy.mean(chunk)
-                    rms=sigma
+                    rms = sigma
                     # In the case of a crowded field, the distribution will be
                     # skewed and we take the median as the background level.
                     # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
@@ -1005,9 +1005,9 @@ class ImageData(object):
         results = containers.ExtractionResults()
         start_of_fitting_loop = time.time()
         n = psutil.cpu_count()
-        chunk_size = len(island_list)//n
+        island_stride = len(island_list)//n
         # for island in island_list:
-        for island_sublist in (island_list[i:i+chunk_size] for i in range(0, len(island_list), chunk_size)):
+        for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
             self.fit_islands(island_sublist, results, fixed)
         end_of_fitting_loop = time.time()
         print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
