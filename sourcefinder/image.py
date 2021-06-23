@@ -1007,8 +1007,10 @@ class ImageData(object):
         n = psutil.cpu_count()
         island_stride = len(island_list)//n
         # for island in island_list:
+        collected_precomputes = []
         for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
-            self.fit_islands(island_sublist, results, fixed)
+            collected_precomputes.append(delayed(self.fit_islands)(island_sublist, results, fixed))
+        (delayed(gather)(collected_precomputes)).compute()
         end_of_fitting_loop = time.time()
         print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
