@@ -16,7 +16,7 @@ from sourcefinder.utility.memoize import Memoize
 
 import time
 import dask.array as da
-from dask import delayed
+import dask.bag as db
 from scipy.interpolate import interp1d
 import psutil
 
@@ -869,31 +869,32 @@ class ImageData(object):
 
         return labels_above_det_thr, labelled_data
 
-    def fit_islands(self, island_sublist, results, fixed):
-        for island in island_sublist:
-            # fit_results_to_compute = delayed(island.fit(fixed=fixed))
-            fit_results = island.fit(fixed=fixed)
-            if fit_results:
-                measurement, residual = fit_results
+    def fit_islands(self, island, results, fixed):
+        # for island in island_sublist:
+        # fit_results_to_compute = delayed(island.fit(fixed=fixed))
+        fit_results = island.fit(fixed=fixed)
+        if fit_results:
+            measurement, residual = fit_results
+        else:
+            # Failed to fit; drop this island and go to the next.
+            # continue
+            return
+        try:
+            det = extract.Detection(measurement, self, chunk=island.chunk)
+            if (det.ra.error == float('inf') or
+                    det.dec.error == float('inf')):
+                logger.warn('Bad fit from blind extraction at pixel coords:'
+                            '%f %f - measurement discarded'
+                            '(increase fitting margin?)', det.x, det.y)
             else:
-                # Failed to fit; drop this island and go to the next.
-                continue
-            try:
-                det = extract.Detection(measurement, self, chunk=island.chunk)
-                if (det.ra.error == float('inf') or
-                        det.dec.error == float('inf')):
-                    logger.warn('Bad fit from blind extraction at pixel coords:'
-                                '%f %f - measurement discarded'
-                                '(increase fitting margin?)', det.x, det.y)
-                else:
-                    results.append(det)
-            except RuntimeError as e:
-                logger.error("Island not processed; unphysical?")
+                results.append(det)
+        except RuntimeError as e:
+            logger.error("Island not processed; unphysical?")
 
-            if self.residuals:
-                self.residuals_from_deblending[island.chunk] -= (
-                    island.data.filled(fill_value=0.))
-                self.residuals_from_gauss_fitting[island.chunk] += residual
+        # if self.residuals:
+        #     self.residuals_from_deblending[island.chunk] -= (
+        #         island.data.filled(fill_value=0.))
+        #     self.residuals_from_gauss_fitting[island.chunk] += residual
 
     @timeit
     def _pyse(
@@ -1004,13 +1005,13 @@ class ImageData(object):
         # appending it to the results list.
         results = containers.ExtractionResults()
         start_of_fitting_loop = time.time()
-        n = psutil.cpu_count()
-        island_stride = len(island_list)//n
+        # n = psutil.cpu_count()
+        # island_stride = len(island_list)//n
         # for island in island_list:
-        collected_precomputes = []
-        for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
-            collected_precomputes.append(delayed(self.fit_islands)(island_sublist, results, fixed))
-        (delayed(gather)(collected_precomputes)).compute()
+        # for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
+        islands_bag = db.from_sequence(island_list, npartitions=psutil.cpu_count())
+        islands_bag.map(self.fit_islands, results, fixed).compute()
+        # self.fit_islands(island, results, fixed)
         end_of_fitting_loop = time.time()
         print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
