@@ -19,6 +19,8 @@ import dask.array as da
 import dask.bag as db
 from scipy.interpolate import interp1d
 import psutil
+from multiprocessing import Pool
+from functools import partial
 
 try:
     import ndimage
@@ -869,32 +871,9 @@ class ImageData(object):
 
         return labels_above_det_thr, labelled_data
 
-    def fit_islands(self, island, results, fixed):
-        # for island in island_sublist:
-        # fit_results_to_compute = delayed(island.fit(fixed=fixed))
-        fit_results = island.fit(fixed=fixed)
-        if fit_results:
-            measurement, residual = fit_results
-        else:
-            # Failed to fit; drop this island and go to the next.
-            # continue
-            return
-        try:
-            det = extract.Detection(measurement, self, chunk=island.chunk)
-            if (det.ra.error == float('inf') or
-                    det.dec.error == float('inf')):
-                logger.warn('Bad fit from blind extraction at pixel coords:'
-                            '%f %f - measurement discarded'
-                            '(increase fitting margin?)', det.x, det.y)
-            else:
-                results.append(det)
-        except RuntimeError as e:
-            logger.error("Island not processed; unphysical?")
-
-        # if self.residuals:
-        #     self.residuals_from_deblending[island.chunk] -= (
-        #         island.data.filled(fill_value=0.))
-        #     self.residuals_from_gauss_fitting[island.chunk] += residual
+    @staticmethod
+    def fit_islands(island, fixed):
+        return island.fit(fixed=fixed)
 
     @timeit
     def _pyse(
@@ -932,7 +911,7 @@ class ImageData(object):
         """
         # Map our chunks onto a list of islands.
 
-        start_pre_labelling = time.time()
+        start_labelling = time.time()
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
@@ -944,10 +923,10 @@ class ImageData(object):
         # 'None' returned for missing label indices.
         slices = ndimage.find_objects(labelled_data)
 
-        end_pre_labelling = time.time()
-        print ("pre_labelling took {} seconds".format(end_pre_labelling-start_pre_labelling))
+        end_labelling = time.time()
+        print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
 
-        start_of_label_loop = time.time()
+        start_post_labelling = time.time()
         for label in labels:
             chunk = slices[label - 1]
             analysis_threshold = (analysisthresholdmap[chunk] /
@@ -976,8 +955,9 @@ class ImageData(object):
                     STRUCTURING_ELEMENT
                 )
             )
-        end_of_label_loop = time.time()
-        print("Labeling took {} seconds.".format(end_of_label_loop-start_of_label_loop))
+        end_post_labelling = time.time()
+        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
+
         # If required, we can save the 'left overs' from the deblending and
         # fitting processes for later analysis. This needs setting up here:
         if self.residuals:
@@ -1009,11 +989,40 @@ class ImageData(object):
         # island_stride = len(island_list)//n
         # for island in island_list:
         # for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
-        islands_bag = db.from_sequence(island_list, npartitions=psutil.cpu_count())
-        islands_bag.map(self.fit_islands, results, fixed).compute()
+        # islands_bag = db.from_sequence(island_list, npartitions=psutil.cpu_count())
+        # fit_results = islands_bag.map(ImageData.fit_islands, fixed).compute()
+        with Pool(psutil.cpu_count()) as p:
+            fit_islands_fixed = partial(ImageData.fit_islands, fixed=fixed)
+            fit_results = p.map(fit_islands_fixed, island_list)
         # self.fit_islands(island, results, fixed)
         end_of_fitting_loop = time.time()
-        print("Fitting took {} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
+        print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
+
+        start_of_rest = time.time()
+        for fit_result in fit_results:
+            if fit_result:
+                measurement, residual = fit_result
+            else:
+                # Failed to fit; drop this island and go to the next.
+                continue
+                # return
+            try:
+                det = extract.Detection(measurement, self, chunk=island.chunk)
+                if (det.ra.error == float('inf') or
+                        det.dec.error == float('inf')):
+                    logger.warn('Bad fit from blind extraction at pixel coords:'
+                                '%f %f - measurement discarded'
+                                '(increase fitting margin?)', det.x, det.y)
+                else:
+                    results.append(det)
+            except RuntimeError as e:
+                logger.error("Island not processed; unphysical?")
+
+            if self.residuals:
+                self.residuals_from_deblending[island.chunk] -= (
+                    island.data.filled(fill_value=0.))
+                self.residuals_from_gauss_fitting[island.chunk] += residual
+
 
         def is_usable(det):
             # Check that both ends of each axis are usable; that is, that they
@@ -1045,6 +1054,8 @@ class ImageData(object):
                     det.x.value, det.y.value))
                     return False
             return True
+        end_of_rest = time.time()
+        print("The rest of _pyse took {:7.2f} seconds.".format(end_of_rest-start_of_rest))
 
         # Filter will return a list; ensure we return an ExtractionResults.
         return containers.ExtractionResults(list(filter(is_usable, results)))
