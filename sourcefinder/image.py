@@ -999,7 +999,7 @@ class ImageData(object):
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
         start_of_rest = time.time()
-        for fit_result in fit_results:
+        for island, fit_result in zip(island_list, fit_results):
             if fit_result:
                 measurement, residual = fit_result
             else:
