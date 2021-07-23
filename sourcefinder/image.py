@@ -985,16 +985,9 @@ class ImageData(object):
         # appending it to the results list.
         results = containers.ExtractionResults()
         start_of_fitting_loop = time.time()
-        # n = psutil.cpu_count()
-        # island_stride = len(island_list)//n
-        # for island in island_list:
-        # for island_sublist in (island_list[i:i+island_stride] for i in range(0, len(island_list), island_stride)):
-        # islands_bag = db.from_sequence(island_list, npartitions=psutil.cpu_count())
-        # fit_results = islands_bag.map(ImageData.fit_islands, fixed).compute()
         with Pool(psutil.cpu_count()) as p:
             fit_islands_fixed = partial(ImageData.fit_islands, fixed=fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
-        # self.fit_islands(island, results, fixed)
         end_of_fitting_loop = time.time()
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
@@ -1005,7 +998,6 @@ class ImageData(object):
             else:
                 # Failed to fit; drop this island and go to the next.
                 continue
-                # return
             try:
                 det = extract.Detection(measurement, self, chunk=island.chunk)
                 if (det.ra.error == float('inf') or
