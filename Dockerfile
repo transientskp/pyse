@@ -1,4 +1,4 @@
-FROM kernsuite/base:3
+FROM kernsuite/base:6
 RUN docker-apt-install \
     python-pip \
     python-numpy \
