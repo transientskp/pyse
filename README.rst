@@ -42,5 +42,5 @@ The list of authors, sorted by the number of commits:
 Developer information
 ---------------------
 
-.. image:: https://travis-ci.org/transientskp/pyse.svg?branch=master
-   :target: https://travis-ci.org/transientskp/pyse
+.. image:: https://github.com/transientskp/pyse/actions/workflows/ci.yaml/badge.svg
+   :target: https://github.com/transientskp/pyse/actions
