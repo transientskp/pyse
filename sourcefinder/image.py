@@ -86,6 +86,9 @@ class ImageData(object):
         self.rawdata = data  # a 2D numpy array
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
+        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        self.max_pix_variance_factor = utils.maximum_pixel_method_variance(
+                           beam[0], beam[1], beam[2])
         self.clip = {}
         self.labels = {}
         self.freq_low = 1
@@ -872,8 +875,8 @@ class ImageData(object):
         return labels_above_det_thr, labelled_data
 
     @staticmethod
-    def fit_islands(island, fixed):
-        return island.fit(fixed=fixed)
+    def fit_islands(island, fudge_max_pix_factor, max_pix_variance_factor, fixed):
+        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, fixed=fixed)
 
     @timeit
     def _pyse(
@@ -986,7 +989,8 @@ class ImageData(object):
         results = containers.ExtractionResults()
         start_of_fitting_loop = time.time()
         with Pool(psutil.cpu_count()) as p:
-            fit_islands_fixed = partial(ImageData.fit_islands, fixed=fixed)
+            fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor, self. max_pix_variance_factor,
+                                        fixed=fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
         end_of_fitting_loop = time.time()
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))

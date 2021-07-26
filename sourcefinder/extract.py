@@ -203,12 +203,12 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fixed=None):
+    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, fixed=None):
         """Fit the position"""
         try:
             measurement, gauss_residual = source_profile_and_errors(
                 self.data, self.threshold(), self.noise(), self.beam,
-                fixed=fixed
+                fudge_max_pix_factor, max_pix_variance_factor, fixed=fixed,
             )
         except ValueError:
             # Fitting failed
@@ -295,7 +295,7 @@ class ParamSet(MutableMapping):
         """ """
         return list(self.values.keys())
 
-    def calculate_errors(self, noise, beam, threshold):
+    def calculate_errors(self, noise, beam, max_pix_variance_factor, threshold):
         """Calculate positional errors
 
         Uses _condon_formulae() if this object is based on a Gaussian fit,
@@ -307,7 +307,7 @@ class ParamSet(MutableMapping):
         elif self.moments:
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, beam, threshold)
+            return self._error_bars_from_moments(noise, beam, max_pix_variance_factor, threshold)
         else:
             return False
 
@@ -403,7 +403,7 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def _error_bars_from_moments(self, noise, beam, threshold):
+    def _error_bars_from_moments(self, noise, beam, max_pix_variance_factor, threshold):
         """Provide reasonable error estimates from the moments"""
 
         # The formulae below should give some reasonable estimate of the
@@ -477,10 +477,13 @@ class ParamSet(MutableMapping):
         # replaced by noise**2 since the threshold should not affect
         # the error from the (corrected) maximum pixel method,
         # while it is part of the expression for rho_sq above.
+        # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+        #                clean_bias_error ** 2 + noise ** 2 +
+        #                utils.maximum_pixel_method_variance(
+        #                    beam[0], beam[1], beam[2]) * peak ** 2)
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                        clean_bias_error ** 2 + noise ** 2 +
-                       utils.maximum_pixel_method_variance(
-                           beam[0], beam[1], beam[2]) * peak ** 2)
+                       max_pix_variance_factor * peak ** 2)
         errorpeak = numpy.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
@@ -613,7 +616,7 @@ class ParamSet(MutableMapping):
 
 
 def source_profile_and_errors(data, threshold, noise,
-                              beam, fixed=None):
+                              beam, fudge_max_pix_factor, max_pix_variance_factor, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
@@ -662,7 +665,7 @@ def source_profile_and_errors(data, threshold, noise,
         moments_threshold = threshold
 
     try:
-        param.update(fitting.moments(data, beam, moments_threshold))
+        param.update(fitting.moments(data, beam, fudge_max_pix_factor, moments_threshold))
         param.moments = True
     except ValueError:
         # If this happens, we have two choices:
@@ -706,7 +709,7 @@ def source_profile_and_errors(data, threshold, noise,
     beamsize = utils.calculate_beamsize(beam[0], beam[1])
     param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
-    param.calculate_errors(noise, beam, threshold)
+    param.calculate_errors(noise, beam, max_pix_variance_factor, threshold)
     param.deconvolve_from_clean_beam(beam)
 
     # Calculate residuals
@@ -719,7 +722,7 @@ def source_profile_and_errors(data, threshold, noise,
                  param["semiminor"].value,
                  param["theta"].value)
     gauss_resid_masked = -(
-    gaussian(*gauss_arg)(*numpy.indices(data.shape)) - data)
+        gaussian(*gauss_arg)(*numpy.indices(data.shape)) - data)
 
     param.chisq, param.reduced_chisq = fitting.goodness_of_fit(
         gauss_resid_masked, noise, beam)

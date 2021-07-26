@@ -14,7 +14,7 @@ from .stats import indep_pixels
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 
-def moments(data, beam, threshold=0):
+def moments(data, beam, fudge_max_pix_factor, threshold=0):
     """Calculate source positional values using moments
 
     Args:
@@ -39,7 +39,8 @@ def moments(data, beam, threshold=0):
     # Are we fitting a -ve or +ve Gaussian?
     if data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
-        peak = data.max() * utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        # peak = data.max() * utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        peak = data.max() * fudge_max_pix_factor
     else:
         peak = data.min()
     ratio = threshold / peak
