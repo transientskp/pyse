@@ -203,12 +203,12 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, fixed=None):
+    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed=None):
         """Fit the position"""
         try:
             measurement, gauss_residual = source_profile_and_errors(
                 self.data, self.threshold(), self.noise(), self.beam,
-                fudge_max_pix_factor, max_pix_variance_factor, fixed=fixed,
+                fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed=fixed,
             )
         except ValueError:
             # Fitting failed
@@ -616,7 +616,8 @@ class ParamSet(MutableMapping):
 
 
 def source_profile_and_errors(data, threshold, noise,
-                              beam, fudge_max_pix_factor, max_pix_variance_factor, fixed=None):
+                              beam, fudge_max_pix_factor, max_pix_variance_factor,
+                              beamsize, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
@@ -643,6 +644,14 @@ def source_profile_and_errors(data, threshold, noise,
 
         beam (tuple): beam parameters (semimaj,semimin,theta)
 
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        max_pix_variance_factor(float): Take account of additional variance induced by the
+                                        maximum pixel method, on top of the background noise.
+
+        beamsize(float): The FWHM size of the clean beam
+
     Kwargs:
 
         fixed (dict): Parameters (and their values) to hold fixed while fitting.
@@ -665,7 +674,7 @@ def source_profile_and_errors(data, threshold, noise,
         moments_threshold = threshold
 
     try:
-        param.update(fitting.moments(data, beam, fudge_max_pix_factor, moments_threshold))
+        param.update(fitting.moments(data, fudge_max_pix_factor, beamsize, moments_threshold))
         param.moments = True
     except ValueError:
         # If this happens, we have two choices:
@@ -706,7 +715,6 @@ def source_profile_and_errors(data, threshold, noise,
         # moments can't handle fixed params
         raise ValueError("fit failed with given fixed parameters")
 
-    beamsize = utils.calculate_beamsize(beam[0], beam[1])
     param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
     param.calculate_errors(noise, beam, max_pix_variance_factor, threshold)

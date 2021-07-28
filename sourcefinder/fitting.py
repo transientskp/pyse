@@ -14,15 +14,17 @@ from .stats import indep_pixels
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 
-def moments(data, beam, fudge_max_pix_factor, threshold=0):
+def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     """Calculate source positional values using moments
 
     Args:
 
         data (numpy.ndarray): Actual 2D image data
 
-        beam (3-tuple): beam (psf) information, with semi-major and
-            semi-minor axes
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        beamsize(float): The FWHM size of the clean beam
 
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
@@ -39,7 +41,6 @@ def moments(data, beam, fudge_max_pix_factor, threshold=0):
     # Are we fitting a -ve or +ve Gaussian?
     if data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
-        # peak = data.max() * utils.fudge_max_pix(beam[0], beam[1], beam[2])
         peak = data.max() * fudge_max_pix_factor
     else:
         peak = data.min()
@@ -54,7 +55,6 @@ def moments(data, beam, fudge_max_pix_factor, threshold=0):
 
     working1 = (xxbar + yybar) / 2.0
     working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
-    beamsize = utils.calculate_beamsize(beam[0], beam[1])
 
     # Some problems arise with the sqrt of (working1-working2) when they are
     # equal, this happens with islands that have a thickness of only one pixel
