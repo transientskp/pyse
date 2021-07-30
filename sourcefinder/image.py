@@ -878,7 +878,7 @@ class ImageData(object):
         return labels_above_det_thr, labelled_data
 
     @staticmethod
-    def fit_islands(island, fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed):
+    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed, island):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed=fixed)
 
     @timeit
@@ -993,8 +993,7 @@ class ImageData(object):
         start_of_fitting_loop = time.time()
         with Pool(psutil.cpu_count()) as p:
             fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
-                                        self. max_pix_variance_factor, self.beamsize,
-                                        fixed=fixed)
+                                        self. max_pix_variance_factor, self.beamsize, fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
         end_of_fitting_loop = time.time()
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
