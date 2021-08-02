@@ -43,7 +43,7 @@ class TestFluxErrors(unittest.TestCase):
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
     def test_positive_flux_moments(self):
-        self.p._error_bars_from_moments(self.noise, self.beam, self.threshold)
+        self.p._error_bars_from_moments(self.noise, self.beam, self.max_pix_variance_factor, self.threshold)
         self.assertGreaterEqual(self.p['peak'].error, 0)
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
@@ -59,7 +59,7 @@ class TestFluxErrors(unittest.TestCase):
         # impossible given the current method.
         self.p['peak'] *= -1
         self.p['flux'] *= -1
-        self.p._error_bars_from_moments(self.noise, self.beam, self.threshold)
+        self.p._error_bars_from_moments(self.noise, self.beam, self.max_pix_variance_factor, self.threshold)
         self.assertEqual(self.p['peak'].error, float('inf'))
         self.assertEqual(self.p['flux'].error, float('inf'))
 
