@@ -5,6 +5,7 @@ from sourcefinder.extract import Detection
 from sourcefinder.extract import ParamSet
 from sourcefinder.utility.coordinates import WCS
 from sourcefinder.utility.uncertain import Uncertain
+from sourcefinder.utils import maximum_pixel_method_variance
 
 
 class DummyImage(object):
@@ -36,6 +37,7 @@ class TestFluxErrors(unittest.TestCase):
         self.beam = (1.0, 1.0, 0.0)
         self.noise = 1.0  # RMS at position of source
         self.threshold = 3.0  # significance * rms at position of source
+        self.max_pix_variance_factor = maximum_pixel_method_variance(*self.beam)
 
     def test_positive_flux_condon(self):
         self.p._condon_formulae(self.noise, self.beam)

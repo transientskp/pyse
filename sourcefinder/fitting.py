@@ -26,6 +26,10 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
         beamsize(float): The FWHM size of the clean beam
 
+        threshold(float): source parameters like the semimajor and semiminor axes
+                          derived from moments can be underestimated if one does not take
+                          account of the threshold that was used to segment the source islands.
+
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
             axis, semiminor axis, theta

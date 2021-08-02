@@ -8,6 +8,7 @@ import numpy
 from sourcefinder.extract import source_profile_and_errors
 from sourcefinder.fitting import moments, fitgaussian, FIT_PARAMS
 from sourcefinder.gaussian import gaussian
+from sourcefinder.utils import fudge_max_pix, calculate_beamsize, maximum_pixel_method_variance
 
 # The units that are tested often require information about the resolution element:
 # (semimajor(pixels),semiminor(pixels),beam position angle (radians).
@@ -29,7 +30,9 @@ class SimpleGaussTest(unittest.TestCase):
         self.mygauss = numpy.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testHeight(self):
@@ -75,7 +78,9 @@ class NegativeGaussTest(SimpleGaussTest):
         self.mygauss = numpy.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testHeight(self):
@@ -96,7 +101,9 @@ class CircularGaussTest(SimpleGaussTest):
         self.mygauss = numpy.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -120,7 +127,9 @@ class NarrowGaussTest(SimpleGaussTest):
         self.mygauss = numpy.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
 
@@ -138,7 +147,9 @@ class RotatedGaussTest(SimpleGaussTest):
         self.mygauss = numpy.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -159,7 +170,9 @@ class RotatedGaussTest2(SimpleGaussTest):
         self.mygauss = numpy.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -184,7 +197,9 @@ class AxesSwapGaussTest(SimpleGaussTest):
         self.mygauss = numpy.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.maj, self.min)
+        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -221,10 +236,12 @@ class RandomGaussTest(unittest.TestCase):
     def setUp(self):
         Xin, Yin = numpy.indices((500, 500))
         self.mygauss = numpy.random.random(Xin.shape)
+        self.beamsize = calculate_beamsize(beam[0], beam[1])
+        self.fudge_max_pix_factor = fudge_max_pix(beam[0], beam[1], beam[2])
 
     def testMoments(self):
         try:
-            moments(self.mygauss, beam, 0)
+            moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
         except:
             self.fail('Moments method failed to run.')
 
@@ -243,7 +260,9 @@ class NoisyGaussTest(unittest.TestCase):
         self.mygauss = numpy.ma.array(
             gaussian(self.peak, self.xbar, self.ybar,
                      self.semimajor, self.semiminor, self.theta)(Xin, Yin))
-        self.moments = moments(self.mygauss, beam, 0)
+        self.beamsize = calculate_beamsize(self.semimajor, self.semiminor)
+        self.fudge_max_pix_factor = fudge_max_pix(self.semimajor, self.semiminor, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
 
     def test_tiny_pixel_offset(self):
         pixel_noise = 0.0001
@@ -292,6 +311,9 @@ class NoisyGaussTest(unittest.TestCase):
             threshold=0.,
             noise=pixel_noise,
             beam=(self.semimajor, self.semiminor, self.theta),
+            fudge_max_pix_factor=fudge_max_pix(self.semimajor, self.semiminor, self.theta),
+            max_pix_variance_factor=maximum_pixel_method_variance(self.semimajor, self.semiminor, self.theta),
+            beamsize=calculate_beamsize(self.semimajor, self.semiminor)
         )
 
         npix = len(self.mygauss.ravel())
