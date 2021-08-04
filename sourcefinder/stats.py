@@ -8,8 +8,6 @@ from numpy.ma import MaskedArray
 from scipy.special import erf
 from scipy.optimize import fsolve
 
-from .utils import calculate_correlation_lengths
-
 
 # CODE & NUMBER HANDLING ROUTINES
 #
@@ -19,9 +17,8 @@ def find_true_std(sigma, clip_limit, clipped_std):
     return sigma**2*(help2-2*numpy.sqrt(2)*help1*numpy.exp(-help1**2))-clipped_std**2*help2
 
 
-def indep_pixels(n, beam):
-    corlengthlong, corlengthshort = calculate_correlation_lengths(
-        beam[0], beam[1])
+def indep_pixels(n, correlation_lengths):
+    corlengthlong, corlengthshort = correlation_lengths
     correlated_area = 0.25 * numpy.pi * corlengthlong * corlengthshort
     return n / correlated_area
 

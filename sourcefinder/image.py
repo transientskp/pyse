@@ -92,6 +92,7 @@ class ImageData(object):
         self.max_pix_variance_factor = utils.maximum_pixel_method_variance(
                            beam[0], beam[1], beam[2])
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
         self.clip = {}
         self.labels = {}
         self.freq_low = 1
@@ -527,8 +528,7 @@ class ImageData(object):
         # The correlation length in config.py is used not only for the
         # calculation of error bars with the Condon formulae, but also for
         # calculating the number of independent pixels.
-        corlengthlong, corlengthshort = utils.calculate_correlation_lengths(
-            self.beam[0], self.beam[1])
+        corlengthlong, corlengthshort = self.correlation_lengths
 
         C_n = (1.0 / numpy.arange(
             round(0.25 * numpy.pi * corlengthlong *
@@ -876,8 +876,8 @@ class ImageData(object):
         return labels_above_det_thr, labelled_data
 
     @staticmethod
-    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed, island):
-        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, fixed=fixed)
+    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
+        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
 
     @timeit
     def _pyse(
@@ -991,7 +991,8 @@ class ImageData(object):
         start_of_fitting_loop = time.time()
         with Pool(psutil.cpu_count()) as p:
             fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
-                                        self. max_pix_variance_factor, self.beamsize, fixed)
+                                        self. max_pix_variance_factor, self.beamsize,
+                                        self.correlation_lengths, fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
         end_of_fitting_loop = time.time()
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
