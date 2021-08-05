@@ -5,6 +5,7 @@ from sourcefinder.extract import Detection
 from sourcefinder.extract import ParamSet
 from sourcefinder.utility.coordinates import WCS
 from sourcefinder.utility.uncertain import Uncertain
+from sourcefinder.utils import maximum_pixel_method_variance, calculate_correlation_lengths
 
 
 class DummyImage(object):
@@ -36,21 +37,24 @@ class TestFluxErrors(unittest.TestCase):
         self.beam = (1.0, 1.0, 0.0)
         self.noise = 1.0  # RMS at position of source
         self.threshold = 3.0  # significance * rms at position of source
+        self.max_pix_variance_factor = maximum_pixel_method_variance(*self.beam)
+        self.correlation_lengths = calculate_correlation_lengths(self.beam[0], self.beam[1])
 
     def test_positive_flux_condon(self):
-        self.p._condon_formulae(self.noise, self.beam)
+        self.p._condon_formulae(self.noise, self.correlation_lengths)
         self.assertGreaterEqual(self.p['peak'].error, 0)
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
     def test_positive_flux_moments(self):
-        self.p._error_bars_from_moments(self.noise, self.beam, self.threshold)
+        self.p._error_bars_from_moments(self.noise, self.max_pix_variance_factor,
+                                        self.correlation_lengths, self.threshold)
         self.assertGreaterEqual(self.p['peak'].error, 0)
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
     def test_negative_flux_condon(self):
         self.p['peak'] *= -1
         self.p['flux'] *= -1
-        self.p._condon_formulae(self.noise, self.beam)
+        self.p._condon_formulae(self.noise, self.correlation_lengths)
         self.assertGreaterEqual(self.p['peak'].error, 0)
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
@@ -59,7 +63,8 @@ class TestFluxErrors(unittest.TestCase):
         # impossible given the current method.
         self.p['peak'] *= -1
         self.p['flux'] *= -1
-        self.p._error_bars_from_moments(self.noise, self.beam, self.threshold)
+        self.p._error_bars_from_moments(self.noise, self.max_pix_variance_factor,
+                                        self.correlation_lengths, self.threshold)
         self.assertEqual(self.p['peak'].error, float('inf'))
         self.assertEqual(self.p['flux'].error, float('inf'))
 

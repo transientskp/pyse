@@ -14,15 +14,21 @@ from .stats import indep_pixels
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 
-def moments(data, beam, threshold=0):
+def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     """Calculate source positional values using moments
 
     Args:
 
         data (numpy.ndarray): Actual 2D image data
 
-        beam (3-tuple): beam (psf) information, with semi-major and
-            semi-minor axes
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        beamsize(float): The FWHM size of the clean beam
+
+        threshold(float): source parameters like the semimajor and semiminor axes
+                          derived from moments can be underestimated if one does not take
+                          account of the threshold that was used to segment the source islands.
 
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
@@ -39,7 +45,7 @@ def moments(data, beam, threshold=0):
     # Are we fitting a -ve or +ve Gaussian?
     if data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
-        peak = data.max() * utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        peak = data.max() * fudge_max_pix_factor
     else:
         peak = data.min()
     ratio = threshold / peak
@@ -53,7 +59,6 @@ def moments(data, beam, threshold=0):
 
     working1 = (xxbar + yybar) / 2.0
     working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
-    beamsize = utils.calculate_beamsize(beam[0], beam[1])
 
     # Some problems arise with the sqrt of (working1-working2) when they are
     # equal, this happens with islands that have a thickness of only one pixel
@@ -230,7 +235,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
     return results
 
 
-def goodness_of_fit(masked_residuals, noise, beam):
+def goodness_of_fit(masked_residuals, noise, correlation_lengths):
     """
     Calculates the goodness-of-fit values, `chisq` and `reduced_chisq`.
 
@@ -266,7 +271,15 @@ def goodness_of_fit(masked_residuals, noise, beam):
         noise (float): An estimate of the noise level. Could also be set to
             a masked numpy array matching the data, for per-pixel noise
             estimates.
-        beam (tuple): Beam parameters
+
+        correlation_lengths(tuple): Tuple of two floats describing the distance along the semimajor
+                                    and semiminor axes of the clean beam beyond which noise
+                                    is assumed uncorrelated. Some background: Aperture synthesis imaging
+                                    yields noise that is partially correlated
+                                    over the entire image. This has a considerable effect on error
+                                    estimates. We approximate this by considering all noise within the
+                                    correlation length completely correlated and beyond that completely
+                                    uncorrelated.
 
     Returns:
         tuple: chisq, reduced_chisq
@@ -275,6 +288,6 @@ def goodness_of_fit(masked_residuals, noise, beam):
     gauss_resid_normed = (masked_residuals / noise).compressed()
     chisq = numpy.sum(gauss_resid_normed * gauss_resid_normed)
     n_fitted_pix = len(masked_residuals.compressed().ravel())
-    n_indep_pix = indep_pixels(n_fitted_pix, beam)
+    n_indep_pix = indep_pixels(n_fitted_pix, correlation_lengths)
     reduced_chisq = chisq / n_indep_pix
     return chisq, reduced_chisq

@@ -86,6 +86,13 @@ class ImageData(object):
         self.rawdata = data  # a 2D numpy array
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
+        # These three quantities are only dependent on the beam, so should be calculated
+        # once the beam is known and not for each source separately.
+        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        self.max_pix_variance_factor = utils.maximum_pixel_method_variance(
+                           beam[0], beam[1], beam[2])
+        self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
         self.clip = {}
         self.labels = {}
         self.freq_low = 1
@@ -521,8 +528,7 @@ class ImageData(object):
         # The correlation length in config.py is used not only for the
         # calculation of error bars with the Condon formulae, but also for
         # calculating the number of independent pixels.
-        corlengthlong, corlengthshort = utils.calculate_correlation_lengths(
-            self.beam[0], self.beam[1])
+        corlengthlong, corlengthshort = self.correlation_lengths
 
         C_n = (1.0 / numpy.arange(
             round(0.25 * numpy.pi * corlengthlong *
@@ -693,11 +699,9 @@ class ImageData(object):
 
         try:
             measurement, residuals = extract.source_profile_and_errors(
-                fitme,
-                threshold_at_pixel,
-                self.rmsmap[int(x), int(y)],
-                self.beam,
-                fixed=fixed
+                fitme, threshold_at_pixel,self.rmsmap[int(x), int(y)],
+                self.beam, self.fudge_max_pix_factor, self.max_pix_variance_factor,
+                self.beamsize, self.correlation_lengths, fixed=fixed
             )
         except ValueError:
             # Fit failed to converge
@@ -872,8 +876,8 @@ class ImageData(object):
         return labels_above_det_thr, labelled_data
 
     @staticmethod
-    def fit_islands(island, fixed):
-        return island.fit(fixed=fixed)
+    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
+        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
 
     @timeit
     def _pyse(
@@ -986,7 +990,9 @@ class ImageData(object):
         results = containers.ExtractionResults()
         start_of_fitting_loop = time.time()
         with Pool(psutil.cpu_count()) as p:
-            fit_islands_fixed = partial(ImageData.fit_islands, fixed=fixed)
+            fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
+                                        self. max_pix_variance_factor, self.beamsize,
+                                        self.correlation_lengths, fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
         end_of_fitting_loop = time.time()
         print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))

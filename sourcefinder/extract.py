@@ -203,13 +203,12 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fixed=None):
+    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=None):
         """Fit the position"""
         try:
             measurement, gauss_residual = source_profile_and_errors(
                 self.data, self.threshold(), self.noise(), self.beam,
-                fixed=fixed
-            )
+                fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
         except ValueError:
             # Fitting failed
             logger.error("Moments & Gaussian fitting failed at %s" % (
@@ -295,7 +294,7 @@ class ParamSet(MutableMapping):
         """ """
         return list(self.values.keys())
 
-    def calculate_errors(self, noise, beam, threshold):
+    def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
         """Calculate positional errors
 
         Uses _condon_formulae() if this object is based on a Gaussian fit,
@@ -303,15 +302,16 @@ class ParamSet(MutableMapping):
         """
 
         if self.gaussian:
-            return self._condon_formulae(noise, beam)
+            return self._condon_formulae(noise, correlation_lengths)
         elif self.moments:
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, beam, threshold)
+            return self._error_bars_from_moments(noise, max_pix_variance_factor, correlation_lengths,
+                                                 threshold)
         else:
             return False
 
-    def _condon_formulae(self, noise, beam):
+    def _condon_formulae(self, noise, correlation_lengths):
         """Returns the errors on parameters from Gaussian fits according to
         the Condon (PASP 109, 166 (1997)) formulae.
 
@@ -327,8 +327,7 @@ class ParamSet(MutableMapping):
         smin = self['semiminor'].value
         theta = self['theta'].value
 
-        theta_B, theta_b = utils.calculate_correlation_lengths(
-            beam[0], beam[1])
+        theta_B, theta_b = correlation_lengths
 
         rho_sq1 = ((smaj * smin / (theta_B * theta_b)) *
                    (1. + (theta_B / (2. * smaj)) ** 2) ** self.alpha_maj1 *
@@ -403,7 +402,8 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def _error_bars_from_moments(self, noise, beam, threshold):
+    def _error_bars_from_moments(self, noise, max_pix_variance_factor, correlation_lengths,
+                                 threshold):
         """Provide reasonable error estimates from the moments"""
 
         # The formulae below should give some reasonable estimate of the
@@ -428,8 +428,7 @@ class ParamSet(MutableMapping):
 
         clean_bias_error = self.clean_bias_error
         frac_flux_cal_error = self.frac_flux_cal_error
-        theta_B, theta_b = utils.calculate_correlation_lengths(
-            beam[0], beam[1])
+        theta_B, theta_b = correlation_lengths
 
         # This is eq. 2.81 from Spreeuw's thesis.
         rho_sq = ((16. * smaj * smin /
@@ -477,10 +476,13 @@ class ParamSet(MutableMapping):
         # replaced by noise**2 since the threshold should not affect
         # the error from the (corrected) maximum pixel method,
         # while it is part of the expression for rho_sq above.
+        # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+        #                clean_bias_error ** 2 + noise ** 2 +
+        #                utils.maximum_pixel_method_variance(
+        #                    beam[0], beam[1], beam[2]) * peak ** 2)
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                        clean_bias_error ** 2 + noise ** 2 +
-                       utils.maximum_pixel_method_variance(
-                           beam[0], beam[1], beam[2]) * peak ** 2)
+                       max_pix_variance_factor * peak ** 2)
         errorpeak = numpy.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
@@ -613,7 +615,8 @@ class ParamSet(MutableMapping):
 
 
 def source_profile_and_errors(data, threshold, noise,
-                              beam, fixed=None):
+                              beam, fudge_max_pix_factor, max_pix_variance_factor,
+                              beamsize, correlation_lengths, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
@@ -640,6 +643,23 @@ def source_profile_and_errors(data, threshold, noise,
 
         beam (tuple): beam parameters (semimaj,semimin,theta)
 
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        max_pix_variance_factor(float): Take account of additional variance induced by the
+                                        maximum pixel method, on top of the background noise.
+
+        beamsize(float): The FWHM size of the clean beam
+
+        correlation_lengths(tuple): Tuple of two floats describing the distance along the semimajor
+                                    and semiminor axes of the clean beam beyond which noise
+                                    is assumed uncorrelated. Some background: Aperture synthesis imaging
+                                    yields noise that is partially correlated
+                                    over the entire image. This has a considerable effect on error
+                                    estimates. We approximate this by considering all noise within the
+                                    correlation length completely correlated and beyond that completely
+                                    uncorrelated.
+
     Kwargs:
 
         fixed (dict): Parameters (and their values) to hold fixed while fitting.
@@ -662,7 +682,7 @@ def source_profile_and_errors(data, threshold, noise,
         moments_threshold = threshold
 
     try:
-        param.update(fitting.moments(data, beam, moments_threshold))
+        param.update(fitting.moments(data, fudge_max_pix_factor, beamsize, moments_threshold))
         param.moments = True
     except ValueError:
         # If this happens, we have two choices:
@@ -703,10 +723,9 @@ def source_profile_and_errors(data, threshold, noise,
         # moments can't handle fixed params
         raise ValueError("fit failed with given fixed parameters")
 
-    beamsize = utils.calculate_beamsize(beam[0], beam[1])
     param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
-    param.calculate_errors(noise, beam, threshold)
+    param.calculate_errors(noise, max_pix_variance_factor, correlation_lengths, threshold)
     param.deconvolve_from_clean_beam(beam)
 
     # Calculate residuals
@@ -719,10 +738,10 @@ def source_profile_and_errors(data, threshold, noise,
                  param["semiminor"].value,
                  param["theta"].value)
     gauss_resid_masked = -(
-    gaussian(*gauss_arg)(*numpy.indices(data.shape)) - data)
+        gaussian(*gauss_arg)(*numpy.indices(data.shape)) - data)
 
     param.chisq, param.reduced_chisq = fitting.goodness_of_fit(
-        gauss_resid_masked, noise, beam)
+        gauss_resid_masked, noise, correlation_lengths)
 
     gauss_resid_filled = gauss_resid_masked.filled(fill_value=0.)
     return param, gauss_resid_filled
