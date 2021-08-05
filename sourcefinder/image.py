@@ -701,7 +701,7 @@ class ImageData(object):
             measurement, residuals = extract.source_profile_and_errors(
                 fitme, threshold_at_pixel,self.rmsmap[int(x), int(y)],
                 self.beam, self.fudge_max_pix_factor, self.max_pix_variance_factor,
-                self.beamsize, fixed=fixed
+                self.beamsize, self.correlation_lengths, fixed=fixed
             )
         except ValueError:
             # Fit failed to converge

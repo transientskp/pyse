@@ -294,7 +294,7 @@ class ParamSet(MutableMapping):
         """ """
         return list(self.values.keys())
 
-    def calculate_errors(self, noise, beam, max_pix_variance_factor, correlation_lengths, threshold):
+    def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
         """Calculate positional errors
 
         Uses _condon_formulae() if this object is based on a Gaussian fit,
@@ -302,16 +302,16 @@ class ParamSet(MutableMapping):
         """
 
         if self.gaussian:
-            return self._condon_formulae(noise, beam, correlation_lengths)
+            return self._condon_formulae(noise, correlation_lengths)
         elif self.moments:
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, beam, max_pix_variance_factor, correlation_lengths,
+            return self._error_bars_from_moments(noise, max_pix_variance_factor, correlation_lengths,
                                                  threshold)
         else:
             return False
 
-    def _condon_formulae(self, noise, beam, correlation_lengths):
+    def _condon_formulae(self, noise, correlation_lengths):
         """Returns the errors on parameters from Gaussian fits according to
         the Condon (PASP 109, 166 (1997)) formulae.
 
@@ -402,7 +402,7 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def _error_bars_from_moments(self, noise, beam, max_pix_variance_factor, correlation_lengths,
+    def _error_bars_from_moments(self, noise, max_pix_variance_factor, correlation_lengths,
                                  threshold):
         """Provide reasonable error estimates from the moments"""
 
@@ -725,7 +725,7 @@ def source_profile_and_errors(data, threshold, noise,
 
     param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
-    param.calculate_errors(noise, beam, max_pix_variance_factor, correlation_lengths, threshold)
+    param.calculate_errors(noise, max_pix_variance_factor, correlation_lengths, threshold)
     param.deconvolve_from_clean_beam(beam)
 
     # Calculate residuals
