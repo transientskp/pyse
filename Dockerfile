@@ -9,14 +9,10 @@ RUN docker-apt-install \
     python3-dateutil \
     python3-six \
     python3-nose \
-    python3-psutil \
-    python3-dask \
-    python3-cloudpickle \
-    python3-distributed
+    python3-psutil
 
 ADD . /code
 WORKDIR /code
 RUN pip3 install --upgrade pip
-RUN pip3 install coverage
-RUN pip3 install ray
+RUN pip3 install coverage dask[complete] ray
 RUN pip3 install .
