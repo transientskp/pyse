@@ -10,7 +10,9 @@ RUN docker-apt-install \
     python3-six \
     python3-nose \
     python3-psutil \
-    python3-dask
+    python3-dask \
+    python3-cloudpickle \
+    python3-distributed
 
 ADD . /code
 WORKDIR /code
