@@ -21,6 +21,7 @@ from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import partial
+import sep
 
 try:
     import ndimage
@@ -125,11 +126,21 @@ class ImageData(object):
 
     grids = property(fget=_grids, fdel=_grids.delete)
 
+    # @Memoize
+    def _background(self):
+        """"Returns background object from sep"""
+        check = self.data.flags
+        return sep.Background(self.data.data.copy(order='C'), mask = self.data.mask,
+                              bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
+
+    background = property(fget=_background)
+
     @Memoize
     def _backmap(self):
         """Background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'])
+            # return self._interpolate(self.grids['bg'])
+            return numpy.ma.array(self.background.back(), mask=self.data.mask)
         else:
             return self._user_backmap
 
@@ -144,7 +155,8 @@ class ImageData(object):
     def _get_rm(self):
         """RMS map"""
         if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'], roundup=True)
+            # return self._interpolate(self.grids['rms'], roundup=True)
+            return numpy.ma.array(self.background.rms(), mask=self.data.mask)
         else:
             return self._user_noisemap
 
@@ -828,10 +840,14 @@ class ImageData(object):
         # The third filter attempts to exclude those regions of the image
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
-        RMS_FILTER = 0.001
+        # RMS_FILTER = 0.001
+        # clipped_data = numpy.ma.where(
+        #     (self.data_bgsubbed > analysisthresholdmap) &
+        #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+        #     1, 0
+        # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+            (self.data_bgsubbed > analysisthresholdmap),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
