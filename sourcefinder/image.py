@@ -19,6 +19,7 @@ import psutil
 from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
+import sep
 
 try:
     import ndimage
@@ -42,6 +43,13 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
+
+# Let's retain the option of calculating background maps in the original way,
+# i.e. without using sep. This is slower, but more accurate. Ultimately, the
+# switch for choosing either should be propagated through an argument of the 
+# ImageData class instantiation, but we will implement that later. For now,
+# we will set SEP as default.
+SEP = True
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -108,14 +116,33 @@ class ImageData(object):
         return self.__grids()
 
     @cached_property
+    def background(self):
+        """"Returns background object from sep"""
+        check = self.data.flags
+        return sep.Background(self.data.data.copy(order='C'), mask = self.data.mask,
+                              bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
+
+    @cached_property
     def backmap(self):
         """Background map"""
-        return self._interpolate(self.grids['bg'])
+        if not hasattr(self, "_user_backmap"):
+            if SEP:
+                return numpy.ma.array(self.background.back(), mask=self.data.mask)
+            else:
+                return self._interpolate(self.grids['bg'])
+        else:
+            return self._user_backmap
 
     @cached_property
     def rmsmap(self):
         """RMS map"""
-        return self._interpolate(self.grids['rms'], roundup=True)
+        if not hasattr(self, "_user_noisemap"):
+            if SEP:
+                return numpy.ma.array(self.background.rms(), mask=self.data.mask)
+            else:
+                return self._interpolate(self.grids['rms'], roundup=True)
+        else:
+            return self._user_noisemap
 
     @cached_property
     def data(self):
@@ -173,6 +200,7 @@ class ImageData(object):
         """
         self.labels.clear()
         self.clip.clear()
+        del (self.background)
         del (self.backmap)
         del (self.rmsmap)
         del (self.data)
@@ -783,10 +811,14 @@ class ImageData(object):
         # The third filter attempts to exclude those regions of the image
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
-        RMS_FILTER = 0.001
+        # RMS_FILTER = 0.001
+        # clipped_data = numpy.ma.where(
+        #     (self.data_bgsubbed > analysisthresholdmap) &
+        #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+        #     1, 0
+        # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+            (self.data_bgsubbed > analysisthresholdmap),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
