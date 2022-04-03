@@ -83,8 +83,8 @@ class ImageData(object):
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
-        # mean time
-        self.rawdata = data  # a 2D numpy array
+        # meantime
+        self.rawdata = numpy.ascontiguousarray(data)  # a 2D numpy array, C-contiguous needed for sep.
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
         # These three quantities are only dependent on the beam, so should be calculated
@@ -126,14 +126,14 @@ class ImageData(object):
 
     grids = property(fget=_grids, fdel=_grids.delete)
 
-    # @Memoize
+    @Memoize
     def _background(self):
         """"Returns background object from sep"""
         check = self.data.flags
-        return sep.Background(self.data.data.copy(order='C'), mask = self.data.mask,
+        return sep.Background(self.data.data, mask = self.data.mask,
                               bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
 
-    background = property(fget=_background)
+    background = property(fget=_background, fdel=_background.delete)
 
     @Memoize
     def _backmap(self):
