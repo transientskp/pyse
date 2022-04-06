@@ -102,7 +102,7 @@ class TestFitFixedPositions(unittest.TestCase):
         self.assertAlmostEqual(results.dec.value, self.known_fit_results[1],
                                delta=0.01)
         self.assertAlmostEqual(results.peak.value, self.known_fit_results[2],
-                               delta=0.01)
+                               delta=0.02)
 
     def testLowFitThreshold(self):
         """
@@ -126,7 +126,7 @@ class TestFitFixedPositions(unittest.TestCase):
                                delta=0.01)
         self.assertAlmostEqual(low_thresh_results.peak.value,
                                self.known_fit_results[2],
-                               delta=0.01)
+                               delta=0.02)
 
     def testHighFitThreshold(self):
         """
@@ -301,9 +301,9 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         results = self.image.extract(det=5, anl=3)
         results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                    results]
-        # Our modified kappa,sigma clipper gives a slightly lower noise
-        # which catches an extra noise peak at the 5 sigma level.
-        self.assertEqual(len(results), 2)
+        # With background estimation from sep we again find one noise peak
+        # as originally and as opposed to two (modified kappa, sigma clipper).
+        self.assertEqual(len(results), 1)
         r = results[1]
         self.assertEqual(len(r), len(known_result))
         for i in range(len(r)):

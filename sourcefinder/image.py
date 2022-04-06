@@ -27,6 +27,8 @@ try:
     import ndimage
 except ImportError:
     from scipy import ndimage
+
+numpy.seterr(all='print')
     
 def timeit(method):
     def timed(*args, **kw):
@@ -58,6 +60,7 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
+
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -129,7 +132,6 @@ class ImageData(object):
     @Memoize
     def _background(self):
         """"Returns background object from sep"""
-        check = self.data.flags
         return sep.Background(self.data.data, mask = self.data.mask,
                               bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
 
@@ -840,14 +842,15 @@ class ImageData(object):
         # The third filter attempts to exclude those regions of the image
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
-        # RMS_FILTER = 0.001
+        RMS_FILTER = 0.001
         # clipped_data = numpy.ma.where(
         #     (self.data_bgsubbed > analysisthresholdmap) &
         #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
         #     1, 0
         # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap),
+            (self.data_bgsubbed > analysisthresholdmap) &
+            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
