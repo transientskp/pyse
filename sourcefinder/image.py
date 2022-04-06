@@ -25,6 +25,8 @@ try:
     import ndimage
 except ImportError:
     from scipy import ndimage
+
+numpy.seterr(all='print')
     
 def gather(*args):
     return list(args)
@@ -50,6 +52,7 @@ STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
 # ImageData class instantiation, but we will implement that later. For now,
 # we will set SEP as default.
 SEP = True
+
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -810,14 +813,15 @@ class ImageData(object):
         # The third filter attempts to exclude those regions of the image
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
-        # RMS_FILTER = 0.001
+        RMS_FILTER = 0.001
         # clipped_data = numpy.ma.where(
         #     (self.data_bgsubbed > analysisthresholdmap) &
         #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
         #     1, 0
         # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap),
+            (self.data_bgsubbed > analysisthresholdmap) &
+            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
