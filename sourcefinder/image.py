@@ -28,8 +28,7 @@ try:
 except ImportError:
     from scipy import ndimage
 
-numpy.seterr(all='print')
-    
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
