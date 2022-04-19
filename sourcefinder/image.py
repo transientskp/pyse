@@ -14,17 +14,41 @@ from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.memoize import Memoize
 
+import time
+import dask.array as da
+import dask.bag as db
+from scipy.interpolate import interp1d
+import psutil
+from multiprocessing import Pool
+from functools import partial
+
 try:
     import ndimage
 except ImportError:
     from scipy import ndimage
+    
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method._name_.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
+        return result
+    return timed
+
+def gather(*args):
+    return list(args)
 
 logger = logging.getLogger(__name__)
 
 #
 # Hard-coded configuration parameters; not user settable.
 #
-INTERPOLATE_ORDER = 1  # Spline order for grid interpolation
+INTERPOLATE_ORDER = 1
 MEDIAN_FILTER = 0  # If non-zero, apply a median filter of size
 # MEDIAN_FILTER to the background and RMS grids prior
 # to interpolating.
@@ -33,7 +57,6 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
-
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -63,6 +86,13 @@ class ImageData(object):
         self.rawdata = data  # a 2D numpy array
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
+        # These three quantities are only dependent on the beam, so should be calculated
+        # once the beam is known and not for each source separately.
+        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        self.max_pix_variance_factor = utils.maximum_pixel_method_variance(
+                           beam[0], beam[1], beam[2])
+        self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
         self.clip = {}
         self.labels = {}
         self.freq_low = 1
@@ -205,6 +235,7 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
+    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -215,37 +246,58 @@ class ImageData(object):
         ImageData.rmsmap or ImageData.fdrmap is first accessed.
         """
 
-        # We set up a dedicated logging subchannel, as the sigmaclip loop
-        # logging is very chatty:
-        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
-
         # there's no point in working with the whole of the data array
         # if it's masked.
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        useful_data = self.data[useful_chunk[0]]
-        my_xdim, my_ydim = useful_data.shape
+        y_dim = self.data[useful_chunk[0]].data.shape[1]
+        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, y_dim))
 
-        rmsgrid, bggrid = [], []
-        for startx in range(0, my_xdim, self.back_size_x):
-            rmsrow, bgrow = [], []
-            for starty in range(0, my_ydim, self.back_size_y):
-                chunk = useful_data[
-                        startx:startx + self.back_size_x,
-                        starty:starty + self.back_size_y
-                        ].ravel()
-                if not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
-                    continue
+        mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_row_of_subimages,
+                                              y_dim,  self.back_size_y,
+                                              dtype=numpy.complex64,
+                                              chunks=(1, 1)).compute()
+
+        # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
+        # output multiple arrays. One can however output to a complex array and take real and imaginary
+        # parts afterwards. Not a very clean solution, I admit.
+        mode_grid = mode_and_rms.real
+        rms_grid = mode_and_rms.imag
+
+        rms_grid = numpy.ma.array(
+            rms_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+        # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
+        # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
+        # we determine it.
+        mode_grid = numpy.ma.array(
+            mode_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+
+        return { 'bg': mode_grid, 'rms': rms_grid,}
+
+    @staticmethod
+    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages, y_dim, back_size_y):
+
+        # We set up a dedicated logging subchannel, as the sigmaclip loop
+        # logging is very chatty:
+        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
+        row_of_complex_values = numpy.empty((0), numpy.complex64)
+
+        for starty in range(0, y_dim, back_size_y):
+            chunk = row_of_subimages[:, starty:starty+back_size_y]
+            if not chunk.any():
+                # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
+                # so I'll set these values to zero instead and use these zeroes to create the mask.
+                rms = 0
+                mode = 0
+            else:
                 chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                    chunk, self.beam)
+                    chunk.ravel())
                 if len(chunk) == 0 or not chunk.any():
-                    rmsrow.append(False)
-                    bgrow.append(False)
+                    rms = 0
+                    mode = 0
                 else:
                     mean = numpy.mean(chunk)
-                    rmsrow.append(sigma)
+                    rms = sigma
                     # In the case of a crowded field, the distribution will be
                     # skewed and we take the median as the background level.
                     # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
@@ -256,23 +308,20 @@ class ImageData(object):
                     if numpy.fabs(mean - median) / sigma >= 0.3:
                         sigmaclip_logger.debug(
                             'bg skewed, %f clipping iterations', num_clip_its)
-                        bgrow.append(median)
+                        mode=median
                     else:
                         sigmaclip_logger.debug(
                             'bg not skewed, %f clipping iterations',
                             num_clip_its)
-                        bgrow.append(2.5 * median - 1.5 * mean)
+                        mode=2.5 * median - 1.5 * mean
+            row_of_complex_values = numpy.append(row_of_complex_values,  numpy.array(mode + 1j*rms))[None]
+        # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
+        # but presently that module does not seem to provide for that. But I can, however, output to a
+        # complex array and later take the real part of that for the mode and the imaginary part
+        # for the rms.
+        return row_of_complex_values
 
-            rmsgrid.append(rmsrow)
-            bggrid.append(bgrow)
-
-        rmsgrid = numpy.ma.array(
-            rmsgrid, mask=numpy.where(numpy.array(rmsgrid) == False, 1, 0))
-        bggrid = numpy.ma.array(
-            bggrid, mask=numpy.where(numpy.array(bggrid) == False, 1, 0))
-
-        return {'rms': rmsgrid, 'bg': bggrid}
-
+    @timeit
     def _interpolate(self, grid, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
@@ -313,11 +362,7 @@ class ImageData(object):
         # Bicubic spline interpolation
         xratio = float(my_xdim) / self.back_size_x
         yratio = float(my_ydim) / self.back_size_y
-        # First arg: starting point. Second arg: ending point. Third arg:
-        # 1j * number of points. (Why is this complex? Sometimes, NumPy has an
-        # utterly baffling API...)
-        slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
-        slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+
         my_map = numpy.ma.MaskedArray(numpy.zeros(self.data.shape),
                                       mask=self.data.mask)
 
@@ -325,9 +370,38 @@ class ImageData(object):
         # behavior
         my_map.unshare_mask()
 
-        my_map[useful_chunk[0]] = ndimage.map_coordinates(
-            grid, numpy.mgrid[slicex, slicey],
-            mode='nearest', order=INTERPOLATE_ORDER)
+        # Inspired by https://stackoverflow.com/questions/13242382/resampling-a-numpy-array-representing-an-image
+        # Should be much faster than scipy.ndimage.map_coordinates.
+        # scipy.ndimage.zoom should also be an option for speedup, but zoom dit not let me produce the exact
+        # same output as map_coordinates. My bad.
+        # I checked, using fitsdiff, that it gives the exact same output as the original code
+        # up to and including --relative-tolerance=1e-15 for INTERPOLATE_ORDER=1.
+        # It was actually quite a hassle to get the same output and the fill_value is essential
+        # in interp1d. However, for some unit tests, grid.shape=(1,1) and then it will break
+        # with "ValueError: x and y arrays must have at least 2 entries". So in that case
+        # map_coordinates should be used.
+
+        if INTERPOLATE_ORDER==1 and grid.shape[0]>1 and grid.shape[1]>1:
+            x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0], endpoint=True)
+            y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1], endpoint=True)
+            x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim, endpoint=True)
+            y_sought = numpy.linspace(-0.5, -0.5 + yratio, my_ydim, endpoint=True)
+
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear', assume_sorted=True,
+                                             axis=1, copy=False, bounds_error=False,
+                                             fill_value=(grid[:, 0], grid[:, -1]))
+            transposed = primary_interpolation(y_sought).T
+
+            perpendicular_interpolation = interp1d(x_initial, transposed, kind='slinear', assume_sorted=True,
+                                                   axis=1, copy=False, bounds_error=False,
+                                                   fill_value=(transposed[:, 0], transposed[:, -1]))
+            my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+        else:
+            slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
+            slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+            my_map[useful_chunk[0]] = ndimage.map_coordinates(
+               grid, numpy.mgrid[slicex, slicey],
+               mode='nearest', order=INTERPOLATE_ORDER)
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -454,8 +528,7 @@ class ImageData(object):
         # The correlation length in config.py is used not only for the
         # calculation of error bars with the Condon formulae, but also for
         # calculating the number of independent pixels.
-        corlengthlong, corlengthshort = utils.calculate_correlation_lengths(
-            self.beam[0], self.beam[1])
+        corlengthlong, corlengthshort = self.correlation_lengths
 
         C_n = (1.0 / numpy.arange(
             round(0.25 * numpy.pi * corlengthlong *
@@ -626,11 +699,9 @@ class ImageData(object):
 
         try:
             measurement, residuals = extract.source_profile_and_errors(
-                fitme,
-                threshold_at_pixel,
-                self.rmsmap[int(x), int(y)],
-                self.beam,
-                fixed=fixed
+                fitme, threshold_at_pixel,self.rmsmap[int(x), int(y)],
+                self.beam, self.fudge_max_pix_factor, self.max_pix_variance_factor,
+                self.beamsize, self.correlation_lengths, fixed=fixed
             )
         except ValueError:
             # Fit failed to converge
@@ -721,6 +792,7 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
+    @timeit
     def label_islands(self, detectionthresholdmap, analysisthresholdmap):
         """
         Return a lablled array of pixels for fitting.
@@ -759,12 +831,11 @@ class ImageData(object):
         RMS_FILTER = 0.001
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.rmsmap))),
+            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
-
         labels_below_det_thr, labels_above_det_thr = [], []
         if num_labels > 0:
             # Select the labels of the islands above the analysis threshold
@@ -804,6 +875,11 @@ class ImageData(object):
 
         return labels_above_det_thr, labelled_data
 
+    @staticmethod
+    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
+        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
+
+    @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None, labels=[]
@@ -838,6 +914,8 @@ class ImageData(object):
         by John Swinbank, available from TKP svn.
         """
         # Map our chunks onto a list of islands.
+
+        start_labelling = time.time()
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
@@ -849,6 +927,10 @@ class ImageData(object):
         # 'None' returned for missing label indices.
         slices = ndimage.find_objects(labelled_data)
 
+        end_labelling = time.time()
+        print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
+
+        start_post_labelling = time.time()
         for label in labels:
             chunk = slices[label - 1]
             analysis_threshold = (analysisthresholdmap[chunk] /
@@ -877,6 +959,8 @@ class ImageData(object):
                     STRUCTURING_ELEMENT
                 )
             )
+        end_post_labelling = time.time()
+        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
 
         # If required, we can save the 'left overs' from the deblending and
         # fitting processes for later analysis. This needs setting up here:
@@ -904,17 +988,26 @@ class ImageData(object):
         # Iterate over the list of islands and measure the source in each,
         # appending it to the results list.
         results = containers.ExtractionResults()
-        for island in island_list:
-            fit_results = island.fit(fixed=fixed)
-            if fit_results:
-                measurement, residual = fit_results
+        start_of_fitting_loop = time.time()
+        with Pool(psutil.cpu_count()) as p:
+            fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
+                                        self. max_pix_variance_factor, self.beamsize,
+                                        self.correlation_lengths, fixed)
+            fit_results = p.map(fit_islands_fixed, island_list)
+        end_of_fitting_loop = time.time()
+        print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
+
+        start_of_rest = time.time()
+        for island, fit_result in zip(island_list, fit_results):
+            if fit_result:
+                measurement, residual = fit_result
             else:
                 # Failed to fit; drop this island and go to the next.
                 continue
             try:
                 det = extract.Detection(measurement, self, chunk=island.chunk)
                 if (det.ra.error == float('inf') or
-                            det.dec.error == float('inf')):
+                        det.dec.error == float('inf')):
                     logger.warn('Bad fit from blind extraction at pixel coords:'
                                 '%f %f - measurement discarded'
                                 '(increase fitting margin?)', det.x, det.y)
@@ -927,6 +1020,7 @@ class ImageData(object):
                 self.residuals_from_deblending[island.chunk] -= (
                     island.data.filled(fill_value=0.))
                 self.residuals_from_gauss_fitting[island.chunk] += residual
+
 
         def is_usable(det):
             # Check that both ends of each axis are usable; that is, that they
@@ -958,6 +1052,8 @@ class ImageData(object):
                     det.x.value, det.y.value))
                     return False
             return True
+        end_of_rest = time.time()
+        print("The rest of _pyse took {:7.2f} seconds.".format(end_of_rest-start_of_rest))
 
         # Filter will return a list; ensure we return an ExtractionResults.
         return containers.ExtractionResults(list(filter(is_usable, results)))

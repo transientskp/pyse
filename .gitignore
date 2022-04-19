@@ -1,3 +1,16 @@
+# Do not include stuff added by Pycharm to git.
+.idea/
+
+# Do not include any shell scripts
+*.sh
+
+# Do not include the pointer_files directory.
+*pointer_files*
+
+# Do not include FITS files
+**.fits
+**.FITS
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
