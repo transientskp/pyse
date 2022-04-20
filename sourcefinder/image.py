@@ -21,12 +21,14 @@ from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import partial
+import sep
 
 try:
     import ndimage
 except ImportError:
     from scipy import ndimage
-    
+
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
@@ -58,6 +60,7 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
 
+
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
 
@@ -82,8 +85,8 @@ class ImageData(object):
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
-        # mean time
-        self.rawdata = data  # a 2D numpy array
+        # meantime
+        self.rawdata = numpy.ascontiguousarray(data)  # a 2D numpy array, C-contiguous needed for sep.
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
         # These three quantities are only dependent on the beam, so should be calculated
@@ -126,10 +129,21 @@ class ImageData(object):
     grids = property(fget=_grids, fdel=_grids.delete)
 
     @Memoize
+    @timeit
+    def _background(self):
+        """"Returns background object from sep"""
+        return sep.Background(self.data.data, mask = self.data.mask,
+                              bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
+
+    background = property(fget=_background, fdel=_background.delete)
+
+    @Memoize
+    @timeit
     def _backmap(self):
         """Background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'])
+            # return self._interpolate(self.grids['bg'])
+            return numpy.ma.array(self.background.back(), mask=self.data.mask)
         else:
             return self._user_backmap
 
@@ -141,16 +155,18 @@ class ImageData(object):
     backmap = property(fget=_backmap, fdel=_backmap.delete, fset=_set_backmap)
 
     @Memoize
+    @timeit
     def _get_rm(self):
         """RMS map"""
         if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'], roundup=True)
+            # return self._interpolate(self.grids['rms'], roundup=True)
+            return numpy.ma.array(self.background.rms(), mask=self.data.mask)
         else:
             return self._user_noisemap
 
     def _set_rm(self, noisemap):
         self._user_noisemap = noisemap
-        del (self.rmsmap)
+        del self.rmsmap
 
     rmsmap = property(fget=_get_rm, fdel=_get_rm.delete, fset=_set_rm)
 
@@ -215,15 +231,15 @@ class ImageData(object):
         """
         self.labels.clear()
         self.clip.clear()
-        del (self.backmap)
-        del (self.rmsmap)
-        del (self.data)
-        del (self.data_bgsubbed)
-        del (self.grids)
+        del self.backmap
+        del self.rmsmap
+        del self.data
+        del self.data_bgsubbed
+        del self.grids
         if hasattr(self, 'residuals_from_gauss_fitting'):
-            del (self.residuals_from_gauss_fitting)
+            del self.residuals_from_gauss_fitting
         if hasattr(self, 'residuals_from_deblending'):
-            del (self.residuals_from_deblending)
+            del self.residuals_from_deblending
 
     ###########################################################################
     #                                                                         #
@@ -687,7 +703,7 @@ class ImageData(object):
                      'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
-        elif fixed == None:
+        elif fixed is None:
             fixed = {}
         else:
             raise TypeError("Unkown fixed parameter")
@@ -829,9 +845,14 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
+        # clipped_data = numpy.ma.where(
+        #     (self.data_bgsubbed > analysisthresholdmap) &
+        #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+        #     1, 0
+        # ).filled(fill_value=0)
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
+            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
             1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
@@ -919,8 +940,10 @@ class ImageData(object):
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
-                detectionthresholdmap, analysisthresholdmap
+               detectionthresholdmap, analysisthresholdmap
             )
+            # objects, labelled_data = sep.extract(self.data.data, 10, err=self.rmsmap.data, segmentation_map=True)
+            # labels=range(labelled_data.max())
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
