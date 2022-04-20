@@ -222,9 +222,9 @@ class ImageData(object):
         del (self.data_bgsubbed)
         del (self.grids)
         if hasattr(self, 'residuals_from_gauss_fitting'):
-            del (self.residuals_from_gauss_fitting)
+            del self.residuals_from_gauss_fitting
         if hasattr(self, 'residuals_from_deblending'):
-            del (self.residuals_from_deblending)
+            del self.residuals_from_deblending
 
     ###########################################################################
     #                                                                         #
@@ -686,7 +686,7 @@ class ImageData(object):
                      'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
-        elif fixed == None:
+        elif fixed is None:
             fixed = {}
         else:
             raise TypeError("Unkown fixed parameter")
@@ -920,8 +920,10 @@ class ImageData(object):
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
-                detectionthresholdmap, analysisthresholdmap
+               detectionthresholdmap, analysisthresholdmap
             )
+            # objects, labelled_data = sep.extract(self.data.data, 10, err=self.rmsmap.data, segmentation_map=True)
+            # labels=range(labelled_data.max())
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
