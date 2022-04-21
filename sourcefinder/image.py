@@ -939,11 +939,12 @@ class ImageData(object):
         start_labelling = time.time()
         island_list = []
         if labelled_data is None:
-            labels, labelled_data = self.label_islands(
-               detectionthresholdmap, analysisthresholdmap
-            )
-            # objects, labelled_data = sep.extract(self.data.data, 10, err=self.rmsmap.data, segmentation_map=True)
-            # labels=range(labelled_data.max())
+            # labels, labelled_data = self.label_islands(
+            #    detectionthresholdmap, analysisthresholdmap
+            # )
+            objects, labelled_data = sep.extract(analysisthresholdmap.data, 1, err=detectionthresholdmap.data,
+                                                 mask=detectionthresholdmap.mask, segmentation_map=True)
+            labels=range(len(objects))
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
