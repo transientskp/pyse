@@ -16,7 +16,6 @@ from sourcefinder.utility.memoize import Memoize
 
 import time
 import dask.array as da
-import dask.bag as db
 from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
@@ -27,19 +26,6 @@ try:
 except ImportError:
     from scipy import ndimage
     
-def timeit(method):
-    def timed(*args, **kw):
-        ts = time.time()
-        result = method(*args, **kw)
-        te = time.time()
-        if 'log_time' in kw:
-            name = kw.get('log_name', method._name_.upper())
-            kw['log_time'][name] = int((te - ts) * 1000)
-        else:
-            print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
-        return result
-    return timed
-
 def gather(*args):
     return list(args)
 
@@ -235,7 +221,6 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
-    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -321,7 +306,6 @@ class ImageData(object):
         # for the rms.
         return row_of_complex_values
 
-    @timeit
     def _interpolate(self, grid, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
@@ -792,7 +776,6 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
-    @timeit
     def label_islands(self, detectionthresholdmap, analysisthresholdmap):
         """
         Return a lablled array of pixels for fitting.
@@ -879,7 +862,6 @@ class ImageData(object):
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
 
-    @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None, labels=[]
@@ -915,7 +897,6 @@ class ImageData(object):
         """
         # Map our chunks onto a list of islands.
 
-        start_labelling = time.time()
         island_list = []
         if labelled_data is None:
             labels, labelled_data = self.label_islands(
@@ -927,10 +908,6 @@ class ImageData(object):
         # 'None' returned for missing label indices.
         slices = ndimage.find_objects(labelled_data)
 
-        end_labelling = time.time()
-        print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
-
-        start_post_labelling = time.time()
         for label in labels:
             chunk = slices[label - 1]
             analysis_threshold = (analysisthresholdmap[chunk] /
@@ -959,8 +936,6 @@ class ImageData(object):
                     STRUCTURING_ELEMENT
                 )
             )
-        end_post_labelling = time.time()
-        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
 
         # If required, we can save the 'left overs' from the deblending and
         # fitting processes for later analysis. This needs setting up here:
@@ -988,16 +963,11 @@ class ImageData(object):
         # Iterate over the list of islands and measure the source in each,
         # appending it to the results list.
         results = containers.ExtractionResults()
-        start_of_fitting_loop = time.time()
         with Pool(psutil.cpu_count()) as p:
             fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
                                         self. max_pix_variance_factor, self.beamsize,
                                         self.correlation_lengths, fixed)
             fit_results = p.map(fit_islands_fixed, island_list)
-        end_of_fitting_loop = time.time()
-        print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
-
-        start_of_rest = time.time()
         for island, fit_result in zip(island_list, fit_results):
             if fit_result:
                 measurement, residual = fit_result
@@ -1052,8 +1022,5 @@ class ImageData(object):
                     det.x.value, det.y.value))
                     return False
             return True
-        end_of_rest = time.time()
-        print("The rest of _pyse took {:7.2f} seconds.".format(end_of_rest-start_of_rest))
-
         # Filter will return a list; ensure we return an ExtractionResults.
         return containers.ExtractionResults(list(filter(is_usable, results)))
