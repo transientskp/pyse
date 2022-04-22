@@ -340,16 +340,18 @@ class TestSimpleImageSourceFind(unittest.TestCase):
                 os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
 
         ew_sys_err, ns_sys_err = 0.0, 0.0
-        fits_results = fits_image.extract(det=5, anl=3)
+        fits_results = fits_image.extract(det=8, anl=3)
         fits_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                         fits_results]
-        casa_results = casa_image.extract(det=5, anl=3)
+        casa_results = casa_image.extract(det=8, anl=3)
         casa_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                         casa_results]
         # Using Background from sep just gives one extra noise peak as opposed
         # to the modified kappa, sigma clipper that gave two extra noise peaks.
-        self.assertEqual(len(fits_results), 2)
-        self.assertEqual(len(casa_results), 2)
+        # Decided to increase the detection threshold such that we only compare
+        # the central source, other detections are just noise peaks.
+        self.assertEqual(len(fits_results), 1)
+        self.assertEqual(len(casa_results), 1)
         fits_src = fits_results[0]
         casa_src = casa_results[0]
 
