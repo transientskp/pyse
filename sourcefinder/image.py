@@ -809,7 +809,7 @@ class ImageData(object):
         return successful_fits
 
     @timeit
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap, deblend_nthresh):
         """
         Return a lablled array of pixels for fitting.
 
@@ -850,13 +850,34 @@ class ImageData(object):
         #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
         #     1, 0
         # ).filled(fill_value=0)
+        # sep.extract apparently wants 32 bit data.
         clipped_data = numpy.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
             (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
-            1, 0
+            numpy.float32(1), numpy.float32(0)
         ).filled(fill_value=0)
-        labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  STRUCTURING_ELEMENT)
+        # labelled_data, num_labels = ndimage.label(clipped_data,
+        #                                           STRUCTURING_ELEMENT)
+        # We need to accept a compromise when using sep.extract for ccl, because we cannot apply our
+        # structuring element since SExtractor always uses 8-connectivity.
+        # I turned on deblending, why would we do it later?
+        # Cleaning is turned off, because that was also so in the original PySE.
+        # minarea=1, as in the original PySE. Btw, SExtractor uses minarea=5 as default
+        # Setting deblend_nthresh=0 in sep.extract results in a MemoryError, so we need to catch that.
+        # deblend_nthresh=0 means no deblending which is effectuated in sep.extract by setting
+        # deblend_cont=1. So this is how we handle this:
+        if deblend_nthresh==0:
+            use_deblend_nthresh=32 # Any non-zero positive value.
+            use_deblend_cont=1.0
+        else:
+            use_deblend_nthresh=deblend_nthresh
+            use_deblend_cont=DEBLEND_MINCONT
+        measurements, labelled_data = sep.extract(clipped_data, thresh=0.5, minarea=1,
+                                             deblend_nthresh=use_deblend_nthresh,
+                                             deblend_cont=use_deblend_cont,
+                                             clean=False, segmentation_map=True)
+        num_labels = len(measurements)
+
         labels_below_det_thr, labels_above_det_thr = [], []
         if num_labels > 0:
             # Select the labels of the islands above the analysis threshold
@@ -894,7 +915,7 @@ class ImageData(object):
                 labelled_data, 0
             )
 
-        return labels_above_det_thr, labelled_data
+        return measurements, labels_above_det_thr, labelled_data
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -939,12 +960,9 @@ class ImageData(object):
         start_labelling = time.time()
         island_list = []
         if labelled_data is None:
-            # labels, labelled_data = self.label_islands(
-            #    detectionthresholdmap, analysisthresholdmap
-            # )
-            objects, labelled_data = sep.extract(analysisthresholdmap.data, 1, err=detectionthresholdmap.data,
-                                                 mask=detectionthresholdmap.mask, segmentation_map=True)
-            labels=range(len(objects))
+            measurements, labels, labelled_data = self.label_islands(
+               detectionthresholdmap, analysisthresholdmap, deblend_nthresh
+            )
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
