@@ -851,11 +851,11 @@ class ImageData(object):
         #     1, 0
         # ).filled(fill_value=0)
         # sep.extract apparently wants 32 bit data.
-        clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
-            numpy.float32(1), numpy.float32(0)
-        ).filled(fill_value=0)
+        # clipped_data = numpy.ma.where(
+        #     (self.data_bgsubbed > analysisthresholdmap) &
+        #     (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
+        #     numpy.float32(1), numpy.float32(0)
+        # ).filled(fill_value=0)
         # labelled_data, num_labels = ndimage.label(clipped_data,
         #                                           STRUCTURING_ELEMENT)
         # We need to accept a compromise when using sep.extract for ccl, because we cannot apply our
@@ -872,48 +872,64 @@ class ImageData(object):
         else:
             use_deblend_nthresh=deblend_nthresh
             use_deblend_cont=DEBLEND_MINCONT
-        measurements, labelled_data = sep.extract(clipped_data, thresh=0.5, minarea=1,
-                                             deblend_nthresh=use_deblend_nthresh,
-                                             deblend_cont=use_deblend_cont,
-                                             clean=False, segmentation_map=True)
+        # measurements, labelled_data = sep.extract(clipped_data, thresh=0.5, minarea=1,
+        #                                      deblend_nthresh=use_deblend_nthresh,
+        #                                      deblend_cont=use_deblend_cont,
+        #                                      clean=False, segmentation_map=True)
+        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0, err=analysisthresholdmap.data,
+                                                  mask=numpy.logical_or(self.rmsmap.data < RMS_FILTER *
+                                                                        self.background.globalrms,
+                                                                        self.data_bgsubbed.mask),
+                                                  minarea=1, deblend_nthresh=use_deblend_nthresh,
+                                                  deblend_cont=use_deblend_cont,
+                                                  clean=False, segmentation_map=True)
         num_labels = len(measurements)
 
-        labels_below_det_thr, labels_above_det_thr = [], []
-        if num_labels > 0:
-            # Select the labels of the islands above the analysis threshold
-            # that have maximum values values above the detection threshold.
-            # Like above we make sure not to select anything where either
-            # the data or the noise map are masked.
-            # We fill these pixels in above_det_thr with -1 to make sure
-            # its labels will not be in labels_above_det_thr.
-            # NB data_bgsubbed, and hence above_det_thr, is a masked array;
-            # filled() sets all mased values equal to -1.
-            above_det_thr = (
-                self.data_bgsubbed - detectionthresholdmap
-            ).filled(fill_value=-1)
-            # Note that we avoid label 0 (the background).
-            maximum_values = ndimage.maximum(
-                above_det_thr, labelled_data, numpy.arange(1, num_labels + 1)
-            )
+        # It should be possible to perform the conditional below in a faster way
+        labels_above_det_thr = numpy.compress(measurements["peak"]>detectionthresholdmap[measurements["ypeak"],
+                                                                                         measurements["xpeak"]],
+                                              numpy.arange(1, num_labels+1))
 
-            # If there's only one island, ndimage.maximum will return a float,
-            # rather than a list. The rest of this function assumes that it's
-            # always a list, so we need to convert it.
-            if isinstance(maximum_values, float):
-                maximum_values = [maximum_values]
+        labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
+        # labels_below_det_thr, labels_above_det_thr = [], []
+        # loop_begin=time.time()
+        # if num_labels > 0:
+        #     # Select the labels of the islands above the analysis threshold
+        #     # that have maximum values values above the detection threshold.
+        #     # Like above we make sure not to select anything where either
+        #     # the data or the noise map are masked.
+        #     # We fill these pixels in above_det_thr with -1 to make sure
+        #     # its labels will not be in labels_above_det_thr.
+        #     # NB data_bgsubbed, and hence above_det_thr, is a masked array;
+        #     # filled() sets all mased values equal to -1.
+        #     above_det_thr = (
+        #         self.data_bgsubbed - detectionthresholdmap
+        #     ).filled(fill_value=-1)
+        #     # Note that we avoid label 0 (the background).
+        #     maximum_values = ndimage.maximum(
+        #         above_det_thr, labelled_data, numpy.arange(1, num_labels + 1)
+        #     )
 
-            # We'll filter out the insignificant islands
-            for i, x in enumerate(maximum_values, 1):
-                if x < 0:
-                    labels_below_det_thr.append(i)
-                else:
-                    labels_above_det_thr.append(i)
-            # Set to zero all labelled islands that are below det_thr:
-            labelled_data = numpy.where(
-                numpy.in1d(labelled_data.ravel(), labels_above_det_thr).reshape(
-                    labelled_data.shape),
-                labelled_data, 0
-            )
+        #     # If there's only one island, ndimage.maximum will return a float,
+        #     # rather than a list. The rest of this function assumes that it's
+        #     # always a list, so we need to convert it.
+        #     if isinstance(maximum_values, float):
+        #         maximum_values = [maximum_values]
+
+        #     # We'll filter out the insignificant islands
+        #     for i, x in enumerate(maximum_values, 1):
+        #         if x < 0:
+        #             labels_below_det_thr.append(i)
+        #         else:
+        #             labels_above_det_thr.append(i)
+        #     # Set to zero all labelled islands that are below det_thr:
+        #     labelled_data = numpy.where(
+        #         numpy.in1d(labelled_data.ravel(), labels_above_det_thr).reshape(
+        #             labelled_data.shape),
+        #         labelled_data, 0
+        #     )
+        # loop_end=time.time()
+        # print("Loop took {} seconds".format(loop_end-loop_begin))
 
         return measurements, labels_above_det_thr, labelled_data
 
