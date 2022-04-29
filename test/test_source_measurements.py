@@ -56,7 +56,8 @@ class SourceParameters(unittest.TestCase):
         extraction_results = img.extract(
             det=10.0, anl=6.0,
             noisemap=np.ma.array(BG_STD * np.ones((2048, 2048))),
-            bgmap=np.ma.array(BG_MEAN * np.ones((2048, 2048))))
+            bgmap=np.ma.array(BG_MEAN * np.ones((2048, 2048))),
+            deblend_nthresh=32)
         self.number_sources = len(extraction_results)
 
         peak_fluxes = []
