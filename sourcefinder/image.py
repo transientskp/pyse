@@ -149,8 +149,8 @@ class ImageData(object):
 
     def _set_backmap(self, bgmap):
         self._user_backmap = bgmap
-        del (self.backmap)
-        del (self.data_bgsubbed)
+        del self.backmap
+        del self.data_bgsubbed
 
     backmap = property(fget=_backmap, fdel=_backmap.delete, fset=_set_backmap)
 
@@ -495,7 +495,7 @@ class ImageData(object):
                 self.backmap = bgmap
 
         if (type(noisemap).__name__ == 'ndarray' or
-                    type(noisemap).__name__ == 'MaskedArray'):
+                                       type(noisemap).__name__ == 'MaskedArray'):
             if noisemap.shape != self.rmsmap.shape:
                 raise IndexError("Noisemap has wrong shape")
             if noisemap.min() < 0:
@@ -652,8 +652,8 @@ class ImageData(object):
 
         if ((
                     # Recent NumPy
-                        hasattr(numpy.ma.core, "MaskedConstant") and
-                        isinstance(self.rmsmap, numpy.ma.core.MaskedConstant)
+                    hasattr(numpy.ma.core, "MaskedConstant") and
+                    isinstance(self.rmsmap, numpy.ma.core.MaskedConstant)
             ) or (
                 # Old NumPy
                 numpy.ma.is_masked(self.rmsmap[int(x), int(y)])
@@ -809,7 +809,7 @@ class ImageData(object):
         return successful_fits
 
     @timeit
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap, deblend_nthresh):
         """
         Return a lablled array of pixels for fitting.
 
@@ -845,56 +845,39 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        # clipped_data = numpy.ma.where(
-        #     (self.data_bgsubbed > analysisthresholdmap) &
-        #     (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
-        #     1, 0
-        # ).filled(fill_value=0)
-        clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
-            1, 0
-        ).filled(fill_value=0)
-        labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  STRUCTURING_ELEMENT)
-        labels_below_det_thr, labels_above_det_thr = [], []
-        if num_labels > 0:
-            # Select the labels of the islands above the analysis threshold
-            # that have maximum values values above the detection threshold.
-            # Like above we make sure not to select anything where either
-            # the data or the noise map are masked.
-            # We fill these pixels in above_det_thr with -1 to make sure
-            # its labels will not be in labels_above_det_thr.
-            # NB data_bgsubbed, and hence above_det_thr, is a masked array;
-            # filled() sets all mased values equal to -1.
-            above_det_thr = (
-                self.data_bgsubbed - detectionthresholdmap
-            ).filled(fill_value=-1)
-            # Note that we avoid label 0 (the background).
-            maximum_values = ndimage.maximum(
-                above_det_thr, labelled_data, numpy.arange(1, num_labels + 1)
-            )
+        # We need to accept a compromise when using sep.extract for ccl, because we cannot apply our
+        # structuring element since SExtractor always uses 8-connectivity.
+        # I turned on deblending, why would we do it later?
+        # Cleaning is turned off, because that was also so in the original PySE.
+        # minarea=1, as in the original PySE. Btw, SExtractor uses minarea=5 as default
+        # Setting deblend_nthresh=0 in sep.extract results in a MemoryError, so we need to catch that.
+        # deblend_nthresh=0 means no deblending which is effectuated in sep.extract by setting
+        # deblend_cont=1. So this is how we handle this:
+        if deblend_nthresh == 0:
+            use_deblend_nthresh = 32  # Any non-zero positive value.
+            use_deblend_cont = 1.0
+        else:
+            use_deblend_nthresh = deblend_nthresh
+            use_deblend_cont = DEBLEND_MINCONT
 
-            # If there's only one island, ndimage.maximum will return a float,
-            # rather than a list. The rest of this function assumes that it's
-            # always a list, so we need to convert it.
-            if isinstance(maximum_values, float):
-                maximum_values = [maximum_values]
+        combined_mask = numpy.logical_or(numpy.logical_or(self.rmsmap.data < RMS_FILTER *
+                                         self.background.globalrms, analysisthresholdmap.mask),
+                                         self.data.mask)
 
-            # We'll filter out the insignificant islands
-            for i, x in enumerate(maximum_values, 1):
-                if x < 0:
-                    labels_below_det_thr.append(i)
-                else:
-                    labels_above_det_thr.append(i)
-            # Set to zero all labelled islands that are below det_thr:
-            labelled_data = numpy.where(
-                numpy.in1d(labelled_data.ravel(), labels_above_det_thr).reshape(
-                    labelled_data.shape),
-                labelled_data, 0
-            )
+        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0, err=analysisthresholdmap.data,
+                                                  mask=combined_mask, minarea=1,
+                                                  deblend_nthresh=use_deblend_nthresh,
+                                                  deblend_cont=use_deblend_cont,
+                                                  clean=False,
+                                                  segmentation_map=True)
+        num_labels = len(measurements)
+        labels_above_det_thr = numpy.compress(measurements["peak"] > detectionthresholdmap[measurements["ypeak"],
+                                                                                           measurements["xpeak"]],
+                                              numpy.arange(1, num_labels+1))
 
-        return labels_above_det_thr, labelled_data
+        labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
+
+        return measurements, labels_above_det_thr, labelled_data
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -939,11 +922,9 @@ class ImageData(object):
         start_labelling = time.time()
         island_list = []
         if labelled_data is None:
-            labels, labelled_data = self.label_islands(
-               detectionthresholdmap, analysisthresholdmap
+            measurements, labels, labelled_data = self.label_islands(
+               detectionthresholdmap, analysisthresholdmap, deblend_nthresh
             )
-            # objects, labelled_data = sep.extract(self.data.data, 10, err=self.rmsmap.data, segmentation_map=True)
-            # labels=range(labelled_data.max())
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)

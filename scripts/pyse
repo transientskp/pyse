@@ -346,7 +346,7 @@ def run_sourcefinder(files, options):
                 if labelled_data is None:
                     print(
                         u"Thresholding with det = %f sigma, analysis = %f sigma" % (
-                        options.detection, options.analysis))
+                         options.detection, options.analysis))
 
                 sr = imagedata.extract(
                     det=options.detection, anl=options.analysis,
