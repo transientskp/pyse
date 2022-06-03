@@ -708,16 +708,16 @@ def source_profile_and_errors(data, threshold, noise,
     ymin = min(ranges[1])
     ymax = max(ranges[1])
 
-    if (numpy.fabs(xmax - xmin) > 2) and (numpy.fabs(ymax - ymin) > 2):
-        # Now we can do Gauss fitting if the island or subisland has a
-        # thickness of more than 2 in both dimensions.
-        try:
-            gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed)
-            param.update(gaussian_soln)
-            param.gaussian = True
-            logger.debug('Gauss fitting was successful.')
-        except ValueError:
-            logger.warn('Gauss fitting failed.')
+    # if (numpy.fabs(xmax - xmin) > 2) and (numpy.fabs(ymax - ymin) > 2):
+    #     # Now we can do Gauss fitting if the island or subisland has a
+    #     # thickness of more than 2 in both dimensions.
+    #     try:
+    #         gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed)
+    #         param.update(gaussian_soln)
+    #         param.gaussian = True
+    #         logger.debug('Gauss fitting was successful.')
+    #     except ValueError:
+    #         logger.warn('Gauss fitting failed.')
 
     if fixed and not param.gaussian:
         # moments can't handle fixed params
