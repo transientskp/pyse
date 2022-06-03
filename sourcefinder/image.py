@@ -16,7 +16,6 @@ from sourcefinder.utility.memoize import Memoize
 
 import time
 import dask.array as da
-import dask.bag as db
 from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
