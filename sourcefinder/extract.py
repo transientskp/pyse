@@ -20,6 +20,22 @@ from .gaussian import gaussian
 from . import fitting
 from . import utils
 
+import time
+
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method._name_.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('{0}  {1:2.2f} ms'.format(method.__name__, (te - ts) * 1000))
+        return result
+
+    return timed
+
 logger = logging.getLogger(__name__)
 
 # This is used as a dummy value, -BIGNUM values will be always be masked.
@@ -40,7 +56,7 @@ class Island(object):
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
     """
-
+    # @timeit
     def __init__(self, data, rms, chunk, analysis_threshold, detection_map,
                  beam, deblend_nthresh, deblend_mincont, structuring_element,
                  rms_orig=None, flux_orig=None, subthrrange=None
