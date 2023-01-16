@@ -9,6 +9,7 @@ install_requires = """
     python-casacore
     python-dateutil
     six
+    dask[array]
     """.split()
 
 
