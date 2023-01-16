@@ -321,6 +321,8 @@ def dmstodec(decd, decm, decs):
         raise ValueError("coordinates out of range")
     return dec
 
+def cmp(a, b):
+    return bool(a > b) - bool(a < b)
 
 def angsep(ra1, dec1, ra2, dec2):
     """Find the angular separation of two sources, in arcseconds,
