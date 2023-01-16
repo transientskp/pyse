@@ -10,6 +10,7 @@ install_requires = """
     python-dateutil
     six
     dask[array]
+    psutil
     """.split()
 
 
