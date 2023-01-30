@@ -134,12 +134,11 @@ class L15_12hConstMod(unittest.TestCase):
 
 class FitToPointTestCase(unittest.TestCase):
     def setUp(self):
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # FWHM of PSF taken from fit of unresolved source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(2. * 500.099 / 3600,
+                                                                    2. * 319.482 / 3600,
+                                                                    168.676))
         self.my_im = image.ImageData(fitsfile.data, fitsfile.beam,
                                      fitsfile.wcs)
 
