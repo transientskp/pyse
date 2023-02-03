@@ -915,11 +915,15 @@ class ImageData(object):
         # 'None' returned for missing label indices.
         slices = ndimage.find_objects(labelled_data)
 
+        end_labelling = time.time()
+        print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
+
+        start_post_labelling = time.time()
+        results = containers.ExtractionResults()
         for label in labels:
             chunk = slices[label - 1]
             measurement = measurements[label - 1]
 
-            results = containers.ExtractionResults()
             param = extract.ParamSet()
 
             analysis_threshold = (analysisthresholdmap[chunk] / self.rmsmap[chunk]).max()
