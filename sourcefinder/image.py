@@ -863,16 +863,20 @@ class ImageData(object):
                                          self.background.globalrms, analysisthresholdmap.mask),
                                          self.data.mask)
 
-        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0, err=analysisthresholdmap.data,
+        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0,
+                                                  err=analysisthresholdmap.data,
                                                   mask=combined_mask, minarea=1,
                                                   deblend_nthresh=use_deblend_nthresh,
                                                   deblend_cont=use_deblend_cont,
                                                   clean=False,
                                                   segmentation_map=True)
         num_labels = len(measurements)
-        labels_above_det_thr = numpy.compress(measurements["peak"] > detectionthresholdmap[measurements["ypeak"],
-                                                                                           measurements["xpeak"]],
-                                              numpy.arange(1, num_labels+1))
+        above_det_thr = measurements["peak"] > \
+                        detectionthresholdmap[measurements["ypeak"], measurements["xpeak"]]
+
+        labels_above_det_thr = numpy.extract(above_det_thr, numpy.arange(1, num_labels+1))
+
+        # measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
 
         labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
 
@@ -936,8 +940,13 @@ class ImageData(object):
         start_post_labelling = time.time()
         for label in labels:
             chunk = slices[label - 1]
-            analysis_threshold = (analysisthresholdmap[chunk] /
-                                  self.rmsmap[chunk]).max()
+            measurement = measurements[label - 1]
+
+            results = containers.ExtractionResults()
+            param = extract.ParamSet()
+
+            analysis_threshold = (analysisthresholdmap[chunk] / self.rmsmap[chunk]).max()
+
             # In selected_data only the pixels with the "correct"
             # (see above) labels are retained. Other pixel values are
             # set to -(bignum).
@@ -949,36 +958,38 @@ class ImageData(object):
                 self.data_bgsubbed[chunk].data, -extract.BIGNUM
             ).filled(fill_value=-extract.BIGNUM)
 
-            island_list.append(
-                extract.Island(
-                    selected_data,
-                    self.rmsmap[chunk],
-                    chunk,
-                    analysis_threshold,
-                    detectionthresholdmap[chunk],
-                    self.beam,
-                    deblend_nthresh,
-                    DEBLEND_MINCONT,
-                    STRUCTURING_ELEMENT
-                )
-            )
+            noise_chunk = self.rmsmap[chunk]
+            param.sig = (selected_data/noise_chunk).max()
+
+            param.update({"peak": measurement["peak"], "flux": measurement["flux"], "xbar": measurement["x"],
+                          "ybar": measurement["y"], "semimajor": measurement["a"],
+                          "semiminor": measurement["b"], "theta": measurement["theta"]})
+
+            noise = self.rmsmap[measurement["xpeak"], measurement["ypeak"]]
+            threshold = noise * analysis_threshold
+            param._error_bars_from_moments(noise, self.max_pix_variance_factor, self.correlation_lengths,
+                                           threshold)
+            param.deconvolve_from_clean_beam(self.beam)
+            det = extract.Detection(param, self, chunk = selected_data)
+            results.append(det)
+
         end_post_labelling = time.time()
         print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
 
         # If required, we can save the 'left overs' from the deblending and
         # fitting processes for later analysis. This needs setting up here:
-        if self.residuals:
-            self.residuals_from_gauss_fitting = numpy.zeros(self.data.shape)
-            self.residuals_from_deblending = numpy.zeros(self.data.shape)
-            for island in island_list:
-                self.residuals_from_deblending[island.chunk] += (
-                    island.data.filled(fill_value=0.))
+        # if self.residuals:
+        #     self.residuals_from_gauss_fitting = numpy.zeros(self.data.shape)
+        #     self.residuals_from_deblending = numpy.zeros(self.data.shape)
+        #     for island in island_list:
+        #         self.residuals_from_deblending[island.chunk] += (
+        #             island.data.filled(fill_value=0.))
 
         # Deblend each of the islands to its consituent parts, if necessary
-        if deblend_nthresh:
-            deblended_list = [x.deblend() for x in island_list]
+        # if deblend_nthresh:
+        #     deblended_list = [x.deblend() for x in island_list]
             # deblended_list = [x.deblend() for x in island_list]
-            island_list = list(utils.flatten(deblended_list))
+            # island_list = list(utils.flatten(deblended_list))
 
         # Set up the fixed fit parameters if 'force beam' is on:
         if force_beam:
@@ -990,39 +1001,39 @@ class ImageData(object):
 
         # Iterate over the list of islands and measure the source in each,
         # appending it to the results list.
-        results = containers.ExtractionResults()
-        start_of_fitting_loop = time.time()
-        with Pool(psutil.cpu_count()) as p:
-            fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
-                                        self. max_pix_variance_factor, self.beamsize,
-                                        self.correlation_lengths, fixed)
-            fit_results = p.map(fit_islands_fixed, island_list)
-        end_of_fitting_loop = time.time()
-        print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
+        # results = containers.ExtractionResults()
+        # start_of_fitting_loop = time.time()
+        # with Pool(psutil.cpu_count()) as p:
+        #     fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
+        #                                 self. max_pix_variance_factor, self.beamsize,
+        #                                 self.correlation_lengths, fixed)
+        #     fit_results = p.map(fit_islands_fixed, island_list)
+        # end_of_fitting_loop = time.time()
+        # print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
 
         start_of_rest = time.time()
-        for island, fit_result in zip(island_list, fit_results):
-            if fit_result:
-                measurement, residual = fit_result
-            else:
-                # Failed to fit; drop this island and go to the next.
-                continue
-            try:
-                det = extract.Detection(measurement, self, chunk=island.chunk)
-                if (det.ra.error == float('inf') or
-                        det.dec.error == float('inf')):
-                    logger.warn('Bad fit from blind extraction at pixel coords:'
-                                '%f %f - measurement discarded'
-                                '(increase fitting margin?)', det.x, det.y)
-                else:
-                    results.append(det)
-            except RuntimeError as e:
-                logger.error("Island not processed; unphysical?")
-
-            if self.residuals:
-                self.residuals_from_deblending[island.chunk] -= (
-                    island.data.filled(fill_value=0.))
-                self.residuals_from_gauss_fitting[island.chunk] += residual
+        # for island, fit_result in zip(island_list, fit_results):
+        #     if fit_result:
+        #         measurement, residual = fit_result
+        #     else:
+        #         # Failed to fit; drop this island and go to the next.
+        #         continue
+        #     try:
+        #         det = extract.Detection(measurement, self, chunk=island.chunk)
+        #         if (det.ra.error == float('inf') or
+        #                 det.dec.error == float('inf')):
+        #             logger.warn('Bad fit from blind extraction at pixel coords:'
+        #                         '%f %f - measurement discarded'
+        #                         '(increase fitting margin?)', det.x, det.y)
+        #         else:
+        #             results.append(det)
+        #     except RuntimeError as e:
+        #         logger.error("Island not processed; unphysical?")
+        #
+        #     if self.residuals:
+        #         self.residuals_from_deblending[island.chunk] -= (
+        #             island.data.filled(fill_value=0.))
+        #         self.residuals_from_gauss_fitting[island.chunk] += residual
 
 
         def is_usable(det):
