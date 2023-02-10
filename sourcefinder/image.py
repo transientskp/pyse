@@ -21,6 +21,7 @@ import psutil
 from multiprocessing import Pool
 from functools import partial
 import sep
+from . import fitting
 
 try:
     import ndimage
@@ -1044,13 +1045,19 @@ class ImageData(object):
                 noise_chunk = self.rmsmap[chunk]
                 param.sig = (selected_data/noise_chunk).max()
 
-                param.update({"peak": measurement["peak"], "flux": measurement["flux"], "xbar": measurement["x"],
-                              "ybar": measurement["y"], "semimajor": measurement["a"],
-                              "semiminor": measurement["b"], "theta": measurement["theta"]})
+                # param.update({"peak": measurement["peak"], "flux": measurement["flux"], "xbar": measurement["x"],
+                #               "ybar": measurement["y"], "semimajor": measurement["a"],
+                #               "semiminor": measurement["b"], "theta": measurement["theta"]})
+
+                mask = numpy.where(selected_data > -extract.BIGNUM / 10.0, 0, 1)
+                data = numpy.ma.array(selected_data, mask=mask)
 
                 peak_position = measurement["xpeak"], measurement["ypeak"]
                 noise = self.rmsmap[peak_position]
                 threshold = analysisthresholdmap[peak_position]
+
+                param.update(fitting.moments(data, self.fudge_max_pix_factor, self.beamsize, threshold))
+
                 param._error_bars_from_moments(noise, self.max_pix_variance_factor, self.correlation_lengths,
                                                threshold)
                 param.deconvolve_from_clean_beam(self.beam)
