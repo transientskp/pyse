@@ -801,6 +801,8 @@ class ImageData(object):
 
             analysisthresholdmap (numpy.ndarray):
 
+            deblend_nthresh: number of thresholds for deblending (integer)
+
         Returns:
 
             list of valid islands (list of int)
@@ -910,23 +912,20 @@ class ImageData(object):
                detectionthresholdmap, analysisthresholdmap, deblend_nthresh
             )
 
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
-
         end_labelling = time.time()
         print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
 
         start_post_labelling = time.time()
+        # Get a bounding box for each island:
+        # NB Slices ordered by label value (1...N,)
+        # 'None' returned for missing label indices.
+        slices = ndimage.find_objects(labelled_data)
         results = containers.ExtractionResults()
         for label in labels:
             chunk = slices[label - 1]
             measurement = measurements[label - 1]
 
             param = extract.ParamSet()
-
-            analysis_threshold = (analysisthresholdmap[chunk] / self.rmsmap[chunk]).max()
 
             # In selected_data only the pixels with the "correct"
             # (see above) labels are retained. Other pixel values are
@@ -946,8 +945,9 @@ class ImageData(object):
                           "ybar": measurement["y"], "semimajor": measurement["a"],
                           "semiminor": measurement["b"], "theta": measurement["theta"]})
 
-            noise = self.rmsmap[measurement["xpeak"], measurement["ypeak"]]
-            threshold = noise * analysis_threshold
+            peak_position = measurement["xpeak"], measurement["ypeak"]
+            noise = self.rmsmap[peak_position]
+            threshold = analysisthresholdmap[peak_position]
             param._error_bars_from_moments(noise, self.max_pix_variance_factor, self.correlation_lengths,
                                            threshold)
             param.deconvolve_from_clean_beam(self.beam)
