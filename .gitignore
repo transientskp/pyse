@@ -11,6 +11,9 @@
 **.fits
 **.FITS
 
+# Do not include temp directory
+reserve/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
