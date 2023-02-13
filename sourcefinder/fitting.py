@@ -14,7 +14,7 @@ from .stats import indep_pixels
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 
-def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
+def moments(data, fudge_max_pix_factor, beamsize, threshold):
     """Calculate source positional values using moments
 
     Args:
@@ -50,7 +50,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         peak = data.min()
     ratio = threshold / peak
     total = data.sum()
-    x, y = numpy.indices(data.shape)
+    x = numpy.indices((data.shape[0], data.shape[1]), dtype='i4')[0]
+    y = numpy.indices((data.shape[0], data.shape[1]), dtype='i4')[1]
     xbar = float((x * data).sum() / total)
     ybar = float((y * data).sum() / total)
     xxbar = (x * x * data).sum() / total - xbar ** 2
