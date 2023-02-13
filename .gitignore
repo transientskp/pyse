@@ -14,6 +14,12 @@
 # Do not include temp directory
 reserve/
 
+# Do not include dask worker space
+dask-worker-space/
+
+# Do not include pyproject.toml build requirements, should be in setup.py
+pyproject.toml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
