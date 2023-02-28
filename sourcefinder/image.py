@@ -864,7 +864,7 @@ class ImageData(object):
 
         # measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
 
-        labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
+        # labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
 
         return measurements, labels_above_det_thr, labelled_data
 
@@ -1038,7 +1038,8 @@ class ImageData(object):
                 noise = self.rmsmap[peak_position]
                 threshold = analysisthresholdmap[peak_position]
 
-                param.update(fitting.moments(data, self.fudge_max_pix_factor, self.beamsize, threshold))
+                param.update(fitting.moments(data, self.fudge_max_pix_factor, \
+                                             self.beamsize, threshold))
 
                 param._error_bars_from_moments(noise, self.max_pix_variance_factor, self.correlation_lengths,
                                                threshold)
