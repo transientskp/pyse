@@ -10,6 +10,7 @@ import scipy.optimize
 from . import utils
 from .gaussian import gaussian
 from .stats import indep_pixels
+from numba import njit
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -120,6 +121,129 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         "semiminor": semiminor,
         "theta": theta
     }
+
+@njit
+def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsize, threshold=0):
+    """Calculate source properties using moments. Accelerated using JIT compilation.
+    Also, a positional 1D index local to the island is used such that only pixels
+    above the analysis threshold are addressed.
+
+    Args:
+
+        island_data (numpy.ndarray): Selected from the actual 2D image data, by taking
+                                     pixels above the analysis threshold only, with its
+                                     peak above the detection threshold. This selection
+                                     results in a 1D ndarray (without a mask).
+
+        posx: Row indices of the pixels in island_data as taken from the actual
+              2D images data (rectangular slice)
+
+        posy: Column indices of the pixels in island_data as taken from the actual
+              2D images data (rectangular slice)
+
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        beamsize(float): The FWHM size of the clean beam
+
+        threshold(float): source parameters like the semimajor and semiminor axes
+                          derived from moments can be underestimated if one does not take
+                          account of the threshold that was used to segment the source islands.
+
+    Returns:
+        dict: peak, total, x barycenter, y barycenter, semimajor
+            axis, semiminor axis, theta
+
+    Raises:
+        exceptions.ValueError: in case of NaN in input.
+
+    Use the first moment of the distribution is the barycenter of an
+    ellipse. The second moments are used to estimate the rotation angle
+    and the length of the axes.
+    """
+    # Are we fitting a -ve or +ve Gaussian?
+    if island_data.mean() >= 0:
+        # The peak is always underestimated when you take the highest pixel.
+        peak = island_data.max() * fudge_max_pix_factor
+    else:
+        peak = island_data.min()
+    ratio = threshold / peak
+    total = island_data.sum()
+    xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
+
+    for index in range(island_data.size):
+        i = posx[index]
+        j = posy[index]
+        xbar += i * island_data[index]
+        ybar += j * island_data[index]
+        xxbar += i * i * island_data[index]
+        yybar += j * j * island_data[index]
+        xybar += i * j * island_data[index]
+
+    xbar /= total
+    ybar /= total
+    xxbar /= total
+    xxbar -= xbar ** 2
+    yybar /= total
+    yybar -= ybar ** 2
+    xybar /= total
+    xybar -= xbar * ybar
+
+    working1 = (xxbar + yybar) / 2.0
+    working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
+
+    # Some problems arise with the sqrt of (working1-working2) when they are
+    # equal, this happens with islands that have a thickness of only one pixel
+    # in at least one dimension.  Due to rounding errors this difference
+    # becomes negative--->math domain error in sqrt.
+    if len(island_data.nonzero()[0]) == 1:
+        # This is the case when the island (or more likely subisland) has
+        # a size of only one pixel.
+        semiminor = numpy.sqrt(beamsize / numpy.pi)
+        semimajor = numpy.sqrt(beamsize / numpy.pi)
+    else:
+        semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+        semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+        # ratio will be 0 for data that hasn't been selected according to a
+        # threshold.
+        if ratio != 0:
+            # The corrections below for the semi-major and semi-minor axes are
+            # to compensate for the underestimate of these quantities
+            # due to the cutoff at the threshold.
+            semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+            semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        semimajor = math.sqrt(semimajor_tmp)
+        semiminor = math.sqrt(semiminor_tmp)
+        if semiminor == 0:
+            # A semi-minor axis exactly zero gives all kinds of problems.
+            # For instance wrt conversion to celestial coordinates.
+            # This is a quick fix.
+            semiminor = beamsize / (numpy.pi * semimajor)
+
+    if (numpy.isnan(xbar) or numpy.isnan(ybar) or
+            numpy.isnan(semimajor) or numpy.isnan(semiminor)):
+        raise ValueError("Unable to estimate Gauss shape")
+
+    # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
+    # page 45).
+    if abs(semimajor - semiminor) < 0.01:
+        # short circuit!
+        theta = 0.
+    else:
+        if xxbar!=yybar:
+            theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+        else:
+            theta = numpy.sign(xybar) * math.pi / 4.0
+
+        if theta * xybar > 0.:
+            if theta < 0.:
+                theta += math.pi / 2.0
+            else:
+                theta -= math.pi / 2.0
+
+    ## NB: a dict should give us a bit more flexibility about arguments;
+    ## however, all those here are ***REQUIRED***.
+    return numpy.array([peak, total, xbar, ybar, semimajor, semiminor, theta])
 
 
 def fitgaussian(pixels, params, fixed=None, maxfev=0):
