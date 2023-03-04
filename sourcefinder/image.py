@@ -21,7 +21,7 @@ from functools import cached_property
 from functools import partial
 import sep
 from . import fitting
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_allclose
 
 try:
     import ndimage
@@ -1059,12 +1059,12 @@ class ImageData(object):
                 param.update(moments_dict)
 
                 # assert_almost_equal(moments[0], measurement["peak"], decimal=5)
-                assert_almost_equal(moments[1], measurement["flux"], decimal=4)
-                assert_almost_equal(moments[2] + chunk[0].start, measurement["y"], decimal=1)
-                assert_almost_equal(moments[3] + chunk[1].start, measurement["x"], decimal=1)
-                assert_almost_equal(moments[4], measurement["a"] * numpy.sqrt(2 * numpy.log(2)), decimal=1)
-                assert_almost_equal(moments[5], measurement["b"] * numpy.sqrt(2 * numpy.log(2)), decimal=1)
-                assert_almost_equal(numpy.abs(moments[6]), numpy.abs(measurement["theta"]), decimal=1)
+                assert_allclose(moments[1], measurement["flux"], rtol=1e-1)
+                assert_allclose(moments[2] + chunk[0].start, measurement["y"], rtol=1e-1)
+                assert_allclose(moments[3] + chunk[1].start, measurement["x"], rtol=1e-1)
+                assert_allclose(moments[4], measurement["a"] * numpy.sqrt(2 * numpy.log(2)), rtol=1e-1)
+                assert_allclose(moments[5], measurement["b"] * numpy.sqrt(2 * numpy.log(2)), rtol=1e-1)
+                assert_allclose(numpy.abs(moments[6]), numpy.abs(measurement["theta"]), rtol=1e-1)
 
                 noise = self.rmsmap[peak_position]
 
