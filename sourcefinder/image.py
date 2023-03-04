@@ -1077,12 +1077,12 @@ class ImageData(object):
                 param.update(moments_dict)
 
                 # assert_almost_equal(moments[0], measurement["peak"], decimal=5)
-                assert_allclose(moments[1], measurement["flux"], rtol=1e-1)
-                assert_allclose(moments[2] + chunk[0].start, measurement["y"], rtol=1e-1)
-                assert_allclose(moments[3] + chunk[1].start, measurement["x"], rtol=1e-1)
-                assert_allclose(moments[4], measurement["a"] * numpy.sqrt(2 * numpy.log(2)), rtol=1e-1)
-                assert_allclose(moments[5], measurement["b"] * numpy.sqrt(2 * numpy.log(2)), rtol=1e-1)
-                assert_allclose(numpy.abs(moments[6]), numpy.abs(measurement["theta"]), rtol=1e-1)
+                assert_allclose(measurement["flux"], moments[1], rtol=1e-1)
+                assert_allclose(measurement["y"], moments[2] + chunk[0].start, rtol=1e-1)
+                assert_allclose(measurement["x"], moments[3] + chunk[1].start, rtol=1e-1)
+                assert_allclose(measurement["a"] * numpy.sqrt(2 * numpy.log(2)), moments[4], rtol=1e-1)
+                assert_allclose(measurement["b"] * numpy.sqrt(2 * numpy.log(2)), moments[5], rtol=1e-1)
+                assert_allclose(numpy.abs(measurement["theta"]), numpy.abs(moments[6]), rtol=1e-1)
 
                 noise = self.rmsmap[peak_position]
 
