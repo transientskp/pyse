@@ -1014,28 +1014,9 @@ class ImageData(object):
 
                 param = extract.ParamSet()
 
-                # In selected_data only the pixels with the "correct"
-                # (see above) labels are retained. Other pixel values are
-                # set to -(bignum).
-                # In this way, disconnected pixels within (rectangular)
-                # slices around islands (particularly the large ones) do
-                # not affect the source measurements.
-                selected_data = numpy.ma.where(
-                    labelled_data[chunk] == label,
-                    self.data_bgsubbed[chunk].data, -extract.BIGNUM
-                ).filled(fill_value=-extract.BIGNUM)
-
-                # param.update({"peak": measurement["peak"], "flux": measurement["flux"], "xbar": measurement["x"],
-                #               "ybar": measurement["y"], "semimajor": measurement["a"],
-                #               "semiminor": measurement["b"], "theta": measurement["theta"]})
-
                 peak_position = measurement["xpeak"], measurement["ypeak"]
                 param.sig = measurement["peak"] / self.rmsmap[peak_position]
                 threshold = analysisthresholdmap[peak_position]
-
-                mask = numpy.where(selected_data > -extract.BIGNUM / 10.0, 0, 1)
-                data = numpy.ma.array(selected_data, mask=mask)
-                moments_orig = fitting.moments(data, self.fudge_max_pix_factor, self.beamsize, threshold)
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
@@ -1045,26 +1026,10 @@ class ImageData(object):
                 moments = fitting.moments_accelererated(island_data, pos[0], pos[1],
                                                         self.fudge_max_pix_factor,
                                                         self.beamsize, threshold)
-                assert_almost_equal(moments[0], moments_orig["peak"])
-                assert_almost_equal(moments[1], moments_orig["flux"])
-                assert_almost_equal(moments[2], moments_orig["xbar"])
-                assert_almost_equal(moments[3], moments_orig["ybar"])
-                assert_almost_equal(moments[4], moments_orig["semimajor"])
-                assert_almost_equal(moments[5], moments_orig["semiminor"])
-                assert_almost_equal(moments[6], moments_orig["theta"])
-
                 moments_dict = {"peak": moments[0], "flux": moments[1], "xbar": moments[2], "ybar": moments[3],
                                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
 
                 param.update(moments_dict)
-
-                # assert_almost_equal(moments[0], measurement["peak"], decimal=5)
-                assert_allclose(measurement["flux"], moments[1], rtol=1e-1)
-                assert_allclose(measurement["y"], moments[2] + chunk[0].start, rtol=1e-1)
-                assert_allclose(measurement["x"], moments[3] + chunk[1].start, rtol=1e-1)
-                assert_allclose(measurement["a"] * numpy.sqrt(2 * numpy.log(2)), moments[4], rtol=1e-1)
-                assert_allclose(measurement["b"] * numpy.sqrt(2 * numpy.log(2)), moments[5], rtol=1e-1)
-                assert_allclose(numpy.abs(measurement["theta"]), numpy.abs(moments[6]), rtol=1e-1)
 
                 noise = self.rmsmap[peak_position]
 
