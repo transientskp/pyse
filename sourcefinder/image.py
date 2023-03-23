@@ -863,8 +863,7 @@ class ImageData(object):
             use_deblend_nthresh = deblend_nthresh
             use_deblend_cont = DEBLEND_MINCONT
 
-        combined_mask = numpy.logical_or(numpy.logical_or(self.rmsmap.data < RMS_FILTER *
-                                         self.background.globalrms, analysisthresholdmap.mask),
+        combined_mask = numpy.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
                                          self.data.mask)
 
         measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0,
