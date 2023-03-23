@@ -1027,7 +1027,9 @@ class ImageData(object):
                 moments = fitting.moments_accelererated(island_data, pos[0], pos[1],
                                                         self.fudge_max_pix_factor,
                                                         self.beamsize, threshold)
-                moments_dict = {"peak": moments[0], "flux": moments[1], "xbar": moments[2], "ybar": moments[3],
+                moments_dict = {"peak": moments[0], "flux": moments[1],
+                                "xbar": moments[2] + chunk[0].start,
+                                "ybar": moments[3] + chunk[1].start,
                                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
 
                 param.update(moments_dict)
