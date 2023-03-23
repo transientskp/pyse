@@ -1040,11 +1040,13 @@ class ImageData(object):
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
-                moments = fitting.moments_accelererated(island_data, pos[0], pos[1],
-                                                        self.fudge_max_pix_factor,
-                                                        self.beamsize, threshold)
-                moments_dict = {"peak": moments[0], "flux": moments[1], "xbar": moments[2], "ybar": moments[3],
-                                "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+                # moments = fitting.moments_accelererated(island_data, pos[0], pos[1],
+                #                                         self.fudge_max_pix_factor,
+                #                                         self.beamsize, threshold)
+                # moments_dict = {"peak": moments[0], "flux": moments[1], "xbar": moments[2], "ybar": moments[3],
+                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+                moments_dict = {"peak": 1, "flux": 1, "xbar": 1, "ybar": 1,
+                                "semimajor": 1, "semiminor": 1, "theta": 1}
 
                 param.update(moments_dict)
 
