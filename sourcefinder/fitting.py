@@ -123,7 +123,9 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 @njit
-def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsize, threshold=0):
+def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
+                          beamsize, threshold=0, clean_bias_error=0,
+                          frac_flux_cal_error=0):
     """Calculate source properties using moments. Accelerated using JIT compilation.
     Also, a positional 1D index local to the island is used such that only pixels
     above the analysis threshold are addressed.
@@ -146,10 +148,16 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsiz
 
         beamsize(float): The FWHM size of the clean beam
 
-        threshold(float): source parameters like the semimajor and semiminor axes
-                          derived from moments can be underestimated if one does not take
-                          account of the threshold that was used to segment the source islands.
+        threshold(float): source parameters like the semimajor and semiminor
+                          axes derived from moments can be underestimated if
+                          one does not take account of the threshold that
+                          was used to segment the source islands.
 
+        clean_bias_error: Extra source of error copied from the
+                          Condon (PASP 109, 166 (1997)) formulae
+
+        frac_flux_cal_error_error: Extra source of error copied from the
+                          Condon (PASP 109, 166 (1997)) formulae
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
             axis, semiminor axis, theta
@@ -168,7 +176,7 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsiz
     else:
         peak = island_data.min()
     ratio = threshold / peak
-    total = island_data.sum()
+    flux = island_data.sum()
     xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
 
     for index in range(island_data.size):
@@ -180,13 +188,13 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsiz
         yybar += j * j * island_data[index]
         xybar += i * j * island_data[index]
 
-    xbar /= total
-    ybar /= total
-    xxbar /= total
+    xbar /= flux
+    ybar /= flux
+    xxbar /= flux
     xxbar -= xbar ** 2
-    yybar /= total
+    yybar /= flux
     yybar -= ybar ** 2
-    xybar /= total
+    xybar /= flux
     xybar -= xbar * ybar
 
     working1 = (xxbar + yybar) / 2.0
@@ -241,9 +249,89 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor, beamsiz
             else:
                 theta -= math.pi / 2.0
 
-    ## NB: a dict should give us a bit more flexibility about arguments;
-    ## however, all those here are ***REQUIRED***.
-    return numpy.array([peak, total, xbar, ybar, semimajor, semiminor, theta])
+    """Provide reasonable error estimates from the moments"""
+
+    # The formulae below should give some reasonable estimate of the
+    # errors from moments, should always be higher than the errors from
+    # Gauss fitting.
+
+    # This analysis is only possible if the peak flux is >= 0. This
+    # follows from the definition of eq. 2.81 in Spreeuw's thesis. In that
+    # situation, we set all errors to be infinite
+    if peak < 0:
+        errorpeak = float('inf')
+        errorflux = float('inf')
+        errorsmaj = float('inf')
+        errorsmin = float('inf')
+        errortheta= float('inf')
+
+    clean_bias_error = self.clean_bias_error
+    frac_flux_cal_error = self.frac_flux_cal_error
+    theta_B, theta_b = correlation_lengths
+
+    # This is eq. 2.81 from Spreeuw's thesis.
+    rho_sq = ((16. * smaj * smin /
+               (numpy.log(2.) * theta_B * theta_b * noise ** 2))
+              * ((peak - threshold) /
+                 (numpy.log(peak) - numpy.log(threshold))) ** 2)
+
+    rho = numpy.sqrt(rho_sq)
+    denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+
+    # Again, like above for the Condon formulae, we set the
+    # positional variances to twice the theoretical values.
+    error_par_major = 2. * smaj / denom
+    error_par_minor = 2. * smin / denom
+
+    # When these errors are converted to RA and Dec,
+    # calibration uncertainties will have to be added,
+    # like in formulae 27 of the NVSS paper.
+    errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
+                        + (error_par_minor * numpy.cos(theta)) ** 2)
+    errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
+                        + (error_par_minor * numpy.sin(theta)) ** 2)
+
+    # Note that we report errors in HWHM axes instead of FWHM axes
+    # so the errors are half the errors of formula 29 of the NVSS paper.
+    errorsmaj = numpy.sqrt(2) * smaj / rho
+    errorsmin = numpy.sqrt(2) * smin / rho
+
+    if smaj > smin:
+        errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
+    else:
+        errortheta = numpy.pi
+    if errortheta > numpy.pi:
+        errortheta = numpy.pi
+
+    # The peak from "moments" is just the value of the maximum pixel
+    # times a correction, fudge_max_pix, for the fact that the
+    # centre of the Gaussian is not at the centre of the pixel.
+    # This correction is performed in fitting.py. The maximum pixel
+    # method introduces a peak dependent error corresponding to the last
+    # term in the expression below for errorpeaksq.
+    # To this, we add, in quadrature, the errors corresponding
+    # to the first and last term of the rhs of equation 37 of the
+    # NVSS paper. The middle term in that equation 37 is heuristically
+    # replaced by noise**2 since the threshold should not affect
+    # the error from the (corrected) maximum pixel method,
+    # while it is part of the expression for rho_sq above.
+    # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+    #                clean_bias_error ** 2 + noise ** 2 +
+    #                utils.maximum_pixel_method_variance(
+    #                    beam[0], beam[1], beam[2]) * peak ** 2)
+    errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+                   clean_bias_error ** 2 + noise ** 2 +
+                   max_pix_variance_factor * peak ** 2)
+    errorpeak = numpy.sqrt(errorpeaksq)
+
+    help1 = (errorsmaj / smaj) ** 2
+    help2 = (errorsmin / smin) ** 2
+    help3 = theta_B * theta_b / (4. * smaj * smin)
+    errorflux = flux * numpy.sqrt(
+        errorpeaksq / peak ** 2 + help3 * (help1 + help2))
+
+    return numpy.array([[peak, total, xbar, ybar, semimajor, semiminor, theta],
+                         [errorpeak, errorflux, errorx, errory, errorsmaj, errorsmin, errortheta]])
 
 
 def fitgaussian(pixels, params, fixed=None, maxfev=0):
