@@ -22,7 +22,7 @@ from multiprocessing import Pool
 from functools import partial
 import sep
 from . import fitting
-from numpy.testing import assert_almost_equal, assert_allclose
+from sourcefinder.utility.uncertain import Uncertain
 
 try:
     import ndimage
@@ -1042,18 +1042,30 @@ class ImageData(object):
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
-                moments = fitting.moments_accelererated(island_data, pos[0], pos[1],
-                                                        self.fudge_max_pix_factor,
-                                                        self.beamsize, threshold)
-                moments_dict = {"peak": moments[0], "flux": moments[1],
-                                "xbar": moments[2] + chunk[0].start,
-                                "ybar": moments[3] + chunk[1].start,
-                                "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+                moments = fitting.moments_enhanced(island_data, pos[0], pos[1],
+                                                   threshold, local_noise,
+                                                   self.fudge_max_pix_factor,
+                                                   self.max_pix_variance_factor,
+                                                   self.beamsize,
+                                                   self.correlation_lengths)
 
-                param.update(moments_dict)
+                param["peak"] = Uncertain(moments[0,0], moments[1,0])
+                param["flux"] = Uncertain(moments[0,1], moments[1,1])
+                param["xbar"] = Uncertain(moments[0,2] + chunk[0].start, moments[1,2])
+                param["ybar"] = Uncertain(moments[0,3] + chunk[1].start, moments[1,3])
+                param["semimajor"] = Uncertain(moments[0,4], moments[1,4])
+                param["semiminor"] = Uncertain(moments[0,5], moments[1,5])
+                param["theta"] = Uncertain(moments[0,6], moments[1,6])
 
-                param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
-                                               threshold)
+                # moments_dict = {"peak": moments[0], "flux": moments[1],
+                #                 "xbar": moments[2] + chunk[0].start,
+                #                 "ybar": moments[3] + chunk[1].start,
+                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+
+                # param.update(moments_dict)
+
+                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
+                #                                threshold)
                 param.deconvolve_from_clean_beam(self.beam)
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)

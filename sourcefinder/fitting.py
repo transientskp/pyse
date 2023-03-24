@@ -123,12 +123,14 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 @njit
-def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
-                          beamsize, threshold=0, clean_bias_error=0,
-                          frac_flux_cal_error=0):
-    """Calculate source properties using moments. Accelerated using JIT compilation.
-    Also, a positional 1D index local to the island is used such that only pixels
-    above the analysis threshold are addressed.
+def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
+                     threshold, noise,
+                     max_pix_variance_factor, beamsize, correlation_lengths,
+                     clean_bias_error=0, frac_flux_cal_error=0):
+    """Calculate source properties using moments. Accelerated using JIT
+    compilation.
+    Also, a positional 1D index local to the island is used such that only
+    pixels above the analysis threshold are addressed.
 
     Args:
 
@@ -143,20 +145,40 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
         posy: Column indices of the pixels in island_data as taken from the actual
               2D images data (rectangular slice)
 
-        fudge_max_pix_factor(float): Correct for the underestimation of the peak
-                                     by taking the maximum pixel value.
-
-        beamsize(float): The FWHM size of the clean beam
-
         threshold(float): source parameters like the semimajor and semiminor
                           axes derived from moments can be underestimated if
                           one does not take account of the threshold that
                           was used to segment the source islands.
 
+        noise(float): local noise, i.e. the standard deviation of the
+                      background pixel values, at the position of the
+                      peak pixel value of the island.
+
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        max_pix_variance_factor (float): Take account of additional variance
+                                        induced by the maximum pixel method,
+                                        on top of the background noise.
+
+        beamsize(float): The FWHM size of the clean beam
+
+        correlation_lengths(tuple): Tuple of two floats describing the distance
+                                    along the semi-major and semi-minor axes of
+                                    the clean beam beyond which noise is assumed
+                                    uncorrelated. Some background: Aperture
+                                    synthesis imaging yields noise that is
+                                    partially correlated over the entire image.
+                                    This has a considerable effect on error
+                                    estimates. We approximate this by
+                                    considering all noise within the
+                                    correlation length completely correlated
+                                    and beyond that completely uncorrelated.
+
         clean_bias_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
 
-        frac_flux_cal_error_error: Extra source of error copied from the
+        frac_flux_cal_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
@@ -207,34 +229,34 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
     if len(island_data.nonzero()[0]) == 1:
         # This is the case when the island (or more likely subisland) has
         # a size of only one pixel.
-        semiminor = numpy.sqrt(beamsize / numpy.pi)
-        semimajor = numpy.sqrt(beamsize / numpy.pi)
+        smin = numpy.sqrt(beamsize / numpy.pi)
+        smaj = numpy.sqrt(beamsize / numpy.pi)
     else:
-        semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
-        semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+        smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+        smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
         # ratio will be 0 for data that hasn't been selected according to a
         # threshold.
         if ratio != 0:
             # The corrections below for the semi-major and semi-minor axes are
             # to compensate for the underestimate of these quantities
             # due to the cutoff at the threshold.
-            semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-            semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-        semimajor = math.sqrt(semimajor_tmp)
-        semiminor = math.sqrt(semiminor_tmp)
-        if semiminor == 0:
+            smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+            smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        smaj = math.sqrt(smaj_tmp)
+        smin = math.sqrt(smin_tmp)
+        if smin == 0:
             # A semi-minor axis exactly zero gives all kinds of problems.
             # For instance wrt conversion to celestial coordinates.
             # This is a quick fix.
-            semiminor = beamsize / (numpy.pi * semimajor)
+            smin = beamsize / (numpy.pi * smaj)
 
     if (numpy.isnan(xbar) or numpy.isnan(ybar) or
-            numpy.isnan(semimajor) or numpy.isnan(semiminor)):
+            numpy.isnan(smaj) or numpy.isnan(smin)):
         raise ValueError("Unable to estimate Gauss shape")
 
     # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
     # page 45).
-    if abs(semimajor - semiminor) < 0.01:
+    if abs(smaj - smin) < 0.01:
         # short circuit!
         theta = 0.
     else:
@@ -259,14 +281,17 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
     # follows from the definition of eq. 2.81 in Spreeuw's thesis. In that
     # situation, we set all errors to be infinite
     if peak < 0:
-        errorpeak = float('inf')
-        errorflux = float('inf')
-        errorsmaj = float('inf')
-        errorsmin = float('inf')
-        errortheta= float('inf')
+        errorpeak = numpy.inf
+        errorflux = numpy.inf
+        errorx = numpy.inf
+        errory = numpy.inf
+        errorsmaj = numpy.inf
+        errorsmin = numpy.inf
+        errortheta= numpy.inf
+        return numpy.array([[peak, flux, xbar, ybar, smaj, smin,
+                             theta], [errorpeak, errorflux, errorx, errory, 
+                                      errorsmaj, errorsmin, errortheta]])
 
-    clean_bias_error = self.clean_bias_error
-    frac_flux_cal_error = self.frac_flux_cal_error
     theta_B, theta_b = correlation_lengths
 
     # This is eq. 2.81 from Spreeuw's thesis.
@@ -330,8 +355,9 @@ def moments_accelererated(island_data, posx, posy, fudge_max_pix_factor,
     errorflux = flux * numpy.sqrt(
         errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
-    return numpy.array([[peak, total, xbar, ybar, semimajor, semiminor, theta],
-                         [errorpeak, errorflux, errorx, errory, errorsmaj, errorsmin, errortheta]])
+    return numpy.array([[peak, flux, xbar, ybar, smaj, smin, theta],
+                         [errorpeak, errorflux, errorx, errory, errorsmaj, 
+                          errorsmin, errortheta]])
 
 
 def fitgaussian(pixels, params, fixed=None, maxfev=0):
