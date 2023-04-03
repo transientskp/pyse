@@ -10,7 +10,43 @@ import scipy.optimize
 from . import utils
 from .gaussian import gaussian
 from .stats import indep_pixels
+from sourcefinder.deconv import deconv
 from numba import njit
+from numba.extending import overload, register_jitable
+from numba.core import types
+
+def get_isnan(dtype):
+    """
+    A generic isnan() function
+    """
+    if isinstance(dtype, (types.Float, types.Complex)):
+        return np.isnan
+    else:
+        @register_jitable
+        def _trivial_isnan(x):
+            return False
+        return _trivial_isnan
+
+@overload(numpy.nansum)
+def np_nansum(a):
+    if not isinstance(a, types.Array):
+        return
+    if isinstance(a.dtype, types.Integer):
+        retty = types.intp
+    else:
+        retty = a.dtype
+    zero = retty(0)
+    isnan = get_isnan(a.dtype)
+
+    def nansum_impl(a):
+        c = zero
+        for view in numpy.nditer(a):
+            v = view.item()
+            if not isnan(v):
+                c += v
+        return c
+
+    return nansum_impl
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -125,7 +161,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 @njit
 def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
                      threshold, noise,
-                     max_pix_variance_factor, beamsize, correlation_lengths,
+                     max_pix_variance_factor, beam, beamsize,
+                     correlation_lengths,
                      clean_bias_error=0, frac_flux_cal_error=0):
     """Calculate source properties using moments. Accelerated using JIT
     compilation.
@@ -160,6 +197,8 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
         max_pix_variance_factor (float): Take account of additional variance
                                         induced by the maximum pixel method,
                                         on top of the background noise.
+
+        beam(tuple): tuple of (semimaj, semimin, theta)
 
         beamsize(float): The FWHM size of the clean beam
 
@@ -355,9 +394,123 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
     errorflux = flux * numpy.sqrt(
         errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
-    return numpy.array([[peak, flux, xbar, ybar, smaj, smin, theta],
-                         [errorpeak, errorflux, errorx, errory, errorsmaj, 
-                          errorsmin, errortheta]])
+    """Deconvolve from the clean beam"""
+
+    # If the fitted axes are smaller than the clean beam
+    # (=restoring beam) axes, the axes and position angle
+    # can be deconvolved from it.
+    fmaj = 2. * smaj
+    fmajerror = 2. * errorsmaj
+    fmin = 2. * smin
+    fminerror = 2. * errorsmin
+    fpa = numpy.degrees(theta)
+    fpaerror = numpy.degrees(errortheta)
+    cmaj = 2. * beam[0]
+    cmin = 2. * beam[1]
+    cpa = numpy.degrees(beam[2])
+
+    rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
+    # This parameter gives the number of components that could not be
+    # deconvolved, IERR from deconf.f.
+    deconv_imposs = ierr
+    # Now, figure out the error bars.
+    if rmaj > 0:
+        # In this case the deconvolved position angle is defined.
+        # For convenience we reset rpa to the interval [-90, 90].
+        if rpa > 90:
+            rpa = -numpy.mod(-rpa, 180.)
+        theta_deconv = rpa
+
+        # In the general case, where the restoring beam is elliptic,
+        # calculating the error bars of the deconvolved position angle
+        # is more complicated than in the NVSS case, where a circular
+        # restoring beam was used.
+        # In the NVSS case the error bars of the deconvolved angle are
+        # equal to the fitted angle.
+        rmaj1, rmin1, rpa1, ierr1 = deconv(
+            fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
+        if ierr1 < 2:
+            if rpa1 > 90:
+                rpa1 = -numpy.mod(-rpa1, 180.)
+            rpaerror1 = numpy.abs(rpa1 - rpa)
+            # An angle error can never be more than 90 degrees.
+            if rpaerror1 > 90.:
+                rpaerror1 = numpy.mod(-rpaerror1, 180.)
+        else:
+            rpaerror1 = numpy.nan
+        rmaj2, rmin2, rpa2, ierr2 = deconv(
+            fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
+        if ierr2 < 2:
+            if rpa2 > 90:
+                rpa2 = -numpy.mod(-rpa2, 180.)
+            rpaerror2 = numpy.abs(rpa2 - rpa)
+            # An angle error can never be more than 90 degrees.
+            if rpaerror2 > 90.:
+                rpaerror2 = numpy.mod(-rpaerror2, 180.)
+        else:
+            rpaerror2 = numpy.nan
+        if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
+            theta_deconv_error = numpy.nansum(
+                [rpaerror1, rpaerror2])
+        else:
+            theta_deconv_error = numpy.mean(
+                [rpaerror1, rpaerror2])
+        semimaj_deconv = rmaj / 2.
+        rmaj3, rmin3, rpa3, ierr3 = deconv(
+            fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
+        # If rmaj>0, then rmaj3 should also be > 0,
+        # if I am not mistaken, see the formulas at
+        # the end of ch.2 of Spreeuw's Ph.D. thesis.
+        if fmaj - fmajerror > fmin:
+            rmaj4, rmin4, rpa4, ierr4 = deconv(
+                fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
+            if rmaj4 > 0:
+                semimaj_deconv_error = numpy.mean(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+            else:
+                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+        else:
+            rmin4, rmaj4, rpa4, ierr4 = deconv(
+                fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
+            if rmaj4 > 0:
+                semimaj_deconv_error = numpy.mean(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+            else:
+                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+        if rmin > 0:
+            semimin_deconv = rmin / 2.
+            if fmin + fminerror < fmaj:
+                rmaj5, rmin5, rpa5, ierr5 = deconv(
+                    fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa)
+            else:
+                rmin5, rmaj5, rpa5, ierr5 = deconv(
+                    fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa)
+            # If rmin > 0, then rmin5 should also be > 0,
+            # if I am not mistaken, see the formulas at
+            # the end of ch.2 of Spreeuw's Ph.D. thesis.
+            rmaj6, rmin6, rpa6, ierr6 = deconv(
+                fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
+            if rmin6 > 0:
+                semimin_deconv_error = numpy.mean(
+                    [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)])
+            else:
+                semimin_deconv_error = numpy.abs(rmin5 - rmin)
+        else:
+            semimin_deconv = numpy.nan
+            semimin_deconv_error = numpy.nan
+    else:
+        semimaj_deconv = numpy.nan
+        semimaj_deconv_error = numpy.nan
+        semimin_deconv = numpy.nan
+        semimin_deconv_error = numpy.nan
+        theta_deconv = numpy.nan,
+        theta_deconv_error= numpy.nan
+
+    return numpy.array([[peak, flux, xbar, ybar, smaj, smin, theta,
+                         semimaj_deconv, semimin_deconv, theta_deconv],
+                        [errorpeak, errorflux, errorx, errory, errorsmaj,
+                         errorsmin, errortheta, semimaj_deconv_error,
+                         semimin_deconv_error, theta_deconv_error]])
 
 
 def fitgaussian(pixels, params, fixed=None, maxfev=0):
