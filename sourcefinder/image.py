@@ -1046,6 +1046,7 @@ class ImageData(object):
                                                    threshold, local_noise,
                                                    self.fudge_max_pix_factor,
                                                    self.max_pix_variance_factor,
+                                                   self.beam,
                                                    self.beamsize,
                                                    self.correlation_lengths)
 
@@ -1056,6 +1057,9 @@ class ImageData(object):
                 param["semimajor"] = Uncertain(moments[0,4], moments[1,4])
                 param["semiminor"] = Uncertain(moments[0,5], moments[1,5])
                 param["theta"] = Uncertain(moments[0,6], moments[1,6])
+                param["semimaj_deconv"] = Uncertain(moments[0,7], moments[1,7])
+                param["semimin_deconv"] = Uncertain(moments[0,8], moments[1,8])
+                param["theta_deconv"] = Uncertain(moments[0,9], moments[1,9])
 
                 # moments_dict = {"peak": moments[0], "flux": moments[1],
                 #                 "xbar": moments[2] + chunk[0].start,
@@ -1066,7 +1070,7 @@ class ImageData(object):
 
                 # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
                 #                                threshold)
-                param.deconvolve_from_clean_beam(self.beam)
+                # param.deconvolve_from_clean_beam(self.beam)
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
