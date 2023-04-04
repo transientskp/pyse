@@ -15,38 +15,6 @@ from numba import njit
 from numba.extending import overload, register_jitable
 from numba.core import types
 
-def get_isnan(dtype):
-    """
-    A generic isnan() function
-    """
-    if isinstance(dtype, (types.Float, types.Complex)):
-        return np.isnan
-    else:
-        @register_jitable
-        def _trivial_isnan(x):
-            return False
-        return _trivial_isnan
-
-@overload(numpy.nansum)
-def np_nansum(a):
-    if not isinstance(a, types.Array):
-        return
-    if isinstance(a.dtype, types.Integer):
-        retty = types.intp
-    else:
-        retty = a.dtype
-    zero = retty(0)
-    isnan = get_isnan(a.dtype)
-
-    def nansum_impl(a):
-        c = zero
-        for view in numpy.nditer(a):
-            v = view.item()
-            if not isnan(v):
-                c += v
-        return c
-
-    return nansum_impl
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -157,6 +125,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         "semiminor": semiminor,
         "theta": theta
     }
+
 
 @njit
 def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
@@ -451,10 +420,10 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
             rpaerror2 = numpy.nan
         if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
             theta_deconv_error = numpy.nansum(
-                [rpaerror1, rpaerror2])
+                numpy.array([rpaerror1, rpaerror2]))
         else:
             theta_deconv_error = numpy.mean(
-                [rpaerror1, rpaerror2])
+                numpy.array([rpaerror1, rpaerror2]))
         semimaj_deconv = rmaj / 2.
         rmaj3, rmin3, rpa3, ierr3 = deconv(
             fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
@@ -465,16 +434,16 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
             rmaj4, rmin4, rpa4, ierr4 = deconv(
                 fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
             if rmaj4 > 0:
-                semimaj_deconv_error = numpy.mean(
-                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+                semimaj_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
             else:
                 semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
         else:
             rmin4, rmaj4, rpa4, ierr4 = deconv(
                 fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
             if rmaj4 > 0:
-                semimaj_deconv_error = numpy.mean(
-                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+                semimaj_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
             else:
                 semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
         if rmin > 0:
@@ -491,8 +460,8 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
             rmaj6, rmin6, rpa6, ierr6 = deconv(
                 fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
             if rmin6 > 0:
-                semimin_deconv_error = numpy.mean(
-                    [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)])
+                semimin_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)]))
             else:
                 semimin_deconv_error = numpy.abs(rmin5 - rmin)
         else:
@@ -503,7 +472,7 @@ def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
         semimaj_deconv_error = numpy.nan
         semimin_deconv = numpy.nan
         semimin_deconv_error = numpy.nan
-        theta_deconv = numpy.nan,
+        theta_deconv = numpy.nan
         theta_deconv_error= numpy.nan
 
     return numpy.array([[peak, flux, xbar, ybar, smaj, smin, theta,
