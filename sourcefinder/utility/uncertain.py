@@ -111,7 +111,9 @@ class Uncertain(object):
 
     def __cmp__(self, compare):
         try:
-            return cmp(self.value, compare.value)
+            return cmp(self.value, compare.value) # noqa: F821 
+            # Comment above needed since flake8 erroreously reports F821 
+            # undefined name 'cmp'
         except AttributeError:
             return cmp(self.value, compare)
 
