@@ -33,12 +33,12 @@ class L15_12hConstObs(unittest.TestCase):
     # Single, constant 1 Jy source at centre of image.
     @requires_data(observed_fits)
     def setUp(self):
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(observed_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(0.2299,
+                                                                    0.1597,
+                                                                    -23.87))
         self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
         self.results = self.image.extract(det=10, anl=3.0)
 
