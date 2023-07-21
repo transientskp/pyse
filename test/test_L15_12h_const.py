@@ -60,12 +60,12 @@ class L15_12hConstObs(unittest.TestCase):
 class L15_12hConstCor(unittest.TestCase):
     # Cross shape of 5 sources, 2 degrees apart, at centre of image.
     def setUp(self):
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(0.2299,
+                                                                    0.1597,
+                                                                    -23.87))
         self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
         self.results = self.image.extract(det=10.0, anl=3.0)
 
