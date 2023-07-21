@@ -59,7 +59,7 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # grid when the (absolute) difference between the raw
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
-STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
+STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 
 
 class ImageData(object):
@@ -942,7 +942,8 @@ class ImageData(object):
         results = containers.ExtractionResults()
 
         # Set up the fixed fit parameters if 'force beam' is on:
-        if force_beam:
+        # if force_beam:
+        if True:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
