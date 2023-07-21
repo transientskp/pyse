@@ -976,10 +976,10 @@ class ImageData(object):
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
             with Pool(psutil.cpu_count()) as p:
-                fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
+                fit_islands_partial = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
                                             self. max_pix_variance_factor, self.beamsize,
                                             self.correlation_lengths, fixed)
-                fit_results = p.map(fit_islands_fixed, island_list)
+                fit_results = p.map(fit_islands_partial, island_list)
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
