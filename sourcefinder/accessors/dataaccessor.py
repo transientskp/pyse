@@ -146,13 +146,13 @@ class DataAccessor(object, metaclass=RequiredAttributesMetaclass):
           - semimin: Beam semi-minor axis in pixels
           - theta:   Beam position angle in radians
         """
+        theta = pi * bpa / 180
         semimaj = (bmaj / 2.) * (sqrt(
-            (sin(pi * bpa / 180.) ** 2) / (deltax ** 2) +
-            (cos(pi * bpa / 180.) ** 2) / (deltay ** 2))
+            (sin(theta) ** 2) / (deltax ** 2) +
+            (cos(theta) ** 2) / (deltay ** 2))
         )
         semimin = (bmin / 2.) * (sqrt(
-            (cos(pi * bpa / 180.) ** 2) / (deltax ** 2) +
-            (sin(pi * bpa / 180.) ** 2) / (deltay ** 2))
+            (cos(theta) ** 2) / (deltax ** 2) +
+            (sin(theta) ** 2) / (deltay ** 2))
         )
-        theta = pi * bpa / 180
         return (semimaj, semimin, theta)
