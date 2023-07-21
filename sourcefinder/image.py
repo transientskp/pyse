@@ -970,9 +970,13 @@ class ImageData(object):
                 deblended_list = [x.deblend() for x in island_list]
                 island_list = list(utils.flatten(deblended_list))
 
-            fixed = {'semimajor': self.beam[0],
-                     'semiminor': self.beam[1],
-                     'theta': self.beam[2]}
+            if force_beam:
+                fixed = {'semimajor': self.beam[0],
+                         'semiminor': self.beam[1],
+                         'theta': self.beam[2]}
+            else:
+                fixed = None
+
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
             with Pool(psutil.cpu_count()) as p:
