@@ -942,8 +942,7 @@ class ImageData(object):
         results = containers.ExtractionResults()
 
         # Set up the fixed fit parameters if 'force beam' is on:
-        # if force_beam:
-        if True:
+        if force_beam:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -988,12 +987,9 @@ class ImageData(object):
                 deblended_list = [x.deblend() for x in island_list]
                 island_list = list(utils.flatten(deblended_list))
 
-            if force_beam:
-                fixed = {'semimajor': self.beam[0],
-                         'semiminor': self.beam[1],
-                         'theta': self.beam[2]}
-            else:
-                fixed = None
+            fixed = {'semimajor': self.beam[0],
+                     'semiminor': self.beam[1],
+                     'theta': self.beam[2]}
 
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
