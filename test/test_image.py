@@ -369,7 +369,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             for idx, _ in enumerate(fits_src):
                 self.assertAlmostEqual(fits_src[idx], casa_src[idx], places=4)
         else:
-            # It turns out that when using moments only, the derived semi-major
+            # It turns out that when using moments, the derived semi-major
             # axis is only about half the value derived from a Gaussian fit
             # and the discrepancy between the semi-major axes from the two
             # images turns out to be slightly higher, for unknown reasons.
