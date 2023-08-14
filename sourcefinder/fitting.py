@@ -128,8 +128,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
 
 @njit
-def moments_enhanced(island_data, posx, posy, fudge_max_pix_factor,
-                     threshold, noise,
+def moments_enhanced(island_data, posx, posy,
+                     threshold, noise, fudge_max_pix_factor,
                      max_pix_variance_factor, beam, beamsize,
                      correlation_lengths,
                      clean_bias_error=0, frac_flux_cal_error=0):
