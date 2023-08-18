@@ -84,8 +84,8 @@ class L15_12hConstCor(unittest.TestCase):
         # But they don't, because the simulation is broken, so this test
         # checks they fall in a vaguely plausible range.
         for mysource in self.results:
-            self.assert_(mysource.peak.value > 0.35)
-            self.assert_(mysource.peak.value < 0.60)
+            self.assertTrue(mysource.peak.value > 0.35)
+            self.assertTrue(mysource.peak.value < 0.60)
 
     @requires_data(corrected_fits)
     def testSeparation(self):
