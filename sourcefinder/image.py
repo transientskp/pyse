@@ -1077,16 +1077,11 @@ class ImageData(object):
                 peak_position = measurement["xpeak"], measurement["ypeak"]
                 # threshold = measurement["thresh"]
                 thresholds[count] = analysisthresholdmap[peak_position]
-                # print(threshold)
-                if thresholds[count]==0:
-                    print("Threshold is zero!")
 
                 local_noise_levels[count] = self.rmsmap[peak_position]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
-                if len(pos[0])!=measurement["npix"]:
-                    print(f"difference, len(pos[0])={len(pos[0])}, measurement['npix'] = {measurement['npix']}")
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
