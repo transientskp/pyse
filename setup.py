@@ -9,6 +9,8 @@ install_requires = """
     python-casacore
     python-dateutil
     six
+    sep
+    numba
     """.split()
 
 

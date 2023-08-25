@@ -16,17 +16,20 @@ from sourcefinder.utility.memoize import Memoize
 
 import time
 import dask.array as da
-import dask.bag as db
 from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import partial
+import sep
+from . import fitting
+from sourcefinder.utility.uncertain import Uncertain
 
 try:
     import ndimage
 except ImportError:
     from scipy import ndimage
-    
+
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
@@ -56,7 +59,8 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # grid when the (absolute) difference between the raw
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
-STRUCTURING_ELEMENT = [[0, 1, 0], [1, 1, 1], [0, 1, 0]]  # Island connectiivty
+STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
+
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -82,8 +86,8 @@ class ImageData(object):
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
-        # mean time
-        self.rawdata = data  # a 2D numpy array
+        # meantime
+        self.rawdata = numpy.ascontiguousarray(data)  # a 2D numpy array, C-contiguous needed for sep.
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
         # These three quantities are only dependent on the beam, so should be calculated
@@ -126,31 +130,44 @@ class ImageData(object):
     grids = property(fget=_grids, fdel=_grids.delete)
 
     @Memoize
+    @timeit
+    def _background(self):
+        """"Returns background object from sep"""
+        return sep.Background(self.data.data, mask = self.data.mask,
+                              bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
+
+    background = property(fget=_background, fdel=_background.delete)
+
+    @Memoize
+    @timeit
     def _backmap(self):
         """Background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'])
+            # return self._interpolate(self.grids['bg'])
+            return numpy.ma.array(self.background.back(), mask=self.data.mask)
         else:
             return self._user_backmap
 
     def _set_backmap(self, bgmap):
         self._user_backmap = bgmap
-        del (self.backmap)
-        del (self.data_bgsubbed)
+        del self.backmap
+        del self.data_bgsubbed
 
     backmap = property(fget=_backmap, fdel=_backmap.delete, fset=_set_backmap)
 
     @Memoize
+    @timeit
     def _get_rm(self):
         """RMS map"""
         if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'], roundup=True)
+            # return self._interpolate(self.grids['rms'], roundup=True)
+            return numpy.ma.array(self.background.rms(), mask=self.data.mask)
         else:
             return self._user_noisemap
 
     def _set_rm(self, noisemap):
         self._user_noisemap = noisemap
-        del (self.rmsmap)
+        del self.rmsmap
 
     rmsmap = property(fget=_get_rm, fdel=_get_rm.delete, fset=_set_rm)
 
@@ -215,15 +232,15 @@ class ImageData(object):
         """
         self.labels.clear()
         self.clip.clear()
-        del (self.backmap)
-        del (self.rmsmap)
-        del (self.data)
-        del (self.data_bgsubbed)
-        del (self.grids)
+        del self.backmap
+        del self.rmsmap
+        del self.data
+        del self.data_bgsubbed
+        del self.grids
         if hasattr(self, 'residuals_from_gauss_fitting'):
-            del (self.residuals_from_gauss_fitting)
+            del self.residuals_from_gauss_fitting
         if hasattr(self, 'residuals_from_deblending'):
-            del (self.residuals_from_deblending)
+            del self.residuals_from_deblending
 
     ###########################################################################
     #                                                                         #
@@ -479,7 +496,7 @@ class ImageData(object):
                 self.backmap = bgmap
 
         if (type(noisemap).__name__ == 'ndarray' or
-                    type(noisemap).__name__ == 'MaskedArray'):
+                                       type(noisemap).__name__ == 'MaskedArray'):
             if noisemap.shape != self.rmsmap.shape:
                 raise IndexError("Noisemap has wrong shape")
             if noisemap.min() < 0:
@@ -636,8 +653,8 @@ class ImageData(object):
 
         if ((
                     # Recent NumPy
-                        hasattr(numpy.ma.core, "MaskedConstant") and
-                        isinstance(self.rmsmap, numpy.ma.core.MaskedConstant)
+                    hasattr(numpy.ma.core, "MaskedConstant") and
+                    isinstance(self.rmsmap, numpy.ma.core.MaskedConstant)
             ) or (
                 # Old NumPy
                 numpy.ma.is_masked(self.rmsmap[int(x), int(y)])
@@ -687,7 +704,7 @@ class ImageData(object):
                      'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
-        elif fixed == None:
+        elif fixed is None:
             fixed = {}
         else:
             raise TypeError("Unkown fixed parameter")
@@ -793,7 +810,7 @@ class ImageData(object):
         return successful_fits
 
     @timeit
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap, deblend_nthresh):
         """
         Return a lablled array of pixels for fitting.
 
@@ -802,6 +819,8 @@ class ImageData(object):
             detectionthresholdmap (numpy.ndarray):
 
             analysisthresholdmap (numpy.ndarray):
+
+            deblend_nthresh: number of thresholds for deblending (integer)
 
         Returns:
 
@@ -829,51 +848,53 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * numpy.ma.median(self.grids["rms"]))),
-            1, 0
-        ).filled(fill_value=0)
-        labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  STRUCTURING_ELEMENT)
-        labels_below_det_thr, labels_above_det_thr = [], []
-        if num_labels > 0:
-            # Select the labels of the islands above the analysis threshold
-            # that have maximum values values above the detection threshold.
-            # Like above we make sure not to select anything where either
-            # the data or the noise map are masked.
-            # We fill these pixels in above_det_thr with -1 to make sure
-            # its labels will not be in labels_above_det_thr.
-            # NB data_bgsubbed, and hence above_det_thr, is a masked array;
-            # filled() sets all mased values equal to -1.
-            above_det_thr = (
-                self.data_bgsubbed - detectionthresholdmap
-            ).filled(fill_value=-1)
-            # Note that we avoid label 0 (the background).
-            maximum_values = ndimage.maximum(
-                above_det_thr, labelled_data, numpy.arange(1, num_labels + 1)
-            )
+        # We need to accept a compromise when using sep.extract for ccl, because we cannot apply our
+        # structuring element since SExtractor always uses 8-connectivity.
+        # I turned on deblending, why would we do it later?
+        # Cleaning is turned off, because that was also so in the original PySE.
+        # minarea=1, as in the original PySE. Btw, SExtractor uses minarea=5 as default
+        # Setting deblend_nthresh=0 in sep.extract results in a MemoryError, so we need to catch that.
+        # deblend_nthresh=0 means no deblending which is effectuated in sep.extract by setting
+        # deblend_cont=1. So this is how we handle this:
+        if deblend_nthresh == 0:
+            use_deblend_nthresh = 32  # Any non-zero positive value.
+            use_deblend_cont = 1.0
+        else:
+            use_deblend_nthresh = deblend_nthresh
+            use_deblend_cont = DEBLEND_MINCONT
 
-            # If there's only one island, ndimage.maximum will return a float,
-            # rather than a list. The rest of this function assumes that it's
-            # always a list, so we need to convert it.
-            if isinstance(maximum_values, float):
-                maximum_values = [maximum_values]
+        combined_mask = numpy.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
+                                         self.data.mask)
 
-            # We'll filter out the insignificant islands
-            for i, x in enumerate(maximum_values, 1):
-                if x < 0:
-                    labels_below_det_thr.append(i)
-                else:
-                    labels_above_det_thr.append(i)
-            # Set to zero all labelled islands that are below det_thr:
-            labelled_data = numpy.where(
-                numpy.in1d(labelled_data.ravel(), labels_above_det_thr).reshape(
-                    labelled_data.shape),
-                labelled_data, 0
-            )
+        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0,
+                                                  err=analysisthresholdmap.data,
+                                                  mask=combined_mask, minarea=1,
+                                                  deblend_nthresh=use_deblend_nthresh,
+                                                  deblend_cont=use_deblend_cont,
+                                                  clean=False,
+                                                  segmentation_map=True)
 
-        return labels_above_det_thr, labelled_data
+        above_det_thr = measurements["peak"] > \
+                        detectionthresholdmap[measurements["ypeak"], \
+                            measurements["xpeak"]]
+
+        labels_above_det_thr = numpy.extract(above_det_thr,
+                                             numpy.arange(1,
+                                             len(measurements) + 1))
+
+        num_islands_above_detection_threshold = above_det_thr.sum()
+
+        measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
+
+        # labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
+
+        # Get a bounding box for each island:
+        # NB Slices ordered by label value (1...N,)
+        # 'None' returned for missing label indices.
+        slices = ndimage.find_objects(labelled_data)
+
+        return measurements_above_det_thr, labels_above_det_thr, labelled_data, \
+            slices, num_islands_above_detection_threshold
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -916,110 +937,216 @@ class ImageData(object):
         # Map our chunks onto a list of islands.
 
         start_labelling = time.time()
-        island_list = []
         if labelled_data is None:
-            labels, labelled_data = self.label_islands(
-                detectionthresholdmap, analysisthresholdmap
+            measurements, labels, labelled_data, slices, num_islands = \
+                self.label_islands(detectionthresholdmap,
+                                   analysisthresholdmap, deblend_nthresh
             )
-
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
 
         end_labelling = time.time()
         print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
 
         start_post_labelling = time.time()
-        for label in labels:
-            chunk = slices[label - 1]
-            analysis_threshold = (analysisthresholdmap[chunk] /
-                                  self.rmsmap[chunk]).max()
-            # In selected_data only the pixels with the "correct"
-            # (see above) labels are retained. Other pixel values are
-            # set to -(bignum).
-            # In this way, disconnected pixels within (rectangular)
-            # slices around islands (particularly the large ones) do
-            # not affect the source measurements.
-            selected_data = numpy.ma.where(
-                labelled_data[chunk] == label,
-                self.data_bgsubbed[chunk].data, -extract.BIGNUM
-            ).filled(fill_value=-extract.BIGNUM)
-
-            island_list.append(
-                extract.Island(
-                    selected_data,
-                    self.rmsmap[chunk],
-                    chunk,
-                    analysis_threshold,
-                    detectionthresholdmap[chunk],
-                    self.beam,
-                    deblend_nthresh,
-                    DEBLEND_MINCONT,
-                    STRUCTURING_ELEMENT
-                )
-            )
-        end_post_labelling = time.time()
-        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
-
-        # If required, we can save the 'left overs' from the deblending and
-        # fitting processes for later analysis. This needs setting up here:
-        if self.residuals:
-            self.residuals_from_gauss_fitting = numpy.zeros(self.data.shape)
-            self.residuals_from_deblending = numpy.zeros(self.data.shape)
-            for island in island_list:
-                self.residuals_from_deblending[island.chunk] += (
-                    island.data.filled(fill_value=0.))
-
-        # Deblend each of the islands to its consituent parts, if necessary
-        if deblend_nthresh:
-            deblended_list = [x.deblend() for x in island_list]
-            # deblended_list = [x.deblend() for x in island_list]
-            island_list = list(utils.flatten(deblended_list))
+        results = containers.ExtractionResults()
 
         # Set up the fixed fit parameters if 'force beam' is on:
         if force_beam:
+            island_list = []
+            for label in labels:
+                chunk = slices[label - 1]
+                analysis_threshold = (analysisthresholdmap[chunk] /
+                                      self.rmsmap[chunk]).max()
+                # In selected_data only the pixels with the "correct"
+                # (see above) labels are retained. Other pixel values are
+                # set to -(bignum).
+                # In this way, disconnected pixels within (rectangular)
+                # slices around islands (particularly the large ones) do
+                # not affect the source measurements.
+                selected_data = numpy.ma.where(
+                    labelled_data[chunk] == label,
+                    self.data_bgsubbed[chunk].data, -extract.BIGNUM
+                ).filled(fill_value=-extract.BIGNUM)
+
+                island_list.append(
+                    extract.Island(
+                        selected_data,
+                        self.rmsmap[chunk],
+                        chunk,
+                        analysis_threshold,
+                        detectionthresholdmap[chunk],
+                        self.beam,
+                        deblend_nthresh,
+                        DEBLEND_MINCONT,
+                        STRUCTURING_ELEMENT
+                    )
+                )
+
+            # If required, we can save the 'left overs' from the deblending and
+            # fitting processes for later analysis. This needs setting up here:
+            if self.residuals:
+                self.residuals_from_gauss_fitting = numpy.zeros(self.data.shape)
+                self.residuals_from_deblending = numpy.zeros(self.data.shape)
+                for island in island_list:
+                    self.residuals_from_deblending[island.chunk] += (
+                        island.data.filled(fill_value=0.))
+
+            # Deblend each of the islands to its consituent parts, if necessary
+            if deblend_nthresh:
+                deblended_list = [x.deblend() for x in island_list]
+                island_list = list(utils.flatten(deblended_list))
+
             fixed = {'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
-        else:
-            fixed = None
 
-        # Iterate over the list of islands and measure the source in each,
-        # appending it to the results list.
-        results = containers.ExtractionResults()
-        start_of_fitting_loop = time.time()
-        with Pool(psutil.cpu_count()) as p:
-            fit_islands_fixed = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
-                                        self. max_pix_variance_factor, self.beamsize,
-                                        self.correlation_lengths, fixed)
-            fit_results = p.map(fit_islands_fixed, island_list)
-        end_of_fitting_loop = time.time()
-        print("Fitting took {:7.2f} seconds.".format(end_of_fitting_loop-start_of_fitting_loop))
+            # Iterate over the list of islands and measure the source in each,
+            # appending it to the results list.
+            with Pool(psutil.cpu_count()) as p:
+                fit_islands_partial = partial(ImageData.fit_islands,
+                                              self.fudge_max_pix_factor,
+                                              self.max_pix_variance_factor,
+                                              self.beamsize,
+                                              self.correlation_lengths, fixed)
+                fit_results = p.map(fit_islands_partial, island_list)
+
+            for island, fit_result in zip(island_list, fit_results):
+                if fit_result:
+                    measurement, residual = fit_result
+                else:
+                    # Failed to fit; drop this island and go to the next.
+                    continue
+                try:
+                    det = extract.Detection(measurement, self, chunk=island.chunk)
+                    if (det.ra.error == float('inf') or
+                            det.dec.error == float('inf')):
+                        logger.warn('Bad fit from blind extraction at pixel coords:'
+                                    '%f %f - measurement discarded'
+                                    '(increase fitting margin?)', det.x, det.y)
+                    else:
+                        results.append(det)
+                except RuntimeError as e:
+                    logger.error("Island not processed; unphysical?")
+
+                if self.residuals:
+                    self.residuals_from_deblending[island.chunk] -= (
+                        island.data.filled(fill_value=0.))
+                    self.residuals_from_gauss_fitting[island.chunk] += residual
+
+        elif num_islands>0:
+            # Here the barycenter moments computed by sep.extract are used,
+            # hence the beam cannot be fixed, this only works for (Gauss)
+            # fitting. The parameter "fixed" will not be used.
+
+            # Make 2D input data suitable for moments_enhanced with guvectorize
+            # decorator, Each row will contain the pixel values of a flattened
+            # island.
+            # First, determine the correct dimensions for the input
+            # The number of rows will be num_labels = number of islands
+            # (sources).
+            # The number of columns will be max_pixels = the maximum number
+            # of pixels an island can have.
+            # We will also be needing auxiliary arrays.
+            # One will be an index array, with an extra dimension
+            # (num_labels, max_pixels, 2).
+            # This will be a 3D array of integers, indicating the relative
+            # positions of the source pixel relative to a corner of the slice
+            # enclosing the island.
+            # Another one will be a 1D integer array of length num_labels
+            # with the number of pixels for each island.
+            # Later we will be needing another 2D array of floats with a number
+            # of quantities related to sky position.
+
+            number_of_pixels = numpy.array([measurement["npix"] for measurement
+                                            in measurements], dtype=numpy.int32)
+            max_pixels = numpy.max(number_of_pixels)
+            islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+            xpositions = numpy.empty((num_islands, max_pixels),
+                                     dtype=numpy.int32)
+            ypositions = numpy.empty((num_islands, max_pixels),
+                                     dtype=numpy.int32)
+            thresholds = numpy.empty(num_islands, dtype=numpy.float32)
+            local_noise_levels = numpy.empty(num_islands, dtype=numpy.float32)
+            moments_of_sources = numpy.empty((num_islands, 2, 10),
+                                             dtype=numpy.float32)
+            dummy = numpy.empty_like(moments_of_sources)
+
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+                measurement = measurements[count]
+
+                peak_position = measurement["xpeak"], measurement["ypeak"]
+                # threshold = measurement["thresh"]
+                thresholds[count] = analysisthresholdmap[peak_position]
+
+                local_noise_levels[count] = self.rmsmap[peak_position]
+
+                # pos = " positions", i.e. the row and column indices of the island pixels.
+                pos = (labelled_data[chunk] == label).nonzero()
+                enclosed_island = self.data_bgsubbed[chunk].data
+                island_data = enclosed_island[pos]
+
+                islands[count, :number_of_pixels[count]] = island_data
+                xpositions[count, :number_of_pixels[count]] = pos[0]
+                ypositions[count, :number_of_pixels[count]] = pos[1]
+
+            # The result will be put in an array 'moments_of_sources' containing
+            # ten quantities and their uncertainties: peak flux density,
+            # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
+            # gaussian position angle and the deconvolved equivalents of the latter
+            # three quantities.
+
+            # This is a workaround for an unresolved issue:
+            # https://github.com/numba/numba/issues/6690
+            # The output shape can apparently not be set as fixed numbers.
+            # So we will add a dummy array with shape corresponding
+            # to the output array (moments_of_sources), as (useless) input
+            # array. In this way Numba can infer the shape of the output array.
+            fitting.moments_enhanced(islands, xpositions, ypositions,
+                                     number_of_pixels,
+                                     thresholds, local_noise_levels,
+                                     self.fudge_max_pix_factor,
+                                     self.max_pix_variance_factor,
+                                     numpy.array(self.beam),
+                                     self.beamsize,
+                                     numpy.array(self.correlation_lengths),
+                                     0, 0, dummy, moments_of_sources)
+
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+
+                measurement = measurements[count]
+
+                param = extract.ParamSet()
+                param.sig = measurement["peak"] / local_noise_levels[count]
+
+                param["peak"] = Uncertain(moments_of_sources[count,0,0], moments_of_sources[count,1,0])
+                param["flux"] = Uncertain(moments_of_sources[count,0,1], moments_of_sources[count,1,1])
+                param["xbar"] = Uncertain(moments_of_sources[count,0,2] + chunk[0].start, moments_of_sources[count,1,2])
+                param["ybar"] = Uncertain(moments_of_sources[count,0,3] + chunk[1].start, moments_of_sources[count,1,3])
+                param["semimajor"] = Uncertain(moments_of_sources[count,0,4], moments_of_sources[count,1,4])
+                param["semiminor"] = Uncertain(moments_of_sources[count,0,5], moments_of_sources[count,1,5])
+                param["theta"] = Uncertain(moments_of_sources[count,0,6], moments_of_sources[count,1,6])
+                param["semimaj_deconv"] = Uncertain(moments_of_sources[count,0,7], moments_of_sources[count,1,7])
+                param["semimin_deconv"] = Uncertain(moments_of_sources[count,0,8], moments_of_sources[count,1,8])
+                param["theta_deconv"] = Uncertain(moments_of_sources[count,0,9], moments_of_sources[count,1,9])
+
+                # moments_dict = {"peak": moments[0], "flux": moments[1],
+                #                 "xbar": moments[2] + chunk[0].start,
+                #                 "ybar": moments[3] + chunk[1].start,
+                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+
+                # param.update(moments_dict)
+
+                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
+                #                                threshold)
+                # param.deconvolve_from_clean_beam(self.beam)
+                det = extract.Detection(param, self, chunk=chunk)
+                results.append(det)
+
+        end_post_labelling = time.time()
+        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
 
         start_of_rest = time.time()
-        for island, fit_result in zip(island_list, fit_results):
-            if fit_result:
-                measurement, residual = fit_result
-            else:
-                # Failed to fit; drop this island and go to the next.
-                continue
-            try:
-                det = extract.Detection(measurement, self, chunk=island.chunk)
-                if (det.ra.error == float('inf') or
-                        det.dec.error == float('inf')):
-                    logger.warn('Bad fit from blind extraction at pixel coords:'
-                                '%f %f - measurement discarded'
-                                '(increase fitting margin?)', det.x, det.y)
-                else:
-                    results.append(det)
-            except RuntimeError as e:
-                logger.error("Island not processed; unphysical?")
-
-            if self.residuals:
-                self.residuals_from_deblending[island.chunk] -= (
-                    island.data.filled(fill_value=0.))
-                self.residuals_from_gauss_fitting[island.chunk] += residual
 
 
         def is_usable(det):

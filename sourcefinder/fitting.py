@@ -6,10 +6,10 @@ import math
 
 import numpy
 import scipy.optimize
-
-from . import utils
 from .gaussian import gaussian
 from .stats import indep_pixels
+from sourcefinder.deconv import deconv
+from numba import guvectorize, float64, float32, int32
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -121,6 +121,388 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         "theta": theta
     }
 
+
+@guvectorize([(float32[:], int32[:], int32[:], int32, float32, float32, float64,
+              float64, float64[:], float64, float64[:], float64, float64,
+              float32[:, :], float32[:, :])], ('(n), (n), (n), (), (), (), ' +
+             '(), (), (k), (), (m), (), (), (l, p) -> (l, p)'), nopython=True)
+def moments_enhanced(island_data, posx, posy, no_pixels,
+                     threshold, noise, fudge_max_pix_factor,
+                     max_pix_variance_factor, beam, beamsize,
+                     correlation_lengths,
+                     clean_bias_error, frac_flux_cal_error, dummy,
+                     computed_moments):
+    """Calculate source properties using moments. Accelerated using JIT
+    compilation.
+    Also, a positional 2D index local to the island is used such that every
+    pixel value can be linked to a position relative to a corner of the island.
+
+    Args:
+
+        island_data (numpy.ndarray): Selected from the actual 2D image data, by taking
+                                     pixels above the analysis threshold only, with its
+                                     peak above the detection threshold. This selection
+                                     results in a 1D ndarray (without a mask).
+
+        posx: Row indices of the pixels in island_data as taken from the actual
+              2D images data (rectangular slice).
+
+        posy: Column indices of the pixels in island_data as taken from the actual
+              2D images data (rectangular slice).
+
+        no_pixels (integer): The number of pixels that constitute the island.
+
+        threshold(float): source parameters like the semimajor and semiminor
+                          axes derived from moments can be underestimated if
+                          one does not take account of the threshold that
+                          was used to segment the source islands.
+
+        noise(float): local noise, i.e. the standard deviation of the
+                      background pixel values, at the position of the
+                      peak pixel value of the island.
+
+        fudge_max_pix_factor(float): Correct for the underestimation of the peak
+                                     by taking the maximum pixel value.
+
+        max_pix_variance_factor (float): Take account of additional variance
+                                        induced by the maximum pixel method,
+                                        on top of the background noise.
+
+        beam(numpy.ndarray): array from three floats: semimaj, semimin, theta.
+
+        beamsize(float): The FWHM size of the clean beam
+
+        correlation_lengths(numpy.ndarray): array from two floats describing the
+                                    distance along the semi-major and semi-minor
+                                    axes of the clean beam beyond which noise is
+                                    assumed uncorrelated. Some background:
+                                    Aperture synthesis imaging yields noise that
+                                    is partially correlated over the entire
+                                    image. This has a considerable effect on
+                                    error estimates. We approximate this by
+                                    considering all noise within the
+                                    correlation length completely correlated
+                                    and beyond that completely uncorrelated.
+
+        clean_bias_error: Extra source of error copied from the
+                          Condon (PASP 109, 166 (1997)) formulae
+
+        frac_flux_cal_error: Extra source of error copied from the
+                          Condon (PASP 109, 166 (1997)) formulae
+
+        computed_moments(numpy.ndarray): a (10, 2) array of floats containing
+                                the computed moments, i.e.peak flux density,
+                                total flux, x barycenter, y barycenter,
+                                semimajor axis, semiminor axis, position angle
+                                and the deconvolved counterparts of the latter
+                                three quantities. This constitutes a total of
+                                ten quantities and their corresponding errors.
+
+    Returns: None (because of the guvectorize decorator)
+
+    Raises:
+        exceptions.ValueError: in case of NaN in input.
+
+    Use the first moment of the distribution is the barycenter of an
+    ellipse. The second moments are used to estimate the rotation angle
+    and the length of the axes.
+    """
+    # Not every island has the same size. The number of columns of the array
+    # containing all islands is equal to the maximum number of pxiels over
+    # all islands. This containing array was created by numpy.empty, so better
+    # dump the redundant elements that have undetermined values.
+    island_data = island_data[:no_pixels]
+    # Are we fitting a -ve or +ve Gaussian?
+    if island_data.mean() >= 0:
+        # The peak is always underestimated when you take the highest pixel.
+        peak = island_data.max() * fudge_max_pix_factor
+    else:
+        peak = island_data.min()
+    ratio = threshold / peak
+    flux = island_data.sum()
+    xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
+
+    for index in range(no_pixels):
+        i = posx[index]
+        j = posy[index]
+        xbar += i * island_data[index]
+        ybar += j * island_data[index]
+        xxbar += i * i * island_data[index]
+        yybar += j * j * island_data[index]
+        xybar += i * j * island_data[index]
+
+    xbar /= flux
+    ybar /= flux
+    xxbar /= flux
+    xxbar -= xbar ** 2
+    yybar /= flux
+    yybar -= ybar ** 2
+    xybar /= flux
+    xybar -= xbar * ybar
+
+    working1 = (xxbar + yybar) / 2.0
+    working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
+
+    # Some problems arise with the sqrt of (working1-working2) when they are
+    # equal, this happens with islands that have a thickness of only one pixel
+    # in at least one dimension.  Due to rounding errors this difference
+    # becomes negative--->math domain error in sqrt.
+    if no_pixels == 1:
+        # This is the case when the island (or more likely subisland) has
+        # a size of only one pixel.
+        smin = numpy.sqrt(beamsize / numpy.pi)
+        smaj = numpy.sqrt(beamsize / numpy.pi)
+    else:
+        smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+        smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+        # ratio will be 0 for data that hasn't been selected according to a
+        # threshold.
+        if ratio != 0:
+            # The corrections below for the semi-major and semi-minor axes are
+            # to compensate for the underestimate of these quantities
+            # due to the cutoff at the threshold.
+            smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+            smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        smaj = math.sqrt(smaj_tmp)
+        smin = math.sqrt(smin_tmp)
+        if smin == 0:
+            # A semi-minor axis exactly zero gives all kinds of problems.
+            # For instance wrt conversion to celestial coordinates.
+            # This is a quick fix.
+            smin = beamsize / (numpy.pi * smaj)
+
+    if (numpy.isnan(xbar) or numpy.isnan(ybar) or
+            numpy.isnan(smaj) or numpy.isnan(smin)):
+        raise ValueError("Unable to estimate Gauss shape")
+
+    # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
+    # page 45).
+    if abs(smaj - smin) < 0.01:
+        # short circuit!
+        theta = 0.
+    else:
+        if xxbar != yybar:
+            theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+        else:
+            theta = numpy.sign(xybar) * math.pi / 4.0
+
+        if theta * xybar > 0.:
+            if theta < 0.:
+                theta += math.pi / 2.0
+            else:
+                theta -= math.pi / 2.0
+
+    """Provide reasonable error estimates from the moments"""
+
+    # The formulae below should give some reasonable estimate of the
+    # errors from moments, should always be higher than the errors from
+    # Gauss fitting.
+
+    # This analysis is only possible if the peak flux is >= 0. This
+    # follows from the definition of eq. 2.81 in Spreeuw's thesis. In that
+    # situation, we set all errors to be infinite
+    if peak < 0:
+        errorpeak = numpy.inf
+        errorflux = numpy.inf
+        errorx = numpy.inf
+        errory = numpy.inf
+        errorsmaj = numpy.inf
+        errorsmin = numpy.inf
+        errortheta = numpy.inf
+        # Deconvolved shape parameters are not derived when peak < 0.
+        # Perhaps they could be, technically. But does that make sense?
+        computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
+                                              smin, theta, numpy.nan,
+                                              numpy.nan, numpy.nan])
+        computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
+                                              errory, errorsmaj, errorsmin,
+                                              errortheta, numpy.nan,
+                                              numpy.nan, numpy.nan])
+    else:
+        theta_B = correlation_lengths[0]
+        theta_b = correlation_lengths[1]
+
+        # This is eq. 2.81 from Spreeuw's thesis.
+        rho_sq = ((16. * smaj * smin /
+                   (numpy.log(2.) * theta_B * theta_b * noise ** 2))
+                  * ((peak - threshold) /
+                     (numpy.log(peak) - numpy.log(threshold))) ** 2)
+
+        rho = numpy.sqrt(rho_sq)
+        denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+
+        # Again, like above for the Condon formulae, we set the
+        # positional variances to twice the theoretical values.
+        error_par_major = 2. * smaj / denom
+        error_par_minor = 2. * smin / denom
+
+        # When these errors are converted to RA and Dec,
+        # calibration uncertainties will have to be added,
+        # like in formulae 27 of the NVSS paper.
+        errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
+                            + (error_par_minor * numpy.cos(theta)) ** 2)
+        errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
+                            + (error_par_minor * numpy.sin(theta)) ** 2)
+
+        # Note that we report errors in HWHM axes instead of FWHM axes
+        # so the errors are half the errors of formula 29 of the NVSS paper.
+        errorsmaj = numpy.sqrt(2) * smaj / rho
+        errorsmin = numpy.sqrt(2) * smin / rho
+
+        if smaj > smin:
+            errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
+        else:
+            errortheta = numpy.pi
+        if errortheta > numpy.pi:
+            errortheta = numpy.pi
+
+        # The peak from "moments" is just the value of the maximum pixel
+        # times a correction, fudge_max_pix, for the fact that the
+        # centre of the Gaussian is not at the centre of the pixel.
+        # This correction is performed in fitting.py. The maximum pixel
+        # method introduces a peak dependent error corresponding to the last
+        # term in the expression below for errorpeaksq.
+        # To this, we add, in quadrature, the errors corresponding
+        # to the first and last term of the rhs of equation 37 of the
+        # NVSS paper. The middle term in that equation 37 is heuristically
+        # replaced by noise**2 since the threshold should not affect
+        # the error from the (corrected) maximum pixel method,
+        # while it is part of the expression for rho_sq above.
+        # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+        #                clean_bias_error ** 2 + noise ** 2 +
+        #                utils.maximum_pixel_method_variance(
+        #                    beam[0], beam[1], beam[2]) * peak ** 2)
+        errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+                       clean_bias_error ** 2 + noise ** 2 +
+                       max_pix_variance_factor * peak ** 2)
+        errorpeak = numpy.sqrt(errorpeaksq)
+
+        help1 = (errorsmaj / smaj) ** 2
+        help2 = (errorsmin / smin) ** 2
+        help3 = theta_B * theta_b / (4. * smaj * smin)
+        errorflux = flux * numpy.sqrt(
+            errorpeaksq / peak ** 2 + help3 * (help1 + help2))
+
+        """Deconvolve from the clean beam"""
+
+        # If the fitted axes are smaller than the clean beam
+        # (=restoring beam) axes, the axes and position angle
+        # can be deconvolved from it.
+        fmaj = 2. * smaj
+        fmajerror = 2. * errorsmaj
+        fmin = 2. * smin
+        fminerror = 2. * errorsmin
+        fpa = numpy.degrees(theta)
+        fpaerror = numpy.degrees(errortheta)
+        cmaj = 2. * beam[0]
+        cmin = 2. * beam[1]
+        cpa = numpy.degrees(beam[2])
+
+        rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
+        # This parameter gives the number of components that could not be
+        # deconvolved, IERR from deconf.f.
+        deconv_imposs = ierr
+        # Now, figure out the error bars.
+        if rmaj > 0:
+            # In this case the deconvolved position angle is defined.
+            # For convenience we reset rpa to the interval [-90, 90].
+            if rpa > 90:
+                rpa = -numpy.mod(-rpa, 180.)
+            theta_deconv = rpa
+
+            # In the general case, where the restoring beam is elliptic,
+            # calculating the error bars of the deconvolved position angle
+            # is more complicated than in the NVSS case, where a circular
+            # restoring beam was used.
+            # In the NVSS case the error bars of the deconvolved angle are
+            # equal to the fitted angle.
+            rmaj1, rmin1, rpa1, ierr1 = deconv(
+                fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
+            if ierr1 < 2:
+                if rpa1 > 90:
+                    rpa1 = -numpy.mod(-rpa1, 180.)
+                rpaerror1 = numpy.abs(rpa1 - rpa)
+                # An angle error can never be more than 90 degrees.
+                if rpaerror1 > 90.:
+                    rpaerror1 = numpy.mod(-rpaerror1, 180.)
+            else:
+                rpaerror1 = numpy.nan
+            rmaj2, rmin2, rpa2, ierr2 = deconv(
+                fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
+            if ierr2 < 2:
+                if rpa2 > 90:
+                    rpa2 = -numpy.mod(-rpa2, 180.)
+                rpaerror2 = numpy.abs(rpa2 - rpa)
+                # An angle error can never be more than 90 degrees.
+                if rpaerror2 > 90.:
+                    rpaerror2 = numpy.mod(-rpaerror2, 180.)
+            else:
+                rpaerror2 = numpy.nan
+            if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
+                theta_deconv_error = numpy.nansum(
+                    numpy.array([rpaerror1, rpaerror2]))
+            else:
+                theta_deconv_error = numpy.mean(
+                    numpy.array([rpaerror1, rpaerror2]))
+            semimaj_deconv = rmaj / 2.
+            rmaj3, rmin3, rpa3, ierr3 = deconv(
+                fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
+            # If rmaj>0, then rmaj3 should also be > 0,
+            # if I am not mistaken, see the formulas at
+            # the end of ch.2 of Spreeuw's Ph.D. thesis.
+            if fmaj - fmajerror > fmin:
+                rmaj4, rmin4, rpa4, ierr4 = deconv(
+                    fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
+                if rmaj4 > 0:
+                    semimaj_deconv_error = numpy.mean(numpy.array(
+                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
+                else:
+                    semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+            else:
+                rmin4, rmaj4, rpa4, ierr4 = deconv(
+                    fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
+                if rmaj4 > 0:
+                    semimaj_deconv_error = numpy.mean(numpy.array(
+                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
+                else:
+                    semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+            if rmin > 0:
+                semimin_deconv = rmin / 2.
+                if fmin + fminerror < fmaj:
+                    rmaj5, rmin5, rpa5, ierr5 = deconv(
+                        fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa)
+                else:
+                    rmin5, rmaj5, rpa5, ierr5 = deconv(
+                        fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa)
+                # If rmin > 0, then rmin5 should also be > 0,
+                # if I am not mistaken, see the formulas at
+                # the end of ch.2 of Spreeuw's Ph.D. thesis.
+                rmaj6, rmin6, rpa6, ierr6 = deconv(
+                    fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
+                if rmin6 > 0:
+                    semimin_deconv_error = numpy.mean(numpy.array(
+                        [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)]))
+                else:
+                    semimin_deconv_error = numpy.abs(rmin5 - rmin)
+            else:
+                semimin_deconv = numpy.nan
+                semimin_deconv_error = numpy.nan
+        else:
+            semimaj_deconv = numpy.nan
+            semimaj_deconv_error = numpy.nan
+            semimin_deconv = numpy.nan
+            semimin_deconv_error = numpy.nan
+            theta_deconv = numpy.nan
+            theta_deconv_error= numpy.nan
+
+        computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
+                                              smin, theta, semimaj_deconv,
+                                              semimin_deconv, theta_deconv])
+        computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
+                                              errory, errorsmaj, errorsmin,
+                                              errortheta, semimaj_deconv_error,
+                                              semimin_deconv_error,
+                                              theta_deconv_error])
 
 def fitgaussian(pixels, params, fixed=None, maxfev=0):
     """Calculate source positional values by fitting a 2D Gaussian

@@ -33,12 +33,12 @@ class L15_12hConstObs(unittest.TestCase):
     # Single, constant 1 Jy source at centre of image.
     @requires_data(observed_fits)
     def setUp(self):
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(observed_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(0.2299,
+                                                                    0.1597,
+                                                                    -23.87))
         self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
         self.results = self.image.extract(det=10, anl=3.0)
 
@@ -60,12 +60,12 @@ class L15_12hConstObs(unittest.TestCase):
 class L15_12hConstCor(unittest.TestCase):
     # Cross shape of 5 sources, 2 degrees apart, at centre of image.
     def setUp(self):
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(0.2299,
+                                                                    0.1597,
+                                                                    -23.87))
         self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
         self.results = self.image.extract(det=10.0, anl=3.0)
 
@@ -84,8 +84,8 @@ class L15_12hConstCor(unittest.TestCase):
         # But they don't, because the simulation is broken, so this test
         # checks they fall in a vaguely plausible range.
         for mysource in self.results:
-            self.assert_(mysource.peak.value > 0.35)
-            self.assert_(mysource.peak.value < 0.60)
+            self.assertTrue(mysource.peak.value > 0.35)
+            self.assertTrue(mysource.peak.value < 0.60)
 
     @requires_data(corrected_fits)
     def testSeparation(self):
@@ -105,12 +105,12 @@ class L15_12hConstMod(unittest.TestCase):
         # transient varying. In fact, due to a glitch in the simulation
         # process, it will appear smeared out & shouldn't be identified at
         # all.
-        # Beam here is a random beam, in this case the WENSS beam
-        # without the declination dependence.
+        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(all_fits,
-                                                              beam=(54. / 3600,
-                                                                    54. / 3600,
-                                                                    0.))
+                                                              beam=(0.2299,
+                                                                    0.1597,
+                                                                    -23.87))
         self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs,
                                      radius=100)
         self.results = self.image.extract(det=5, anl=3.0)
