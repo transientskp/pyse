@@ -11,6 +11,9 @@
 **.fits
 **.FITS
 
+# Do not include .csv files
+*.csv
+
 # Do not include temp directory
 reserve/
 
