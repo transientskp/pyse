@@ -856,17 +856,28 @@ class ImageData(object):
                                                   deblend_cont=use_deblend_cont,
                                                   clean=False,
                                                   segmentation_map=True)
-        num_labels = len(measurements)
+
         above_det_thr = measurements["peak"] > \
-                        detectionthresholdmap[measurements["ypeak"], measurements["xpeak"]]
+                        detectionthresholdmap[measurements["ypeak"], \
+                            measurements["xpeak"]]
 
-        labels_above_det_thr = numpy.extract(above_det_thr, numpy.arange(1, num_labels+1))
+        labels_above_det_thr = numpy.extract(above_det_thr,
+                                             numpy.arange(1,
+                                             len(measurements) + 1))
 
-        # measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
+        num_islands_above_detection_threshold = above_det_thr.sum()
+
+        measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
 
         # labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
 
-        return measurements, labels_above_det_thr, labelled_data
+        # Get a bounding box for each island:
+        # NB Slices ordered by label value (1...N,)
+        # 'None' returned for missing label indices.
+        slices = ndimage.find_objects(labelled_data)
+
+        return measurements_above_det_thr, labels_above_det_thr, labelled_data, \
+            slices, num_islands_above_detection_threshold
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -909,18 +920,15 @@ class ImageData(object):
 
         start_labelling = time.time()
         if labelled_data is None:
-            measurements, labels, labelled_data = self.label_islands(
-               detectionthresholdmap, analysisthresholdmap, deblend_nthresh
+            measurements, labels, labelled_data, slices, num_islands = \
+                self.label_islands(detectionthresholdmap,
+                                   analysisthresholdmap, deblend_nthresh
             )
 
         end_labelling = time.time()
         print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
 
         start_post_labelling = time.time()
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
         results = containers.ExtractionResults()
 
         # Set up the fixed fit parameters if 'force beam' is on:
@@ -976,9 +984,11 @@ class ImageData(object):
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
             with Pool(psutil.cpu_count()) as p:
-                fit_islands_partial = partial(ImageData.fit_islands, self.fudge_max_pix_factor,
-                                            self. max_pix_variance_factor, self.beamsize,
-                                            self.correlation_lengths, fixed)
+                fit_islands_partial = partial(ImageData.fit_islands,
+                                              self.fudge_max_pix_factor,
+                                              self.max_pix_variance_factor,
+                                              self.beamsize,
+                                              self.correlation_lengths, fixed)
                 fit_results = p.map(fit_islands_partial, island_list)
 
             for island, fit_result in zip(island_list, fit_results):
@@ -1004,45 +1014,108 @@ class ImageData(object):
                         island.data.filled(fill_value=0.))
                     self.residuals_from_gauss_fitting[island.chunk] += residual
 
-        else:
-            # Here the barycenter moments computed by sep.extract are used, hence the beam
-            # cannot be fixed, this only works for (Gauss) fitting.
-            # The parameter "fixed" will not be used.
-            for label in labels:
-                chunk = slices[label - 1]
-                measurement = measurements[label - 1]
+        elif num_islands>0:
+            # Here the barycenter moments computed by sep.extract are used,
+            # hence the beam cannot be fixed, this only works for (Gauss)
+            # fitting. The parameter "fixed" will not be used.
 
-                param = extract.ParamSet()
+            # Make 2D input data suitable for moments_enhanced with guvectorize
+            # decorator, Each row will contain the pixel values of a flattened
+            # island.
+            # First, determine the correct dimensions for the input
+            # The number of rows will be num_labels = number of islands
+            # (sources).
+            # The number of columns will be max_pixels = the maximum number
+            # of pixels an island can have.
+            # We will also be needing auxiliary arrays.
+            # One will be an index array, with an extra dimension
+            # (num_labels, max_pixels, 2).
+            # This will be a 3D array of integers, indicating the relative
+            # positions of the source pixel relative to a corner of the slice
+            # enclosing the island.
+            # Another one will be a 1D integer array of length num_labels
+            # with the number of pixels for each island.
+            # Later we will be needing another 2D array of floats with a number
+            # of quantities related to sky position.
+
+            number_of_pixels = numpy.array([measurement["npix"] for measurement
+                                            in measurements], dtype=numpy.int32)
+            max_pixels = numpy.max(number_of_pixels)
+            islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+            xpositions = numpy.empty((num_islands, max_pixels),
+                                     dtype=numpy.int32)
+            ypositions = numpy.empty((num_islands, max_pixels),
+                                     dtype=numpy.int32)
+            thresholds = numpy.empty(num_islands, dtype=numpy.float32)
+            local_noise_levels = numpy.empty(num_islands, dtype=numpy.float32)
+            moments_of_sources = numpy.empty((num_islands, 2, 10),
+                                             dtype=numpy.float32)
+            dummy = numpy.empty_like(moments_of_sources)
+
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+                measurement = measurements[count]
 
                 peak_position = measurement["xpeak"], measurement["ypeak"]
-                local_noise = self.rmsmap[peak_position]
+                # threshold = measurement["thresh"]
+                thresholds[count] = analysisthresholdmap[peak_position]
+                # print(threshold)
+                if thresholds[count]==0:
+                    print("Threshold is zero!")
 
-                param.sig = measurement["peak"] / local_noise
-                threshold = measurement["thresh"]
+                local_noise_levels[count] = self.rmsmap[peak_position]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
+                if len(pos[0])!=measurement["npix"]:
+                    print(f"difference, len(pos[0])={len(pos[0])}, measurement['npix'] = {measurement['npix']}")
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
-                moments = fitting.moments_enhanced(island_data, pos[0], pos[1],
-                                                   threshold, local_noise,
-                                                   self.fudge_max_pix_factor,
-                                                   self.max_pix_variance_factor,
-                                                   self.beam,
-                                                   self.beamsize,
-                                                   self.correlation_lengths)
+                islands[count, :number_of_pixels[count]] = island_data
+                xpositions[count, :number_of_pixels[count]] = pos[0]
+                ypositions[count, :number_of_pixels[count]] = pos[1]
 
-                param["peak"] = Uncertain(moments[0,0], moments[1,0])
-                param["flux"] = Uncertain(moments[0,1], moments[1,1])
-                param["xbar"] = Uncertain(moments[0,2] + chunk[0].start, moments[1,2])
-                param["ybar"] = Uncertain(moments[0,3] + chunk[1].start, moments[1,3])
-                param["semimajor"] = Uncertain(moments[0,4], moments[1,4])
-                param["semiminor"] = Uncertain(moments[0,5], moments[1,5])
-                param["theta"] = Uncertain(moments[0,6], moments[1,6])
-                param["semimaj_deconv"] = Uncertain(moments[0,7], moments[1,7])
-                param["semimin_deconv"] = Uncertain(moments[0,8], moments[1,8])
-                param["theta_deconv"] = Uncertain(moments[0,9], moments[1,9])
+            # The result will be put in an array 'moments_of_sources' containing
+            # ten quantities and their uncertainties: peak flux density,
+            # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
+            # gaussian position angle and the deconvolved equivalents of the latter
+            # three quantities.
+
+            # This is a workaround for an unresolved issue:
+            # https://github.com/numba/numba/issues/6690
+            # The output shape can apparently not be set as fixed numbers.
+            # So we will add a dummy array with shape corresponding
+            # to the output array (moments_of_sources), as (useless) input
+            # array. In this way Numba can infer the shape of the output array.
+            fitting.moments_enhanced(islands, xpositions, ypositions,
+                                     number_of_pixels,
+                                     thresholds, local_noise_levels,
+                                     self.fudge_max_pix_factor,
+                                     self.max_pix_variance_factor,
+                                     numpy.array(self.beam),
+                                     self.beamsize,
+                                     numpy.array(self.correlation_lengths),
+                                     0, 0, dummy, moments_of_sources)
+
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+
+                measurement = measurements[count]
+
+                param = extract.ParamSet()
+                param.sig = measurement["peak"] / local_noise_levels[count]
+
+                param["peak"] = Uncertain(moments_of_sources[count,0,0], moments_of_sources[count,1,0])
+                param["flux"] = Uncertain(moments_of_sources[count,0,1], moments_of_sources[count,1,1])
+                param["xbar"] = Uncertain(moments_of_sources[count,0,2] + chunk[0].start, moments_of_sources[count,1,2])
+                param["ybar"] = Uncertain(moments_of_sources[count,0,3] + chunk[1].start, moments_of_sources[count,1,3])
+                param["semimajor"] = Uncertain(moments_of_sources[count,0,4], moments_of_sources[count,1,4])
+                param["semiminor"] = Uncertain(moments_of_sources[count,0,5], moments_of_sources[count,1,5])
+                param["theta"] = Uncertain(moments_of_sources[count,0,6], moments_of_sources[count,1,6])
+                param["semimaj_deconv"] = Uncertain(moments_of_sources[count,0,7], moments_of_sources[count,1,7])
+                param["semimin_deconv"] = Uncertain(moments_of_sources[count,0,8], moments_of_sources[count,1,8])
+                param["theta_deconv"] = Uncertain(moments_of_sources[count,0,9], moments_of_sources[count,1,9])
 
                 # moments_dict = {"peak": moments[0], "flux": moments[1],
                 #                 "xbar": moments[2] + chunk[0].start,
