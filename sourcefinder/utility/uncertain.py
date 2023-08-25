@@ -7,7 +7,7 @@
 # Made available freely under the Python license
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/535164
 import math
-from coordinates import cmp
+from sourcefinder.utility.coordinates import cmp
 
 
 class Uncertain(object):
