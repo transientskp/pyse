@@ -134,8 +134,8 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
                      computed_moments):
     """Calculate source properties using moments. Accelerated using JIT
     compilation.
-    Also, a positional 2D index local to the island is used such that only
-    pixels above the analysis threshold are addressed.
+    Also, a positional 2D index local to the island is used such that every
+    pixel value can be linked to a position relative to a corner of the island.
 
     Args:
 
