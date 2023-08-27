@@ -11,6 +11,7 @@ install_requires = """
     six
     dask[array]
     psutil
+    pytest
     """.split()
 
 
