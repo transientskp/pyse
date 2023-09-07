@@ -219,7 +219,7 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
     else:
         peak = island_data.min()
     ratio = threshold / peak
-    flux = island_data.sum()
+    total = island_data.sum()
     xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
 
     for index in range(no_pixels):
@@ -231,13 +231,13 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
         yybar += j * j * island_data[index]
         xybar += i * j * island_data[index]
 
-    xbar /= flux
-    ybar /= flux
-    xxbar /= flux
+    xbar /= total
+    ybar /= total
+    xxbar /= total
     xxbar -= xbar ** 2
-    yybar /= flux
+    yybar /= total
     yybar -= ybar ** 2
-    xybar /= flux
+    xybar /= total
     xybar -= xbar * ybar
 
     working1 = (xxbar + yybar) / 2.0
@@ -291,6 +291,10 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
                 theta += math.pi / 2.0
             else:
                 theta -= math.pi / 2.0
+
+    #  Equivalent of param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
+    #  param["semiminor"] / beamsize) from extract.py.
+    flux = numpy.pi * peak * smaj * smin / beamsize
 
     """Provide reasonable error estimates from the moments"""
 
