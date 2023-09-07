@@ -1064,9 +1064,10 @@ class ImageData(object):
             # need to keep a record of the positions of the upper left corners
             # of the chunks. moments_enhanced starts by calculating xbar and
             # ybar as if those upper left corners have indices [0, 0] in the
-            # image. We can add the indices of the chunks to correct for that.
+            # image. We can add the indices of the chunks as arguments of
+            # moments_enhanced to correct for that.
             chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
-            # xpositions and ypositions are relatibe to the upper left corner of
+            # xpositions and ypositions are relative to the upper left corner of
             # the chunk.
             xpositions = numpy.empty((num_islands, max_pixels),
                                      dtype=numpy.int32)
