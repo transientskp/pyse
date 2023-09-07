@@ -1122,7 +1122,7 @@ class ImageData(object):
                                      numpy.array(self.correlation_lengths),
                                      0, 0, dummy, moments_of_sources)
 
-            # sky_coordinates = self.wcs.all_p2s(moments_of_sources[:, ])
+            sky_coordinates = self.wcs.all_p2s(moments_of_sources[:, 0, 2:4])
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
