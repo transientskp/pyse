@@ -1042,6 +1042,14 @@ class ImageData(object):
                                             in measurements], dtype=numpy.int32)
             max_pixels = numpy.max(number_of_pixels)
             islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+            # In order to convert to celestial coordinates, at a later stage, we
+            # need to keep a record of the positions of the upper left corners
+            # of the chunks. moments_enhanced starts by calculating xbar and
+            # ybar as if those upper left corners have indices [0, 0] in the
+            # image. We can add the indices of the chunks to correct for that.
+            chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
+            # xpositions and ypositions are relatibe to the upper left corner of
+            # the chunk.
             xpositions = numpy.empty((num_islands, max_pixels),
                                      dtype=numpy.int32)
             ypositions = numpy.empty((num_islands, max_pixels),
@@ -1054,6 +1062,8 @@ class ImageData(object):
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
+                chunk_positions[count, 0] = chunk[0].start
+                chunk_positions[count, 1] = chunk[1].start
                 measurement = measurements[count]
 
                 peak_position = measurement["xpeak"], measurement["ypeak"]
@@ -1083,8 +1093,8 @@ class ImageData(object):
             # So we will add a dummy array with shape corresponding
             # to the output array (moments_of_sources), as (useless) input
             # array. In this way Numba can infer the shape of the output array.
-            fitting.moments_enhanced(islands, xpositions, ypositions,
-                                     number_of_pixels,
+            fitting.moments_enhanced(islands, chunk_positions, xpositions,
+                                     ypositions, number_of_pixels,
                                      thresholds, local_noise_levels,
                                      self.fudge_max_pix_factor,
                                      self.max_pix_variance_factor,
@@ -1092,6 +1102,8 @@ class ImageData(object):
                                      self.beamsize,
                                      numpy.array(self.correlation_lengths),
                                      0, 0, dummy, moments_of_sources)
+
+            # sky_coordinates = self.wcs.all_p2s(moments_of_sources[:, ])
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
@@ -1103,8 +1115,8 @@ class ImageData(object):
 
                 param["peak"] = Uncertain(moments_of_sources[count,0,0], moments_of_sources[count,1,0])
                 param["flux"] = Uncertain(moments_of_sources[count,0,1], moments_of_sources[count,1,1])
-                param["xbar"] = Uncertain(moments_of_sources[count,0,2] + chunk[0].start, moments_of_sources[count,1,2])
-                param["ybar"] = Uncertain(moments_of_sources[count,0,3] + chunk[1].start, moments_of_sources[count,1,3])
+                param["xbar"] = Uncertain(moments_of_sources[count,0,2], moments_of_sources[count,1,2])
+                param["ybar"] = Uncertain(moments_of_sources[count,0,3], moments_of_sources[count,1,3])
                 param["semimajor"] = Uncertain(moments_of_sources[count,0,4], moments_of_sources[count,1,4])
                 param["semiminor"] = Uncertain(moments_of_sources[count,0,5], moments_of_sources[count,1,5])
                 param["theta"] = Uncertain(moments_of_sources[count,0,6], moments_of_sources[count,1,6])

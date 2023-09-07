@@ -122,11 +122,12 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], int32[:], int32[:], int32, float32, float32, float64,
-              float64, float64[:], float64, float64[:], float64, float64,
-              float32[:, :], float32[:, :])], ('(n), (n), (n), (), (), (), ' +
-             '(), (), (k), (), (m), (), (), (l, p) -> (l, p)'), nopython=True)
-def moments_enhanced(island_data, posx, posy, no_pixels,
+@guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, float32,
+               float32, float64, float64, float64[:], float64, float64[:],
+               float64, float64, float32[:, :], float32[:, :])], ('(n), (m), ' +
+               '(n), (n), (), (), (), (), (), (k), (), (m), (), (), (l, p) ' +
+                '-> (l, p)'), nopython=True)
+def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
                      threshold, noise, fudge_max_pix_factor,
                      max_pix_variance_factor, beam, beamsize,
                      correlation_lengths,
@@ -292,9 +293,13 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
             else:
                 theta -= math.pi / 2.0
 
-    #  Equivalent of param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
-    #  param["semiminor"] / beamsize) from extract.py.
+    #  Equivalent of param["flux"] = (numpy.pi * param["peak"] *
+    #  param["semimajor"] * param["semiminor"] / beamsize) from extract.py.
     flux = numpy.pi * peak * smaj * smin / beamsize
+    # Update xbar and ybar with the position of the upper left corner of the
+    # chunk.
+    xbar += chunkpos[0]
+    ybar += chunkpos[1]
 
     """Provide reasonable error estimates from the moments"""
 
