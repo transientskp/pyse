@@ -3,7 +3,7 @@
 """
 General purpose astronomical coordinate handling routines.
 """
-
+import numpy
 import datetime
 import logging
 import math
@@ -665,10 +665,10 @@ class WCS:
 
     def p2s(self, pixpos):
         """
-        Pixel to Spatial coordinate conversion.
+        Pixel to spatial coordinate conversion.
 
         Args:
-            pixpos (tuple):  [x, y] pixel position
+            pixpos [list]:  [x, y] pixel position.
 
         Returns:
             tuple: ra (float) Right ascension corresponding to position [x, y]
@@ -694,3 +694,23 @@ class WCS:
         if math.isnan(x) or math.isnan(y):
             raise RuntimeError("Pixel position is not a number")
         return float(x), float(y)
+
+    def all_p2s(self, array_of_pixpos):
+        """
+        Vectorized pixel to spatial coordinate conversion, making use of
+        all_pix2world from astropy. This will save time when thousands of
+        sources are detected.
+
+        Args:
+            array_of_pixpos ((N, 2) array):  array of [x, y] pixel
+            positions.
+
+        Returns:
+            (N, 2) array: each row has an entry for Right ascension (float)
+                          and Declination (float)
+
+        """
+        sky_coordinates =  self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
+        if numpy.isnan(sky_coordinates).any():
+            raise RuntimeError("Spatial position is not a number")
+        return sky_coordinates
