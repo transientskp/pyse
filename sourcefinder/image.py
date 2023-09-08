@@ -1075,9 +1075,6 @@ class ImageData(object):
                                      dtype=numpy.int32)
             thresholds = numpy.empty(num_islands, dtype=numpy.float32)
             local_noise_levels = numpy.empty(num_islands, dtype=numpy.float32)
-            moments_of_sources = numpy.empty((num_islands, 2, 10),
-                                             dtype=numpy.float32)
-            dummy = numpy.empty_like(moments_of_sources)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
@@ -1105,6 +1102,9 @@ class ImageData(object):
             # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
             # gaussian position angle and the deconvolved equivalents of the latter
             # three quantities.
+            moments_of_sources = numpy.empty((num_islands, 2, 10),
+                                             dtype=numpy.float32)
+            dummy = numpy.empty_like(moments_of_sources)
 
             # This is a workaround for an unresolved issue:
             # https://github.com/numba/numba/issues/6690
@@ -1122,7 +1122,28 @@ class ImageData(object):
                                      numpy.array(self.correlation_lengths),
                                      0, 0, dummy, moments_of_sources)
 
-            sky_coordinates = self.wcs.all_p2s(moments_of_sources[:, 0, 2:4])
+            barycentric_positions = moments_of_sources[:, 0, 2:4]
+            # Convert the barycentric positions to celestial_coordinates.
+            sky_coordinates = self.wcs.all_p2s(barycentric_positions)
+            # We need to determine the orientation of the y-axis wrt local north
+            # by incrementing y by a small amount and converting that
+            # to celestial coordinates. That small increment is conveniently
+            # chosen to be an increment of 1 pixel.
+            endy_barycentric_positions = barycentric_positions.copy()
+            endy_barycentric_positions[:, 1] += 1
+            endy_sky_coordinates = self.wcs.all_p2s(endy_barycentric_positions)
+
+            input_for_second_part_of_celestial_coordinates = \
+                numpy.empty((num_islands, 3), dtype=numpy.float32)
+            # Unfortunately, the use of the guvectorize decorator again
+            # requires a dummy input with the same shape as the output,
+            # such that Numba can infer the shape of the output array.
+            dummy = \
+                numpy.empty_like(input_for_second_part_of_celestial_coordinates)
+
+            fitting.first_part_of_celestial_coordinates(sky_coordinates,
+                endy_sky_coordinates, moments_of_sources[:, 1, 2:4], dummy,
+                input_for_second_part_of_celestial_coordinates)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
