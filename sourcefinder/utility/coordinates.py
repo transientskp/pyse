@@ -710,7 +710,7 @@ class WCS:
                           and Declination (float)
 
         """
-        sky_coordinates =  self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
+        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
         if numpy.isnan(sky_coordinates).any():
             raise RuntimeError("Spatial position is not a number")
         return sky_coordinates
