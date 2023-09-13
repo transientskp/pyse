@@ -6,7 +6,7 @@ These are used in conjunction with image.ImageData.
 
 import logging
 from collections.abc import MutableMapping
-
+from numba import guvectorize, float64, float32
 import numpy
 
 try:
@@ -1049,3 +1049,117 @@ class Detection(object):
             self.chisq,
             self.reduced_chisq
         ]
+
+@guvectorize([(float64[:],float64[:], float32[:], float32[:], float32[:])],
+             '(n), (n), (n), (m) -> (m)', nopython=True)
+def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
+                                        xbar_ybar_error,
+                                        dummy, return_values):
+    """
+    Similar to extract.Detection._physical_coordinates, but vectorized and
+    only the first part, until we need another call to wcs.all_pix2world,
+    based on the output from this part.
+    What we have learned from moments_enhanced is that measuring the islands
+    can be done very rapidly, by vectorizing the measurements rather than
+    parallellizing, although one can do both by using the guvectorize
+    decorator from Numba. Contrary to vectorizing moments, vectorizing
+    the transformation to celestial coordinates is harder, since it involves
+    wcs.wcs_pix2world from Astropy, which Numba cannot compile. The way out
+    of this is to use wcs.all_pix2world from Astropy, which is a fast
+    vectorized function, but this has to be done outside the routine compiled
+    by Numba, i.e. this routine. We will be needing a number of calls to
+    wcs.all_pix2world to traverse all the steps from
+    extract.Detection._physical_coordinates.
+
+    Args:
+        ra_dec (numpy.ndarray): array of floats of length 2, containing the
+            right ascension (degrees) and the declination
+            (degrees) corresponding to [xbar, ybar] of the source.
+
+        endy_ra_dec (numpy.ndarray): array of floats of length 2, containing the
+            right ascension (degrees) and the declination
+            (degrees) corresponding to [xbar, ybar + 1] of the source.
+
+        xbar_ybar_error (numpy.ndarray): array of floats of length 2,
+            with the errors on the barycentric positions, in both dimensions.
+
+    Returns:
+        None (because of the guvectorize decorator), but return_values is
+        filled with xerror_proj, yerror_proj and yoffset_angle.
+    """
+
+    ra, dec = ra_dec
+    if numpy.isnan(dec) or abs(dec) > 90.0:
+        raise ValueError("object falls outside the sky")
+
+    # First, determine local north.
+    help1 = numpy.cos(numpy.radians(ra))
+    help2 = numpy.sin(numpy.radians(ra))
+    help3 = numpy.cos(numpy.radians(dec))
+    help4 = numpy.sin(numpy.radians(dec))
+    center_position = numpy.array([help3 * help1, help3 * help2, help4])
+
+    # The length of this vector is chosen such that it touches
+    # the tangent plane at center position.
+    # The cross product of the local north vector and the local east
+    # vector will always be aligned with the center_position vector.
+    if center_position[2] != 0:
+        local_north_position = numpy.array(
+            [0., 0., 1. / center_position[2]])
+    else:
+        # If we are right on the equator (ie dec=0) the division above
+        # will blow up: as a workaround, we use something Really Big
+        # instead.
+        local_north_position = numpy.array([0., 0., 99e99])
+
+    endy_ra, endy_dec = endy_ra_dec
+    help5 = numpy.cos(numpy.radians(endy_ra))
+    help6 = numpy.sin(numpy.radians(endy_ra))
+    help7 = numpy.cos(numpy.radians(endy_dec))
+    help8 = numpy.sin(numpy.radians(endy_dec))
+    endy_position = numpy.array([help7 * help5, help7 * help6, help8])
+
+    # Extend the length of endy_position to make it touch the plane
+    # tangent at center_position.
+    endy_position /= numpy.dot(center_position, endy_position)
+
+    diff1 = endy_position - center_position
+    diff2 = local_north_position - center_position
+
+    cross_prod = numpy.cross(diff2, diff1)
+
+    length_cross_sq = numpy.dot(cross_prod, cross_prod)
+
+    normalization = numpy.dot(diff1, diff1) * numpy.dot(diff2, diff2)
+
+    # The length of the cross product equals the product of the lengths of
+    # the vectors times the sine of their angle.
+    # This is the angle between the y-axis and local north,
+    # measured eastwards.
+    # yoffset_angle = numpy.degrees(
+    #    numpy.arcsin(numpy.sqrt(length_cross_sq/normalization)))
+    # The formula above is commented out because the angle computed
+    # in this way will always be 0<=yoffset_angle<=90.
+    # We'll use the dotproduct instead.
+    yoffs_rad = (numpy.arccos(numpy.dot(diff1, diff2) /
+                              numpy.sqrt(normalization)))
+
+    # The multiplication with -sign_cor makes sure that the angle
+    # is measured eastwards (increasing RA), not westwards.
+    sign_cor = (numpy.dot(cross_prod, center_position) /
+                numpy.sqrt(length_cross_sq))
+    yoffs_rad *= -sign_cor
+    yoffset_angle = numpy.degrees(yoffs_rad)
+
+    # Now that we have the BPA, we can also compute the position errors
+    # properly, by projecting the errors in pixel coordinates (x and y)
+    # on local north and local east.
+    xbar_error, ybar_error = xbar_ybar_error
+    errorx_proj = numpy.sqrt(
+        (xbar_error * numpy.cos(yoffs_rad)) ** 2 +
+        (ybar_error * numpy.sin(yoffs_rad)) ** 2)
+    errory_proj = numpy.sqrt(
+        (xbar_error * numpy.sin(yoffs_rad)) ** 2 +
+        (ybar_error * numpy.cos(yoffs_rad)) ** 2)
+
+    return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle])
