@@ -8,6 +8,7 @@ import datetime
 import logging
 import math
 import sys
+from numba import njit
 
 import pytz
 from astropy import wcs as pywcs
@@ -320,7 +321,6 @@ def dmstodec(decd, decm, decs):
     if abs(dec) > 90:
         raise ValueError("coordinates out of range")
     return dec
-
 
 def angsep(ra1, dec1, ra2, dec2):
     """Find the angular separation of two sources, in arcseconds,
