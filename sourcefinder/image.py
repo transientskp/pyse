@@ -1133,17 +1133,19 @@ class ImageData(object):
             endy_barycentric_positions[:, 1] += 1
             endy_sky_coordinates = self.wcs.all_p2s(endy_barycentric_positions)
 
-            input_for_second_part_of_celestial_coordinates = \
+            input_for_second_part = \
                 numpy.empty((num_islands, 3), dtype=numpy.float32)
             # Unfortunately, the use of the guvectorize decorator again
             # requires a dummy input with the same shape as the output,
             # such that Numba can infer the shape of the output array.
             dummy = \
-                numpy.empty_like(input_for_second_part_of_celestial_coordinates)
+                numpy.empty_like(input_for_second_part)
 
             fitting.first_part_of_celestial_coordinates(sky_coordinates,
-                endy_sky_coordinates, moments_of_sources[:, 1, 2:4], dummy,
-                input_for_second_part_of_celestial_coordinates)
+                                                        endy_sky_coordinates,
+                                                        moments_of_sources[:, 1, 2:4],
+                                                        dummy,
+                                                        input_for_second_part)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
