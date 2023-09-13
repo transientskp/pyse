@@ -1123,7 +1123,7 @@ class ImageData(object):
             dummy = \
                 numpy.empty_like(input_for_second_part)
 
-            fitting.first_part_of_celestial_coordinates(sky_coordinates,
+            extract.first_part_of_celestial_coordinates(sky_coordinates,
                                                         endy_sky_coordinates,
                                                         moments_of_sources[:, 1, 2:4],
                                                         dummy,
