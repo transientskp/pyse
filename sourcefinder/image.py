@@ -1147,6 +1147,17 @@ class ImageData(object):
                                                         dummy,
                                                         input_for_second_part)
 
+            # Compute sky positions corresponding to [x_bar + x_error,
+            #                                         y_bar + y_error]
+            try:
+                pix1 =  barycentric_positions.copy()
+                pix1[:, 0] += moments_of_sources[:, 1, 2:4]
+                sky1 =  self.wcs.all_p2s(pix1)
+
+            error_radii = numpy.empty(num_islands, dtype=numpy.float32)
+
+
+
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
 
