@@ -12,7 +12,8 @@ from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
-
+from sourcefinder.utility import coordinates
+from sourcefinder.utility.uncertain import Uncertain
 import dask.array as da
 from scipy.interpolate import interp1d
 import psutil
@@ -21,7 +22,6 @@ from functools import cached_property
 from functools import partial
 import sep
 from . import fitting
-from sourcefinder.utility.uncertain import Uncertain
 
 try:
     import ndimage
@@ -1104,14 +1104,14 @@ class ImageData(object):
                                      numpy.array(self.correlation_lengths),
                                      0, 0, dummy, moments_of_sources)
 
-            barycentric_positions = moments_of_sources[:, 0, 2:4]
+            barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
             # Convert the barycentric positions to celestial_coordinates.
-            sky_coordinates = self.wcs.all_p2s(barycentric_positions)
+            sky_barycenters = self.wcs.all_p2s(barycentric_pixel_positions)
             # We need to determine the orientation of the y-axis wrt local north
             # by incrementing y by a small amount and converting that
             # to celestial coordinates. That small increment is conveniently
             # chosen to be an increment of 1 pixel.
-            endy_barycentric_positions = barycentric_positions.copy()
+            endy_barycentric_positions = barycentric_pixel_positions.copy()
             endy_barycentric_positions[:, 1] += 1
             endy_sky_coordinates = self.wcs.all_p2s(endy_barycentric_positions)
 
@@ -1123,22 +1123,33 @@ class ImageData(object):
             dummy = \
                 numpy.empty_like(input_for_second_part)
 
-            extract.first_part_of_celestial_coordinates(sky_coordinates,
+            extract.first_part_of_celestial_coordinates(sky_barycenters,
                                                         endy_sky_coordinates,
                                                         moments_of_sources[:, 1, 2:4],
                                                         dummy,
                                                         input_for_second_part)
 
+            # Derive an absolute angular error on position, as
+            # utils.get_error_radius does, but less involved.
+            # Simply derive the angle between the celestial positions
+            # corresponding to [xbar, ybar] and [xbar + errorx,
+            # ybar + errory], that should suffice.
             # Compute sky positions corresponding to [x_bar + x_error,
             #                                         y_bar + y_error]
+            error_radii = numpy.empty(num_islands, dtype=numpy.float64)
             try:
-                pix1 =  barycentric_positions.copy()
-                pix1[:, 0] += moments_of_sources[:, 1, 2:4]
-                sky1 =  self.wcs.all_p2s(pix1)
+                pix_offset = moments_of_sources[:, 0, 2:4] + \
+                             moments_of_sources[:, 1, 2:4]
+                sky_offset = self.wcs.all_p2s(pix_offset)
+                coordinates.angsep_vectorized(sky_barycenters, sky_offset,
+                                              error_radii)
 
-            error_radii = numpy.empty(num_islands, dtype=numpy.float32)
-
-
+            except RuntimeError:
+                # Mimic error handling from utils.get_error_radius
+                # The downside is that all error radii will be inf
+                # also when only the calculation of the error radius for a
+                # single source gives a RuntimeError,
+                error_radii.fill(float('inf'))
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]

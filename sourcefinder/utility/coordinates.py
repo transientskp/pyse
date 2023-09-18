@@ -8,7 +8,7 @@ import datetime
 import logging
 import math
 import sys
-from numba import njit
+from numba import njit, guvectorize, float32, float64
 
 import pytz
 from astropy import wcs as pywcs
@@ -350,6 +350,40 @@ def angsep(ra1, dec1, ra2, dec2):
         temp = 1.0 * cmp(temp, 0)
 
     return 3600 * math.degrees(math.acos(temp))
+
+@njit
+def cmp_jitted(a, b):
+    return bool(a > b) - bool(a < b)
+
+@guvectorize([(float64[:], float64[:], float64)],
+             '(n), (n) -> ()', nopython=True)
+def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
+    """Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trig formula
+
+    Positional arguments:
+        ra_dec1 (ndarray)- RA and Dec of the first source, in decimal degrees
+        ra_dec2 (ndarray)- RA and Dec of the second source, in decimal degrees
+
+    Return value: None, because of the guvectorize decorator, but
+        angular_separation (float, arcseconds) is assigned a value.
+
+    """
+    ra1, dec1 = ra_dec1
+    ra2, dec2 = ra_dec2
+
+    b = (math.pi / 2) - math.radians(dec1)
+    c = (math.pi / 2) - math.radians(dec2)
+    temp = (math.cos(b) * math.cos(c)) + (
+            math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2)))
+
+    # Truncate the value of temp at +- 1: it makes no sense to do math.acos()
+    # of a value outside this range, but occasionally we might get one due to
+    # rounding errors.
+    if abs(temp) > 1.0:
+        temp = 1.0 * cmp_jitted(temp, 0)
+
+    angular_separation = 3600 * math.degrees(math.acos(temp))
 
 
 def alphasep(ra1, ra2, dec1, dec2):
