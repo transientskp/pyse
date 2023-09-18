@@ -1164,10 +1164,10 @@ class ImageData(object):
                                               error_radii)
 
             except RuntimeError:
-                # Mimic error handling from utils.get_error_radius
-                # The downside is that all error radii will be inf
+                # Mimic error handling from utils.get_error_radius.
+                # The downside is that all error radii will be infinite
                 # also when only the calculation of the error radius for a
-                # single source gives a RuntimeError,
+                # single source gives a RuntimeError.
                 error_radii.fill(float('inf'))
 
             for count, label in enumerate(labels):
