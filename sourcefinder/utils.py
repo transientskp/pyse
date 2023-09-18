@@ -10,7 +10,6 @@ import scipy.integrate
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
-
 def generate_subthresholds(min_value, max_value, num_thresholds):
     """
     Generate a series of ``num_thresholds`` logarithmically spaced values
@@ -54,52 +53,6 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
             (x_value - x_error, y_value - y_error)
         ]:
             error_ra, error_dec = wcs.p2s(pixpos)
-            error_radius = max(
-                error_radius,
-                coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec)
-            )
-    except RuntimeError:
-        # We get a runtime error from wcs.p2s if the errors place the
-        # limits outside of the image, in which case we set the angular
-        # uncertainty to infinity.
-        error_radius = float('inf')
-    return error_radius
-
-
-def get_error_radii(celes0, celes1, celes2, celes3, celes4):
-    """
-    Similar to get_error_radius, but in a vectorized way.
-    I.e. the goal is still to get absolute angular errors on positions,
-    but for all the detected sources through a single call to this function.
-
-    To be able to apply the guvectorize decorator from Numba, i.e. to compute
-    these radii fast, there can be no calls to wcs.p2s inside this function.
-    Instead, the vectorized equivalents of wcs.p2s([x_bar, y_bar]),
-    wcs.p2s([x_bar + x_error, y_bar + y_error]),
-    wcs.p2s([x_bar - x_error, y_bar + y_error]),
-    wcs.p2s([x_bar + x_error, y_bar - y_error]),
-    wcs.p2s([x_bar - x_error, y_bar - y_error]),
-    will serve as inputs to this function. These vectorized equivalents will
-    be computed through a call to wcs.all_p2s.
-
-    Parameters:
-        celes0 (ndarray) : array of two floats corresponding to [xbar, ybar]
-        celes1 (ndarray): similar corresponding to [x_bar + x_error,
-                                                    y_bar + y_error]
-        celes2 (ndarray): similar corresponding to [x_bar - x_error,
-                                                    y_bar + y_error]
-        celes3 (ndarray): similar corresponding to [x_bar + x_error,
-                                                    y_bar - y_error]
-        celes4 (ndarray): similar corresponding to [x_bar - x_error,
-                                                    y_bar - y_error]
-    """
-    error_radius = 0
-    try:
-        centre_ra, centre_dec = celes0
-        # We check all possible combinations in case we have a nonlinear
-        # WCS.
-        for celespos in [celes1, celes2, celes3, celes4]:
-            error_ra, error_dec = celespos
             error_radius = max(
                 error_radius,
                 coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec)
