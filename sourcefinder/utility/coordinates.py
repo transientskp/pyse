@@ -8,7 +8,7 @@ import datetime
 import logging
 import math
 import sys
-from numba import njit, guvectorize, float32, float64
+from numba import njit, guvectorize, float64
 
 import pytz
 from astropy import wcs as pywcs
