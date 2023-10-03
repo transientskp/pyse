@@ -748,4 +748,8 @@ class WCS:
         sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
         if numpy.isnan(sky_coordinates).any():
             raise RuntimeError("Spatial position is not a number")
+        # Mimic conditional from extract.Detection._physical_coordinates
+        if numpy.any(numpy.abs(abs(sky_coordinates[:, 1] > 90.0))):
+            raise ValueError("At least one object falls outside the sky")
+
         return sky_coordinates
