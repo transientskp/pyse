@@ -1050,14 +1050,15 @@ class Detection(object):
             self.reduced_chisq
         ]
 
-@guvectorize([(float64[:],float64[:], float32[:], float32[:], float32[:])],
-             '(n), (n), (n), (m) -> (m)', nopython=True)
+@guvectorize([(float64[:],float64[:], float32[:], float32[:], float32[:],
+               float32[:])], '(n), (n), (n), (l), (m) -> (m)', nopython=True)
 def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
                                         xbar_ybar_error,
+                                        xbar_ybar_smaj_smin_theta,
                                         dummy, return_values):
     """
     Similar to extract.Detection._physical_coordinates, but vectorized and
-    only the first part, until we need another call to wcs.all_pix2world,
+    mainly the first part, until we need another call to wcs.all_pix2world,
     based on the output from this part.
     What we have learned from moments_enhanced is that measuring the islands
     can be done very rapidly, by vectorizing the measurements rather than
@@ -1076,16 +1077,22 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
             right ascension (degrees) and the declination
             (degrees) corresponding to [xbar, ybar] of the source.
 
-        endy_ra_dec (numpy.ndarray): array of floats of length 2, containing the
-            right ascension (degrees) and the declination
+        endy_ra_dec (numpy.ndarray): array of floats of length 2, containing
+            the right ascension (degrees) and the declination
             (degrees) corresponding to [xbar, ybar + 1] of the source.
 
         xbar_ybar_error (numpy.ndarray): array of floats of length 2,
             with the errors on the barycentric positions, in both dimensions.
 
+        xbar_ybar_smaj_smin_theta (numpy.ndarray): array of floats of length 5,
+            with the barycentric positions, the semi-major and semi-minor axes
+            and the position angles.
+
     Returns:
         None (because of the guvectorize decorator), but return_values is
-        filled with xerror_proj, yerror_proj and yoffset_angle.
+        filled with xerror_proj, yerror_proj, yoffset_angle, end_smaj_x,
+        start_smaj_x, end_smaj_y,  start_smaj_y, end_smin_x, start_smin_x,
+        end_smin_y and start_smin_y.
     """
 
     ra, dec = ra_dec
@@ -1162,4 +1169,19 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
         (xbar_error * numpy.sin(yoffs_rad)) ** 2 +
         (ybar_error * numpy.cos(yoffs_rad)) ** 2)
 
-    return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle])
+    # Next, the axes.
+    # Note that the signs of numpy.sin and numpy.cos in the
+    # four expressions below are arbitrary.
+    xbar, ybar, smaj, smin, theta = xbar_ybar_smaj_smin_theta
+    end_smaj_x = (xbar - numpy.sin(theta) * smaj)
+    start_smaj_x = (xbar + numpy.sin(theta) * smaj)
+    end_smaj_y = (ybar + numpy.cos(theta) * smaj)
+    start_smaj_y = (ybar - numpy.cos(theta) * smaj)
+    end_smin_x = (xbar + numpy.cos(theta) * smin)
+    start_smin_x = (xbar - numpy.cos(theta) * smin)
+    end_smin_y = (ybar + numpy.sin(theta) * smin)
+    start_smin_y = (ybar - numpy.sin(theta) * smin)
+
+    return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle,
+                           end_smaj_x, start_smaj_x, end_smaj_y,  start_smaj_y,
+                           end_smin_x, start_smin_x, end_smin_y,  start_smin_y])

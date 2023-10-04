@@ -1135,28 +1135,25 @@ class ImageData(object):
             endy_sky_coordinates = self.wcs.all_p2s(endy_barycentric_positions)
 
             input_for_second_part = \
-                numpy.empty((num_islands, 3), dtype=numpy.float32)
+                numpy.empty((num_islands, 11), dtype=numpy.float32)
             # Unfortunately, the use of the guvectorize decorator again
             # requires a dummy input with the same shape as the output,
             # such that Numba can infer the shape of the output array.
-            dummy = \
-                numpy.empty_like(input_for_second_part)
+            dummy = numpy.empty_like(input_for_second_part)
 
             extract.first_part_of_celestial_coordinates(sky_barycenters,
-                                                        endy_sky_coordinates,
-                                                        moments_of_sources[:, 1, 2:4],
-                                                        dummy,
-                                                        input_for_second_part)
+                endy_sky_coordinates, moments_of_sources[:, 1, 2:4],
+                moments_of_sources[:, 0, 2:7], dummy, input_for_second_part)
 
             # Derive an absolute angular error on position, as
             # utils.get_error_radius does, but less involved.
             # Simply derive the angle between the celestial positions
             # corresponding to [xbar, ybar] and [xbar + errorx,
             # ybar + errory], that should suffice.
-            # Compute sky positions corresponding to [x_bar + x_error,
-            #                                         y_bar + y_error]
             error_radii = numpy.empty(num_islands, dtype=numpy.float64)
             try:
+                # Compute sky positions corresponding to [x_bar + x_error,
+                #                                         y_bar + y_error]
                 pix_offset = moments_of_sources[:, 0, 2:4] + \
                              moments_of_sources[:, 1, 2:4]
                 sky_offset = self.wcs.all_p2s(pix_offset)
