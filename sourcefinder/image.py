@@ -885,7 +885,8 @@ class ImageData(object):
 
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
-            deblend_nthresh, force_beam, labelled_data=None, labels=[]
+            deblend_nthresh, force_beam, labelled_data=None, labels=[],
+            eps_ra=0, eps_dec=0
     ):
         """
         Run Python-based source extraction on this image.
@@ -998,7 +999,9 @@ class ImageData(object):
                     # Failed to fit; drop this island and go to the next.
                     continue
                 try:
-                    det = extract.Detection(measurement, self, chunk=island.chunk)
+                    det = extract.Detection(measurement, self,
+                                            chunk=island.chunk, eps_ra=eps_ra,
+                                            eps_dec=eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
                         logger.warn('Bad fit from blind extraction at pixel coords:'
@@ -1124,7 +1127,7 @@ class ImageData(object):
 
             extract.first_part_of_celestial_coordinates(sky_barycenters,
                 endy_sky_coordinates, moments_of_sources[:, 1, 2:4],
-                moments_of_sources[:, 0, 2:7], dummy, input_for_second_part)
+                    moments_of_sources[:, 0, 2:7], dummy, input_for_second_part)
 
             # Derive an absolute angular error on position, as
             # utils.get_error_radius does, but less involved.
@@ -1147,6 +1150,53 @@ class ImageData(object):
                 # also when only the calculation of the error radius for a
                 # single source gives a RuntimeError.
                 error_radii.fill(float('inf'))
+
+            # Now we have to sort out which combination of errorx_proj and
+            # errory_proj gives the largest errors in RA and Dec.
+            try:
+                # Derive end_ra1, end_dec1, end_ra2, end_dec2 as in
+                # extract.Detection._physical_coordinates.
+                # We need to add errorx_proj to xbar and zero to ybar.
+                # So we need to extract the first column from
+                # input_for_second_part and append a column with zeros
+                # in order to perform the addition.
+                helper1 = input_for_second_part[:, :1]
+                errorx_proj_and_zeros = numpy.hstack((helper1,
+                                             numpy.zeros((helper1.shape[0], 1),
+                                                 dtype=helper1.dtype)))
+                pix_x_plus_errorx_proj = moments_of_sources[:, 0, 2:4] + \
+                                             errorx_proj_and_zeros
+                end_ra1_end_dec1 = self.wcs.all_p2s(pix_x_plus_errorx_proj)
+
+                # Now we need to add errory_proj to ybar and zero to xbar.
+                # So we need to extract the second column from
+                # input_for_second_part and prepend a column with zeros
+                # in order to perform the addition.
+                helper2 = input_for_second_part[:, 1:2]
+                zeros_and_errory_proj = numpy.hstack((
+                    numpy.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
+                    helper2))
+                pix_y_plus_errory_proj = moments_of_sources[:, 0, 2:4] + \
+                                             zeros_and_errory_proj
+
+                end_ra2_end_dec2 = self.wcs.all_p2s(pix_y_plus_errory_proj)
+
+                # Here we include the position calibration errors
+                ra_errors = eps_ra + numpy.maximum(
+                    numpy.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
+                    numpy.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]))
+
+                dec_errors = eps_dec + numpy.maximum(
+                    numpy.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
+                    numpy.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]))
+            except RuntimeError:
+                # We get a runtime error from wcs.all_p2s if the errors place the
+                # limits outside of the image.
+                # In which case we set the RA / DEC uncertainties to infinity.
+                # The downside of this vectorized approach is that the position
+                # errors for all the sources will be set to infinity.
+                ra_errors = numpy.empty(num_islands).fill(np.inf)
+                dec_errors = numpy.empty(num_islands).fill(np.inf)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
