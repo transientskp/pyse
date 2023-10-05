@@ -1198,6 +1198,18 @@ class ImageData(object):
                 ra_errors = numpy.empty(num_islands).fill(np.inf)
                 dec_errors = numpy.empty(num_islands).fill(np.inf)
 
+            theta_celes_values = (numpy.degrees(moments_of_sources[:, 0, 6:7]) +
+                                  input_for_second_part[:, 2:3]) % 180
+
+            theta_celes_errors = numpy.degrees(moments_of_sources[:, 1, 6:7])
+
+            # This should also work for any nan value of theta_dc.
+            theta_dc_celes_values = \
+                (numpy.degrees(moments_of_sources[:, 0, 9:10]) +
+                 input_for_second_part[:, 2:3]) % 180
+
+            theta_dc_celes_errors = numpy.degrees(moments_of_sources[:, 1, 9:10])
+
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
 
