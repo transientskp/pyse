@@ -1087,8 +1087,8 @@ class ImageData(object):
                 measurement = measurements[count]
 
                 peak_position = measurement["xpeak"], measurement["ypeak"]
-                # threshold = measurement["thresh"]
-                thresholds[count] = analysisthresholdmap[peak_position]
+                thresholds[count] = measurement["thresh"]
+                # thresholds[count] = analysisthresholdmap[peak_position]
 
                 local_noise_levels[count] = self.rmsmap[peak_position]
 
