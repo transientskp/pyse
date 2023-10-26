@@ -1171,14 +1171,14 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
     # Note that the signs of numpy.sin and numpy.cos in the
     # four expressions below are arbitrary.
     xbar, ybar, smaj, smin, theta = xbar_ybar_smaj_smin_theta
-    end_smaj_x = (xbar - numpy.sin(theta) * smaj)
-    start_smaj_x = (xbar + numpy.sin(theta) * smaj)
-    end_smaj_y = (ybar + numpy.cos(theta) * smaj)
-    start_smaj_y = (ybar - numpy.cos(theta) * smaj)
-    end_smin_x = (xbar + numpy.cos(theta) * smin)
-    start_smin_x = (xbar - numpy.cos(theta) * smin)
-    end_smin_y = (ybar + numpy.sin(theta) * smin)
-    start_smin_y = (ybar - numpy.sin(theta) * smin)
+    end_smaj_x = xbar - numpy.sin(theta) * smaj
+    start_smaj_x = xbar + numpy.sin(theta) * smaj
+    end_smaj_y = ybar + numpy.cos(theta) * smaj
+    start_smaj_y = ybar - numpy.cos(theta) * smaj
+    end_smin_x = xbar + numpy.cos(theta) * smin
+    start_smin_x = xbar - numpy.cos(theta) * smin
+    end_smin_y = ybar + numpy.sin(theta) * smin
+    start_smin_y = ybar - numpy.sin(theta) * smin
 
     return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle,
                            end_smaj_x, start_smaj_x, end_smaj_y,  start_smaj_y,
