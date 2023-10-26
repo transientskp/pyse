@@ -1195,8 +1195,8 @@ class ImageData(object):
                 # In which case we set the RA / DEC uncertainties to infinity.
                 # The downside of this vectorized approach is that the position
                 # errors for all the sources will be set to infinity.
-                ra_errors = numpy.empty(num_islands).fill(np.inf)
-                dec_errors = numpy.empty(num_islands).fill(np.inf)
+                ra_errors = numpy.empty(num_islands).fill(numpy.inf)
+                dec_errors = numpy.empty(num_islands).fill(numpy.inf)
 
             theta_celes_values = (numpy.degrees(moments_of_sources[:, 0, 6:7]) +
                                   input_for_second_part[:, 2:3]) % 180
@@ -1209,6 +1209,39 @@ class ImageData(object):
                  input_for_second_part[:, 2:3]) % 180
 
             theta_dc_celes_errors = numpy.degrees(moments_of_sources[:, 1, 9:10])
+
+            try:
+                end_smaj_ra_dec = \
+                    self.wcs.all_p2s(input_for_second_part[:, [3, 5]])
+                end_smin_ra_dec = \
+                    self.wcs.all_p2s(input_for_second_part[:, [7, 9]])
+
+            except RuntimeError:
+                # Here we are again facing a downside of the vectorized
+                # approach: if the FWHM ends of any source give a problem
+                # wrt to pixel to sky conversion, all sky coordinates have to
+                # be set to nans.
+                logger.debug("pixel_to_spatial failed")
+                end_smaj_ra_dec = \
+                    numpy.empty((num_islands, 2)).fill(numpy.nan)
+                end_smin_ra_dec = \
+                    numpy.empty((num_islands, 2)).fill(numpy.nan)
+
+            smaj_asec = numpy.empty(num_islands, dtype=numpy.float64)
+            coordinates.angsep_vectorized(sky_barycenters, end_smaj_ra_dec,
+                                          smaj_asec)
+
+            scaling_smaj = smaj_asec / moments_of_sources[:, 0, 4]
+
+            errsmaj_asec = scaling_smaj * moments_of_sources[:, 1, 4]
+
+            smin_asec = numpy.empty(num_islands, dtype=numpy.float64)
+            coordinates.angsep_vectorized(sky_barycenters, end_smin_ra_dec,
+                                          smin_asec)
+
+            scaling_smin = smin_asec / moments_of_sources[:, 0, 5]
+
+            errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
