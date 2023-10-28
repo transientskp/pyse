@@ -1086,10 +1086,9 @@ class ImageData(object):
                 chunk_positions[count, 1] = chunk[1].start
                 measurement = measurements[count]
 
-                peak_position = measurement["xpeak"], measurement["ypeak"]
-                thresholds[count] = measurement["thresh"]
-                # thresholds[count] = analysisthresholdmap[peak_position]
-
+                peak_position = measurement["ypeak"], measurement["xpeak"]
+                # thresholds[count] = measurement["thresh"]
+                thresholds[count] = analysisthresholdmap[peak_position]
                 local_noise_levels[count] = self.rmsmap[peak_position]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
