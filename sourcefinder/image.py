@@ -94,7 +94,9 @@ class ImageData(object):
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
         # meantime
-        self.rawdata = numpy.ascontiguousarray(data)  # a 2D numpy array, C-contiguous needed for sep.
+        # self.rawdata is a 2D numpy array, C-contiguous needed for sep.
+        # single precision is good enough in all cases.
+        self.rawdata = numpy.ascontiguousarray(data, dtype=numpy.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
         self.beam = beam  # tuple of (semimaj, semimin, theta)
         # These three quantities are only dependent on the beam, so should be calculated
@@ -856,7 +858,6 @@ class ImageData(object):
                                                   deblend_cont=use_deblend_cont,
                                                   clean=False,
                                                   segmentation_map=True)
-
         above_det_thr = measurements["peak"] > \
                         detectionthresholdmap[measurements["ypeak"], \
                             measurements["xpeak"]]
