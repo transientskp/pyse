@@ -4,6 +4,9 @@
 # Do not include any shell scripts
 *.sh
 
+# Do not include any exports from the ipython shell.
+*.ipy
+
 # Do not include the pointer_files directory.
 *pointer_files*
 
