@@ -888,8 +888,6 @@ class ImageData(object):
 
         measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
 
-        # labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
-
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
         # 'None' returned for missing label indices.
