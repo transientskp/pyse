@@ -941,8 +941,7 @@ class ImageData(object):
         start_post_labelling = time.time()
         results = containers.ExtractionResults()
 
-        # Set up the fixed fit parameters if 'force beam' is on:
-        if force_beam:
+        if deblend_nthresh or force_beam:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -987,6 +986,8 @@ class ImageData(object):
                 deblended_list = [x.deblend() for x in island_list]
                 island_list = list(utils.flatten(deblended_list))
 
+        # Set up the fixed fit parameters if 'force beam' is on:
+        if force_beam:
             fixed = {'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
