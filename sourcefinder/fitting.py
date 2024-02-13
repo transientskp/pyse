@@ -146,10 +146,18 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
 
     Args:
 
-        island_data (numpy.ndarray): Selected from the actual 2D image data, by taking
-                                     pixels above the analysis threshold only, with its
-                                     peak above the detection threshold. This selection
+        island_data (numpy.ndarray): Selected from the actual 2D image data,
+                                     by taking pixels above the analysis
+                                     threshold only, with its peak above the
+                                     detection threshold. This selection
                                      results in a 1D ndarray (without a mask).
+
+        chunkpos (numpy.ndarray): Index array denoting the position of the top
+                                  left corner of the rectangular slice
+                                  encompassing the island relative to the top
+                                  left corner of the image, which has pixel
+                                  coordinates (0, 0), i.e. we need chunkpos
+                                  to return to absolute pixel coordinates.
 
         posx: Row indices of the pixels in island_data as taken from the actual
               2D images data (rectangular slice).
@@ -196,6 +204,14 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
 
         frac_flux_cal_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
+
+        dummy (numpy.ndarray): Empty array with the same shape as
+                               computed_moments needed because of a flau
+                               in guvectorize: There is no other way to tell
+                               guvectorize what the shape of the output array
+                               will be. Therefore, we define an otherwise
+                               redundant input array with the same shape as
+                               the desired output array.
 
         computed_moments(numpy.ndarray): a (10, 2) array of floats containing
                                 the computed moments, i.e.peak flux density,
