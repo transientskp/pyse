@@ -1151,15 +1151,7 @@ class ImageData(object):
             # Later we will be needing another 2D array of floats with a number
             # of quantities related to sky position.
 
-            # Find the area of the rectangle encompassing the largest island.
-            # Strictly speaking, we only need the number of pixels in the
-            # largest island, but that is more expensive to calculate.
-            max_pixels = 0
-            for loop_slice in slices:
-                area = (loop_slice[0].stop - loop_slice[0].start) * \
-                       (loop_slice[1].stop - loop_slice[1].start)
-                if area > max_pixels:
-                    max_pixels = area
+            max_pixels = npixs.max()
 
             islands = numpy.empty((num_islands, max_pixels), \
                                   dtype=numpy.float32)
