@@ -29,6 +29,7 @@ try:
     import ndimage
 except ImportError:
     from scipy import ndimage
+from numba import guvectorize, float32, int32, float64
 
 
 def timeit(method):
@@ -862,24 +863,50 @@ class ImageData(object):
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
 
-        det_thr_clipped_data = numpy.ma.where(
-            (self.data_bgsubbed > detectionthresholdmap),
-            1, 0
-        ).filled(fill_value=0)
+        # Get a bounding box for each island:
+        # NB Slices ordered by label value (1...N,)
+        # 'None' returned for missing label indices.
+        slices = ndimage.find_objects(labelled_data)
+
+        # Derive all indices than correspond to the slices
+        all_indices = ImageData.slices_to_indices(slices)
+
+        # Derive maximum positions, maximum values and number of pixels
+        # per island.
+        maxposs = numpy.empty((num_labels, 2), dtype=numpy.int32)
+        dummy = numpy.empty_like(maxposs)
+        maxis = numpy.empty(num_labels, dtype=numpy.float32)
+        npixs = numpy.empty(num_labels, dtype=numpy.int32)
+
+        ImageData.find_max_and_argmax_image_slice(self.data_bgsubbed.data,
+                                                  all_indices, labelled_data,
+                                                  numpy.arange(1, num_labels+1,
+                                                  dtype=numpy.int32),
+                                                  dummy, maxposs, maxis, npixs)
+
         # Here we remove the labels that correspond to islands below the
         # detection threshold.
-        labelled_data_filtered = det_thr_clipped_data * labelled_data
-        # [1:] to discard the zero label (background).
+        above_det_thr = maxis > detectionthresholdmap[maxposs[:, 0],
+                                                      maxposs[:, 1]]
+
+        num_islands_above_detection_threshold = above_det_thr.sum()
+
+        # numpy.arange(1, num_labels + 1)) to discard the zero label
+        # (background).
         # Will break in the pathological case that all the image pixels
         # are covered by sources, but we will take that risk.
-        labels_above_det_thr = numpy.unique(labelled_data_filtered)[1:]
+        labels_above_det_thr = numpy.extract(above_det_thr, numpy.arange(1,
+                                             num_labels + 1))
 
-        print(f"Number of sources = {len(labels_above_det_thr)}")
+        maxposs_above_det_thr = numpy.compress(above_det_thr, maxposs, axis=0)
+        maxis_above_det_thr = numpy.extract(above_det_thr, maxis)
+        npixs_above_det = numpy.extract(above_det_thr, npixs)
 
-        # Set to zero all labelled islands that are below det_thr:
-        labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
+        print(f"Number of sources = {num_islands_above_detection_threshold}")
 
-        return labels_above_det_thr, labelled_data
+        return (labels_above_det_thr, labelled_data,
+                num_islands_above_detection_threshold, maxposs_above_det_thr,
+                maxis_above_det_thr, npixs_above_det, slices)
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -890,11 +917,80 @@ class ImageData(object):
         all_indices = numpy.empty((len(slices), 4), dtype=numpy.int32)
         for i in range(len(slices)):
             some_slice = slices[i]
-            all_indices[i, :] = numpy.array([some_slice[0].start, \
-                                            some_slice[0].stop, \
-                                            some_slice[1].start, \
+            all_indices[i, :] = numpy.array([some_slice[0].start,
+                                            some_slice[0].stop,
+                                            some_slice[1].start,
                                             some_slice[1].stop])
         return all_indices
+
+    @staticmethod
+    @guvectorize([(float64[:, :], int32[:], int32[:, :], int32, int32[:],
+                   int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
+                   '(), (k) -> (k), (), ()')
+    def find_max_and_argmax_image_slice(some_image, inds, labelled_data, label,
+                                        dummy, maxpos, maxi, npix):
+        """
+        For an island, indicated by a group of pixels with the same label,
+        find the highest pixel value and its position, first relative to the
+        upper left corner of the rectangular slice encompassing the island,
+        but finally relative to the upper left corner of the image, i.e. the
+        [0, 0] position of the Numpy array with all the image pixel values.
+        Also, derive the number of pixels of the island.
+
+        :param some_image: The 2D ndarray with all the pixel values, typically
+                           self.data_bgsubbed.data.
+
+        :param inds: A ndarray of four indices indicating the slice encompassing
+                     an island. Such a slice would typically be a pick from a
+                     list of slices from a call to scipy.ndimage.find_objects.
+                     Since we are attempting vectorized processing here, the
+                     slice should have been replaced by its four coordinates
+                     through a call to slices_to_indices.
+
+        :param labelled_data: A ndarray with the same shape as some_image, with
+                              labelled islands with integer values and zeroes
+                              for all background pixels.
+
+        :param label: The label (integer value) corresponding to the slice
+                      encompassing the island. Or actually it should be the
+                      other way round, since there can be multiple islands
+                      within one rectangular slice.
+
+        :param dummy: Artefact of the implementation of guvectorize:
+                      Empty array with the same shape as maxpos. It is needed
+                      because of a missing feature in guvectorize: There is no
+                      other way to tell guvectorize what the shape of the
+                      output array will be. Therefore, we define an otherwise
+                      redundant input array with the same shape as the desired
+                      output array.
+
+        :param maxpos: Ndarray of two integers indicating the indices of the
+                       highest pixel value of the island with label = label
+                       relative to the position of pixel [0, 0] of the image.
+
+        :param maxi:  Float64 number equal to the highest pixel value
+                      of the island with label = label.
+
+        :param npix:  Integer indicating the number of pixels of the island.
+
+        :return:      No return values, because of the use of the guvectorize
+                      decorator: 'guvectorize() functions don’t return their
+                      result value: they take it as an array argument,
+                      which must be filled in by the function'. In this case
+                      maxpos, maxi and npix will be filled with values.
+        """
+
+        labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
+        image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+        segmented_island = numpy.where(labelled_data_chunk == label, 1, 0)
+        selected_data = segmented_island * image_chunk
+        maxpos_flat = selected_data.argmax()
+        maxpos[0] = numpy.floor_divide(maxpos_flat, selected_data.shape[1])
+        maxpos[1] = numpy.mod(maxpos_flat, selected_data.shape[1])
+        maxi[0] = selected_data[maxpos[0], maxpos[1]]
+        maxpos[0] += inds[0]
+        maxpos[1] += inds[2]
+        npix[0] = int32(segmented_island.sum())
 
     @timeit
     def _pyse(
@@ -934,16 +1030,13 @@ class ImageData(object):
         # Map our chunks onto a list of islands.
 
         if labelled_data is None:
-            labels, labelled_data = \
+            labels, labelled_data, num_islands, maxposs, maxis, npixs, slices =\
                 self.label_islands(detectionthresholdmap,
                                    analysisthresholdmap, deblend_nthresh
                 )
 
         start_post_labelling = time.time()
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
+
         num_islands = len(labels)
 
         results = containers.ExtractionResults()
@@ -1091,16 +1184,7 @@ class ImageData(object):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
                 chunk_positions[count, 1] = chunk[1].start
-                # measurement = measurements[count]
-
-                # peak_position = measurement["ypeak"], measurement["xpeak"]
-                # image_chunk = self.data_bgsubbed[chunk]
-                # max_inds = numpy.unravel_index(image_chunk.argmax(),
-                #                                image_chunk.shape)
-                # peak_position = chunk[0].start + max_inds[0], \
-                #                 chunk[1].start + max_inds[1]
-                peak_position = chunk[0].start, chunk[1].start
-                # thresholds[count] = measurement["thresh"]
+                peak_position = maxposs[count, 0], maxposs[count, 1]
                 thresholds[count] = analysisthresholdmap[peak_position]
                 local_noise_levels[count] = self.rmsmap[peak_position]
 
@@ -1109,7 +1193,7 @@ class ImageData(object):
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
-                number_of_pixels[count] = len(island_data)
+                number_of_pixels[count] = npixs[count]
                 islands[count, :number_of_pixels[count]] = island_data
                 xpositions[count, :number_of_pixels[count]] = pos[0]
                 ypositions[count, :number_of_pixels[count]] = pos[1]
@@ -1275,37 +1359,37 @@ class ImageData(object):
 
             errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
 
-            # for count, label in enumerate(labels):
-            #     chunk = slices[label - 1]
-            #
-            #     measurement = measurements[count]
-            #
-            #     param = extract.ParamSet()
-            #     param.sig = measurement["peak"] / local_noise_levels[count]
-            #
-            #     param["peak"] = Uncertain(moments_of_sources[count,0,0], moments_of_sources[count,1,0])
-            #     param["flux"] = Uncertain(moments_of_sources[count,0,1], moments_of_sources[count,1,1])
-            #     param["xbar"] = Uncertain(moments_of_sources[count,0,2], moments_of_sources[count,1,2])
-            #     param["ybar"] = Uncertain(moments_of_sources[count,0,3], moments_of_sources[count,1,3])
-            #     param["semimajor"] = Uncertain(moments_of_sources[count,0,4], moments_of_sources[count,1,4])
-            #     param["semiminor"] = Uncertain(moments_of_sources[count,0,5], moments_of_sources[count,1,5])
-            #     param["theta"] = Uncertain(moments_of_sources[count,0,6], moments_of_sources[count,1,6])
-            #     param["semimaj_deconv"] = Uncertain(moments_of_sources[count,0,7], moments_of_sources[count,1,7])
-            #     param["semimin_deconv"] = Uncertain(moments_of_sources[count,0,8], moments_of_sources[count,1,8])
-            #     param["theta_deconv"] = Uncertain(moments_of_sources[count,0,9], moments_of_sources[count,1,9])
-            #
-            #     # moments_dict = {"peak": moments[0], "flux": moments[1],
-            #     #                 "xbar": moments[2] + chunk[0].start,
-            #     #                 "ybar": moments[3] + chunk[1].start,
-            #     #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
-            #
-            #     # param.update(moments_dict)
-            #
-            #     # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
-            #     #                                threshold)
-            #     # param.deconvolve_from_clean_beam(self.beam)
-            #     det = extract.Detection(param, self, chunk=chunk)
-            #     results.append(det)
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+
+                # measurement = measurements[count]
+
+                param = extract.ParamSet()
+                param.sig = maxis[count] / local_noise_levels[count]
+
+                param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
+                param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
+                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
+                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
+                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
+                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
+                param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
+                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
+                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
+                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
+
+                # moments_dict = {"peak": moments[0], "flux": moments[1],
+                #                 "xbar": moments[2] + chunk[0].start,
+                #                 "ybar": moments[3] + chunk[1].start,
+                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+
+                # param.update(moments_dict)
+
+                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
+                #                                threshold)
+                # param.deconvolve_from_clean_beam(self.beam)
+                det = extract.Detection(param, self, chunk=chunk)
+                results.append(det)
 
         end_post_labelling = time.time()
         print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
