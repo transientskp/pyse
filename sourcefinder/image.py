@@ -851,64 +851,50 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        # We need to accept a compromise when using sep.extract for ccl, because we cannot apply our
-        # structuring element since SExtractor always uses 8-connectivity.
-        # I turned on deblending, why would we do it later?
-        # Cleaning is turned off, because that was also so in the original PySE.
-        # minarea=1, as in the original PySE. Btw, SExtractor uses minarea=5 as default
-        # Setting deblend_nthresh=0 in sep.extract results in a MemoryError, so we need to catch that.
-        # deblend_nthresh=0 means no deblending which is effectuated in sep.extract by setting
-        # deblend_cont=1. So this is how we handle this:
-        if deblend_nthresh == 0:
-            use_deblend_nthresh = 32  # Any non-zero positive value.
-            use_deblend_cont = 1.0
-        else:
-            use_deblend_nthresh = deblend_nthresh
-            use_deblend_cont = DEBLEND_MINCONT
+        # combined_mask = numpy.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
+        #                                 self.data.mask)
 
-        combined_mask = numpy.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
-                                         self.data.mask)
+        clipped_data = numpy.ma.where(
+            (self.data_bgsubbed > analysisthresholdmap) &
+            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
+            1, 0
+        ).filled(fill_value=0)
+        labelled_data, num_labels = ndimage.label(clipped_data,
+                                                  STRUCTURING_ELEMENT)
 
-        start_time = time.time()
-        measurements, labelled_data = sep.extract(self.data_bgsubbed.data, thresh=1.0,
-                                                  err=analysisthresholdmap.data,
-                                                  mask=combined_mask, minarea=1,
-                                                  deblend_nthresh=use_deblend_nthresh,
-                                                  deblend_cont=use_deblend_cont,
-                                                  clean=False,
-                                                  segmentation_map=True,
-                                                  filter_kernel=None)
+        det_thr_clipped_data = numpy.ma.where(
+            (self.data_bgsubbed > detectionthresholdmap),
+            1, 0
+        ).filled(fill_value=0)
+        # Here we remove the labels that correspond to islands below the
+        # detection threshold.
+        labelled_data_filtered = det_thr_clipped_data * labelled_data
+        # [1:] to discard the zero label (background).
+        # Will break in the pathological case that all the image pixels
+        # are covered by sources, but we will take that risk.
+        labels_above_det_thr = numpy.unique(labelled_data_filtered)[1:]
 
-        end_time = time.time()
-        print(f"Time taken for sep.extract = {1000*(end_time-start_time):.3f} ms.")
+        print(f"Number of sources = {len(labels_above_det_thr)}")
 
-        start_time = time.time()
-        labels_dummy, num_labels_dummy = ndimage.label(labelled_data)
-        end_time = time.time()
-        print(f"Time taken for ndimage.label = {1000*(end_time-start_time):.3f} ms.")
-        above_det_thr = measurements["peak"] > \
-                        detectionthresholdmap[measurements["ypeak"], \
-                            measurements["xpeak"]]
+        # Set to zero all labelled islands that are below det_thr:
+        labelled_data[numpy.isin(labelled_data, labels_above_det_thr, invert=True)] = 0
 
-        labels_above_det_thr = numpy.extract(above_det_thr,
-                                             numpy.arange(1,
-                                             len(measurements) + 1))
-
-        num_islands_above_detection_threshold = above_det_thr.sum()
-
-        measurements_above_det_thr = numpy.extract(above_det_thr, measurements)
-
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
-
-        return measurements_above_det_thr, labels_above_det_thr, labelled_data, \
-            slices, num_islands_above_detection_threshold
+        return labels_above_det_thr, labelled_data
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
+
+    @staticmethod
+    def slices_to_indices(slices):
+        all_indices = numpy.empty((len(slices), 4), dtype=numpy.int32)
+        for i in range(len(slices)):
+            some_slice = slices[i]
+            all_indices[i, :] = numpy.array([some_slice[0].start, \
+                                            some_slice[0].stop, \
+                                            some_slice[1].start, \
+                                            some_slice[1].stop])
+        return all_indices
 
     @timeit
     def _pyse(
@@ -947,17 +933,19 @@ class ImageData(object):
         """
         # Map our chunks onto a list of islands.
 
-        start_labelling = time.time()
         if labelled_data is None:
-            measurements, labels, labelled_data, slices, num_islands = \
+            labels, labelled_data = \
                 self.label_islands(detectionthresholdmap,
                                    analysisthresholdmap, deblend_nthresh
-            )
-
-        end_labelling = time.time()
-        print ("Labelling took {:7.2f} seconds".format(end_labelling-start_labelling))
+                )
 
         start_post_labelling = time.time()
+        # Get a bounding box for each island:
+        # NB Slices ordered by label value (1...N,)
+        # 'None' returned for missing label indices.
+        slices = ndimage.find_objects(labelled_data)
+        num_islands = len(labels)
+
         results = containers.ExtractionResults()
 
         if deblend_nthresh or force_beam:
@@ -1047,9 +1035,9 @@ class ImageData(object):
                     self.residuals_from_gauss_fitting[island.chunk] += residual
 
         elif num_islands>0:
-            # Here the barycenter moments computed by sep.extract are used,
-            # hence the beam cannot be fixed, this only works for (Gauss)
-            # fitting. The parameter "fixed" will not be used.
+            # This is the conditional route to the fastest algorithm for source
+            # measurements, with no forced_beam and deblending options and no
+            # Gauss fitting, so a coarser way of measuring sources.
 
             # Make 2D input data suitable for moments_enhanced with guvectorize
             # decorator, Each row will contain the pixel values of a flattened
@@ -1070,10 +1058,19 @@ class ImageData(object):
             # Later we will be needing another 2D array of floats with a number
             # of quantities related to sky position.
 
-            number_of_pixels = numpy.array([measurement["npix"] for measurement
-                                            in measurements], dtype=numpy.int32)
-            max_pixels = numpy.max(number_of_pixels)
-            islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+            # Find the area of the rectangle encompassing the largest island.
+            # Strictly speaking, we only need the number of pixels in the
+            # largest island, but that is more expensive to calculate.
+            max_pixels = 0
+            for loop_slice in slices:
+                area = (loop_slice[0].stop - loop_slice[0].start) * \
+                       (loop_slice[1].stop - loop_slice[1].start)
+                if area > max_pixels:
+                    max_pixels = area
+
+            islands = numpy.empty((num_islands, max_pixels), \
+                                  dtype=numpy.float32)
+            number_of_pixels = numpy.empty(num_islands, dtype=numpy.int32)
             # In order to convert to celestial coordinates, at a later stage, we
             # need to keep a record of the positions of the upper left corners
             # of the chunks. moments_enhanced starts by calculating xbar and
@@ -1094,9 +1091,15 @@ class ImageData(object):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
                 chunk_positions[count, 1] = chunk[1].start
-                measurement = measurements[count]
+                # measurement = measurements[count]
 
-                peak_position = measurement["ypeak"], measurement["xpeak"]
+                # peak_position = measurement["ypeak"], measurement["xpeak"]
+                # image_chunk = self.data_bgsubbed[chunk]
+                # max_inds = numpy.unravel_index(image_chunk.argmax(),
+                #                                image_chunk.shape)
+                # peak_position = chunk[0].start + max_inds[0], \
+                #                 chunk[1].start + max_inds[1]
+                peak_position = chunk[0].start, chunk[1].start
                 # thresholds[count] = measurement["thresh"]
                 thresholds[count] = analysisthresholdmap[peak_position]
                 local_noise_levels[count] = self.rmsmap[peak_position]
@@ -1106,6 +1109,7 @@ class ImageData(object):
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
+                number_of_pixels[count] = len(island_data)
                 islands[count, :number_of_pixels[count]] = island_data
                 xpositions[count, :number_of_pixels[count]] = pos[0]
                 ypositions[count, :number_of_pixels[count]] = pos[1]
