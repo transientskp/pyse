@@ -124,12 +124,12 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
 
 @guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, float32,
-               float32, float64, float64, float64[:], float64, float64[:],
-               float64, float64, float32[:, :], float32[:, :])], ('(n), (m), ' +
-               '(n), (n), (), (), (), (), (), (k), (), (m), (), (), (l, p) ' +
-                '-> (l, p)'), nopython=True)
+               float32, float32, float64, float64, float64[:], float64,
+               float64[:], float64, float64, float32[:, :], float32[:, :])],
+              ('(n), (m), (n), (n), (), (), (), (), (), (), (k), (), (m), ' +
+               '(), (), (l, p) -> (l, p)'), nopython=True)
 def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
-                     threshold, noise, fudge_max_pix_factor,
+                     threshold, noise, maxi, fudge_max_pix_factor,
                      max_pix_variance_factor, beam, beamsize,
                      correlation_lengths,
                      clean_bias_error, frac_flux_cal_error, dummy,
@@ -175,6 +175,8 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
         noise(float): local noise, i.e. the standard deviation of the
                       background pixel values, at the position of the
                       peak pixel value of the island.
+
+        maxi(float): peak pixel value from island.
 
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
@@ -238,7 +240,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
     # Are we fitting a -ve or +ve Gaussian?
     if island_data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
-        peak = island_data.max() * fudge_max_pix_factor
+        peak = maxi * fudge_max_pix_factor
     else:
         peak = island_data.min()
     ratio = threshold / peak

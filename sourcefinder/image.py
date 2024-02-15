@@ -1208,7 +1208,7 @@ class ImageData(object):
             fitting.moments_enhanced(islands, chunk_positions, xpositions,
                                      ypositions, number_of_pixels,
                                      thresholds, local_noise_levels,
-                                     self.fudge_max_pix_factor,
+                                     maxis, self.fudge_max_pix_factor,
                                      self.max_pix_variance_factor,
                                      numpy.array(self.beam),
                                      self.beamsize,
