@@ -1156,9 +1156,9 @@ class ImageData(object):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
                 chunk_positions[count, 1] = chunk[1].start
-                peak_position = maxposs[count, 0], maxposs[count, 1]
-                thresholds[count] = analysisthresholdmap[peak_position]
-                local_noise_levels[count] = self.rmsmap[peak_position]
+                peak_position = maxposs[count]
+                thresholds[count] = analysisthresholdmap[*peak_position]
+                local_noise_levels[count] = self.rmsmap[*peak_position]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
@@ -1331,37 +1331,37 @@ class ImageData(object):
 
             errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
 
-            # for count, label in enumerate(labels):
-            #     chunk = slices[label - 1]
-            #
-            #     # measurement = measurements[count]
-            #
-            #     param = extract.ParamSet()
-            #     param.sig = maxis[count] / local_noise_levels[count]
-            #
-            #     param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
-            #     param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
-            #     param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
-            #     param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
-            #     param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
-            #     param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
-            #     param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
-            #     param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
-            #     param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
-            #     param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
-            #
-            #     # moments_dict = {"peak": moments[0], "flux": moments[1],
-            #     #                 "xbar": moments[2] + chunk[0].start,
-            #     #                 "ybar": moments[3] + chunk[1].start,
-            #     #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
-            #
-            #     # param.update(moments_dict)
-            #
-            #     # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
-            #     #                                threshold)
-            #     # param.deconvolve_from_clean_beam(self.beam)
-            #     det = extract.Detection(param, self, chunk=chunk)
-            #     results.append(det)
+            for count, label in enumerate(labels):
+                chunk = slices[label - 1]
+
+                # measurement = measurements[count]
+
+                param = extract.ParamSet()
+                param.sig = maxis[count] / local_noise_levels[count]
+
+                param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
+                param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
+                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
+                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
+                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
+                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
+                param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
+                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
+                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
+                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
+
+                # moments_dict = {"peak": moments[0], "flux": moments[1],
+                #                 "xbar": moments[2] + chunk[0].start,
+                #                 "ybar": moments[3] + chunk[1].start,
+                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+
+                # param.update(moments_dict)
+
+                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
+                #                                threshold)
+                # param.deconvolve_from_clean_beam(self.beam)
+                det = extract.Detection(param, self, chunk=chunk)
+                results.append(det)
 
         end_post_labelling = time.time()
         print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
