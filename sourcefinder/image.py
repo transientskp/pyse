@@ -1166,8 +1166,14 @@ class ImageData(object):
                                      dtype=numpy.int32)
             ypositions = numpy.empty((num_islands, max_pixels),
                                      dtype=numpy.int32)
-            thresholds = analysisthresholdmap[maxposs[:, 0], maxposs[:, 1]]
-            local_noise_levels = self.rmsmap[maxposs[:, 0], maxposs[:, 1]]
+            # Make sure we get a single precision array of floats, which
+            # fitting.moments_enhanced expects.
+            thresholds = analysisthresholdmap.data[maxposs[:, 0],
+                                                   maxposs[:, 1]].astype(
+                                                   numpy.float32, copy=False)
+            local_noise_levels = self.rmsmap.data[maxposs[:, 0],
+                                                  maxposs[:, 1]].astype(
+                                                  numpy.float32, copy=False)
 
             start = time.time()
             for count, label in enumerate(labels):
