@@ -1156,9 +1156,8 @@ class ImageData(object):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
                 chunk_positions[count, 1] = chunk[1].start
-                peak_position = maxposs[count]
-                thresholds[count] = analysisthresholdmap[*peak_position]
-                local_noise_levels[count] = self.rmsmap[*peak_position]
+                thresholds[count] = analysisthresholdmap[*maxposs[count]]
+                local_noise_levels[count] = self.rmsmap[*maxposs[count]]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
