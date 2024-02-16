@@ -1128,8 +1128,6 @@ class ImageData(object):
             # This will be a 3D array of integers, indicating the relative
             # positions of the source pixel relative to a corner of the slice
             # enclosing the island.
-            # Another one will be a 1D integer array of length num_labels
-            # with the number of pixels for each island.
             # Later we will be needing another 2D array of floats with a number
             # of quantities related to sky position.
 
@@ -1137,7 +1135,6 @@ class ImageData(object):
 
             islands = numpy.empty((num_islands, max_pixels), \
                                   dtype=numpy.float32)
-            number_of_pixels = numpy.empty(num_islands, dtype=numpy.int32)
             # In order to convert to celestial coordinates, at a later stage, we
             # need to keep a record of the positions of the upper left corners
             # of the chunks. moments_enhanced starts by calculating xbar and
@@ -1154,6 +1151,7 @@ class ImageData(object):
             thresholds = numpy.empty(num_islands, dtype=numpy.float32)
             local_noise_levels = numpy.empty(num_islands, dtype=numpy.float32)
 
+            start = time.time()
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
@@ -1167,11 +1165,11 @@ class ImageData(object):
                 enclosed_island = self.data_bgsubbed[chunk].data
                 island_data = enclosed_island[pos]
 
-                number_of_pixels[count] = npixs[count]
-                islands[count, :number_of_pixels[count]] = island_data
-                xpositions[count, :number_of_pixels[count]] = pos[0]
-                ypositions[count, :number_of_pixels[count]] = pos[1]
-
+                islands[count, :npixs[count]] = island_data
+                xpositions[count, :npixs[count]] = pos[0]
+                ypositions[count, :npixs[count]] = pos[1]
+            end = time.time()
+            print(f"This loop that fills arrays takes {1000*(end-start):.1f}")
             # The result will be put in an array 'moments_of_sources' containing
             # ten quantities and their uncertainties: peak flux density,
             # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
@@ -1188,7 +1186,7 @@ class ImageData(object):
             # to the output array (moments_of_sources), as (useless) input
             # array. In this way Numba can infer the shape of the output array.
             fitting.moments_enhanced(islands, chunk_positions, xpositions,
-                                     ypositions, number_of_pixels,
+                                     ypositions, npixs,
                                      thresholds, local_noise_levels,
                                      maxis, self.fudge_max_pix_factor,
                                      self.max_pix_variance_factor,
@@ -1333,37 +1331,37 @@ class ImageData(object):
 
             errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
 
-            for count, label in enumerate(labels):
-                chunk = slices[label - 1]
-
-                # measurement = measurements[count]
-
-                param = extract.ParamSet()
-                param.sig = maxis[count] / local_noise_levels[count]
-
-                param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
-                param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
-                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
-                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
-                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
-                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
-                param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
-                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
-                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
-                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
-
-                # moments_dict = {"peak": moments[0], "flux": moments[1],
-                #                 "xbar": moments[2] + chunk[0].start,
-                #                 "ybar": moments[3] + chunk[1].start,
-                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
-
-                # param.update(moments_dict)
-
-                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
-                #                                threshold)
-                # param.deconvolve_from_clean_beam(self.beam)
-                det = extract.Detection(param, self, chunk=chunk)
-                results.append(det)
+            # for count, label in enumerate(labels):
+            #     chunk = slices[label - 1]
+            #
+            #     # measurement = measurements[count]
+            #
+            #     param = extract.ParamSet()
+            #     param.sig = maxis[count] / local_noise_levels[count]
+            #
+            #     param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
+            #     param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
+            #     param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
+            #     param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
+            #     param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
+            #     param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
+            #     param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
+            #     param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
+            #     param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
+            #     param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
+            #
+            #     # moments_dict = {"peak": moments[0], "flux": moments[1],
+            #     #                 "xbar": moments[2] + chunk[0].start,
+            #     #                 "ybar": moments[3] + chunk[1].start,
+            #     #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
+            #
+            #     # param.update(moments_dict)
+            #
+            #     # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
+            #     #                                threshold)
+            #     # param.deconvolve_from_clean_beam(self.beam)
+            #     det = extract.Detection(param, self, chunk=chunk)
+            #     results.append(det)
 
         end_post_labelling = time.time()
         print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
