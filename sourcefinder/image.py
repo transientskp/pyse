@@ -860,11 +860,12 @@ class ImageData(object):
         maxis = numpy.empty(num_labels, dtype=numpy.float32)
         npixs = numpy.empty(num_labels, dtype=numpy.int32)
 
-        ImageData.find_max_and_argmax_image_slice(self.data_bgsubbed.data,
-                                                  all_indices, labelled_data,
-                                                  numpy.arange(1, num_labels+1,
-                                                  dtype=numpy.int32),
-                                                  dummy, maxposs, maxis, npixs)
+        ImageData.extract_parms_image_slice(self.data_bgsubbed.data.astype(
+                                            dtype=numpy.float32, copy=False),
+                                            all_indices, labelled_data,
+                                            numpy.arange(1, num_labels+1,
+                                            dtype=numpy.int32),
+                                            dummy, maxposs, maxis, npixs)
 
         # Here we remove the labels that correspond to islands below the
         # detection threshold.
@@ -906,10 +907,10 @@ class ImageData(object):
         return all_indices
 
     @staticmethod
-    @guvectorize([(float64[:, :], int32[:], int32[:, :], int32, int32[:],
-                   int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
-                   '(), (k) -> (k), (), ()')
-    def find_max_and_argmax_image_slice(some_image, inds, labelled_data, label,
+    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32, int32[:],
+                 int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
+                 '(), (k) -> (k), (), ()')
+    def extract_parms_image_slice(some_image, inds, labelled_data, label,
                                         dummy, maxpos, maxi, npix):
         """
         For an island, indicated by a group of pixels with the same label,
