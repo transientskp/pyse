@@ -1148,16 +1148,14 @@ class ImageData(object):
                                      dtype=numpy.int32)
             ypositions = numpy.empty((num_islands, max_pixels),
                                      dtype=numpy.int32)
-            thresholds = numpy.empty(num_islands, dtype=numpy.float32)
-            local_noise_levels = numpy.empty(num_islands, dtype=numpy.float32)
+            thresholds = analysisthresholdmap[maxposs[:, 0], maxposs[:, 1]]
+            local_noise_levels = self.rmsmap[maxposs[:, 0], maxposs[:, 1]]
 
             start = time.time()
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
                 chunk_positions[count, 0] = chunk[0].start
                 chunk_positions[count, 1] = chunk[1].start
-                thresholds[count] = analysisthresholdmap[*maxposs[count]]
-                local_noise_levels[count] = self.rmsmap[*maxposs[count]]
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
