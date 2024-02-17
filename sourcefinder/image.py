@@ -902,12 +902,15 @@ class ImageData(object):
         maxposs_above_det_thr = numpy.compress(above_det_thr, maxposs, axis=0)
         maxis_above_det_thr = numpy.extract(above_det_thr, maxis)
         npixs_above_det = numpy.extract(above_det_thr, npixs)
+        all_indices_above_det_thr = numpy.compress(above_det_thr, all_indices,
+                                                   axis =0)
 
         print(f"Number of sources = {num_islands_above_detection_threshold}")
 
         return (labels_above_det_thr, labelled_data,
                 num_islands_above_detection_threshold, maxposs_above_det_thr,
-                maxis_above_det_thr, npixs_above_det, slices)
+                maxis_above_det_thr, npixs_above_det, all_indices_above_det_thr,
+                slices)
 
     @staticmethod
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
@@ -919,9 +922,9 @@ class ImageData(object):
         for i in range(len(slices)):
             some_slice = slices[i]
             all_indices[i, :] = numpy.array([some_slice[0].start,
-                                            some_slice[0].stop,
-                                            some_slice[1].start,
-                                            some_slice[1].stop])
+                                             some_slice[0].stop,
+                                             some_slice[1].start,
+                                             some_slice[1].stop])
         return all_indices
 
     @staticmethod
@@ -1031,10 +1034,11 @@ class ImageData(object):
         # Map our chunks onto a list of islands.
 
         if labelled_data is None:
-            labels, labelled_data, num_islands, maxposs, maxis, npixs, slices =\
+            (labels, labelled_data, num_islands, maxposs, maxis, npixs,
+             indices, slices) =\
                 self.label_islands(detectionthresholdmap,
                                    analysisthresholdmap, deblend_nthresh
-                )
+                                   )
 
         start_post_labelling = time.time()
 
@@ -1176,11 +1180,12 @@ class ImageData(object):
                                                   maxposs[:, 1]].astype(
                                                   numpy.float32, copy=False)
 
+            chunk_positions[:, 0] = indices[:, 0]
+            chunk_positions[:, 1] = indices[:, 2]
+
             start = time.time()
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
-                chunk_positions[count, 0] = chunk[0].start
-                chunk_positions[count, 1] = chunk[1].start
 
                 # pos = " positions", i.e. the row and column indices of the island pixels.
                 pos = (labelled_data[chunk] == label).nonzero()
