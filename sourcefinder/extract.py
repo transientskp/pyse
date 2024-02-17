@@ -756,7 +756,7 @@ class Detection(object):
         self.eps_dec = eps_dec
 
         self.imagedata = imagedata
-        ##self.wcs = imagedata.wcs
+        # self.wcs = imagedata.wcs
         self.chunk = chunk
 
         self.peak = paramset['peak']
