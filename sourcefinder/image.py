@@ -903,7 +903,7 @@ class ImageData(object):
         maxis_above_det_thr = numpy.extract(above_det_thr, maxis)
         npixs_above_det = numpy.extract(above_det_thr, npixs)
         all_indices_above_det_thr = numpy.compress(above_det_thr, all_indices,
-                                                   axis =0)
+                                                   axis=0)
 
         print(f"Number of sources = {num_islands_above_detection_threshold}")
 
@@ -928,7 +928,7 @@ class ImageData(object):
         return all_indices
 
     @staticmethod
-    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32, int32[:],
+    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
                  int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
                  '(), (k) -> (k), (), ()')
     def extract_parms_image_slice(some_image, inds, labelled_data, label,
@@ -966,13 +966,13 @@ class ImageData(object):
                       other way to tell guvectorize what the shape of the
                       output array will be. Therefore, we define an otherwise
                       redundant input array with the same shape as the desired
-                      output array.
+                      output array. Defined as int32, but could be any type.
 
         :param maxpos: Ndarray of two integers indicating the indices of the
                        highest pixel value of the island with label = label
                        relative to the position of pixel [0, 0] of the image.
 
-        :param maxi:  Float64 number equal to the highest pixel value
+        :param maxi:  Float32 equal to the highest pixel value
                       of the island with label = label.
 
         :param npix:  Integer indicating the number of pixels of the island.
@@ -986,7 +986,7 @@ class ImageData(object):
 
         labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
         image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
-        segmented_island = numpy.where(labelled_data_chunk == label, 1, 0)
+        segmented_island = numpy.where(labelled_data_chunk == label[0], 1, 0)
         selected_data = segmented_island * image_chunk
         maxpos_flat = selected_data.argmax()
         maxpos[0] = numpy.floor_divide(maxpos_flat, selected_data.shape[1])
@@ -995,6 +995,87 @@ class ImageData(object):
         maxpos[0] += inds[0]
         maxpos[1] += inds[2]
         npix[0] = int32(segmented_island.sum())
+
+    @staticmethod
+    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
+                 int32[:], float32[:], int32[:], int32[:])], '(n, m), (l), ' +
+                 '(n, m), (), (), (k) -> (k), (k), (k)')
+    def insert_island_data(some_image, inds, labelled_data, label,
+                           npix, dummy, island, xpos, ypos):
+
+        """
+        We want to copy the relevant island data into input arrays for
+        fitting.moments_enhanced.
+
+        :param some_image: The 2D ndarray with all the pixel values, typically
+                           self.data_bgsubbed.data.
+
+        :param inds: A ndarray of four indices indicating the slice encompassing
+                     an island. Such a slice would typically be a pick from a
+                     list of slices from a call to scipy.ndimage.find_objects.
+                     Since we are attempting vectorized processing here, the
+                     slice should have been replaced by its four coordinates
+                     through a call to slices_to_indices.
+
+        :param labelled_data: A ndarray with the same shape as some_image, with
+                              labelled islands with integer values and zeroes
+                              for all background pixels.
+
+        :param label: The label (integer value) corresponding to the slice
+                      encompassing the island. Or actually it should be the
+                      other way round, since there can be multiple islands
+                      within one rectangular slice.
+
+        :param npix: Number of pixels comprising the island with label=label.
+
+        :param dummy: Artefact of the implementation of guvectorize:
+                      Empty 1D ndarray with the same length as island, xpos and
+                      ypos, i.e. maxpix. Defined as int32 array, but could be
+                      any other type. It is needed because of a missing feature
+                      in guvectorize: there is no other way to tell guvectorize
+                      what the shape of the output array will be. Therefore, we
+                      define an otherwise redundant input array with the same
+                      shape as the desired output array.
+
+        :param island:  1D ndarray of float32 numbers of pixel values of the
+                        island with label = label. Length = maxpix, the number
+                        of pixels in the largest possible island, indicating
+                        that there will be a number of unassigned values for
+                        the highest indices.
+
+        :param xpos: 1D ndarray of integers indicating the row indices of the
+                     pixels of the island with label = label, relative to the
+                     position of pixel [0, 0] of the rectangular slice
+                     encompassing the island. Must have same order as pixel
+                     values in island. Length = maxpix, the number of pixels in
+                     the largest possible island, indicating that there will be
+                     a number of unassigned values for the highest indices.
+
+        :param ypos: 1D ndarray of integers indicating the column indices of the
+                     pixels of the island with label = label, relative to the
+                     position of pixel [0, 0]  of the rectangular slice
+                     encompassing the island. Must have same order as
+                     pixel values in island. Length = maxpix, the number of
+                     pixels in the largest possible island, indicating that
+                     there will be a number of unassigned values for the highest
+                     indices.
+
+        :return: No return values, because of the use of the guvectorize
+                 decorator: 'guvectorize() functions don’t return their
+                 result value: they take it as an array argument,
+                 which must be filled in by the function'. In this case
+                 island, xpos and ypos will be filled with values.
+        """
+
+        # pos = "positions", i.e. the row and column indices of the island pixels.
+        pos = (labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
+               == label[0]).nonzero()
+        enclosed_island = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+
+        for i in range(npix[0]):
+            index = pos[0][i], pos[1][i]
+            island[i] = enclosed_island[index]
+            xpos[i], ypos[i] = index
 
     @timeit
     def _pyse(
@@ -1176,6 +1257,7 @@ class ImageData(object):
             thresholds = analysisthresholdmap.data[maxposs[:, 0],
                                                    maxposs[:, 1]].astype(
                                                    numpy.float32, copy=False)
+
             local_noise_levels = self.rmsmap.data[maxposs[:, 0],
                                                   maxposs[:, 1]].astype(
                                                   numpy.float32, copy=False)
@@ -1184,19 +1266,14 @@ class ImageData(object):
             chunk_positions[:, 1] = indices[:, 2]
 
             start = time.time()
-            for count, label in enumerate(labels):
-                chunk = slices[label - 1]
-
-                # pos = " positions", i.e. the row and column indices of the island pixels.
-                pos = (labelled_data[chunk] == label).nonzero()
-                enclosed_island = self.data_bgsubbed[chunk].data
-                island_data = enclosed_island[pos]
-
-                islands[count, :npixs[count]] = island_data
-                xpositions[count, :npixs[count]] = pos[0]
-                ypositions[count, :npixs[count]] = pos[1]
+            dummy = numpy.empty_like(xpositions)
+            ImageData.insert_island_data(self.data_bgsubbed.data.astype(
+                                         dtype=numpy.float32, copy=False),
+                                         indices, labelled_data, labels.astype(
+                                         dtype=numpy.int32, copy=False), npixs,
+                                         dummy, islands, xpositions, ypositions)
             end = time.time()
-            print(f"This loop that fills arrays takes {1000*(end-start):.1f}")
+            print(f"This loop that fills arrays takes {1000*(end-start):.1f} ms.")
             # The result will be put in an array 'moments_of_sources' containing
             # ten quantities and their uncertainties: peak flux density,
             # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
@@ -1361,8 +1438,6 @@ class ImageData(object):
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
 
-                # measurement = measurements[count]
-
                 param = extract.ParamSet()
                 param.sig = maxis[count] / local_noise_levels[count]
 
@@ -1377,16 +1452,6 @@ class ImageData(object):
                 param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
                 param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
 
-                # moments_dict = {"peak": moments[0], "flux": moments[1],
-                #                 "xbar": moments[2] + chunk[0].start,
-                #                 "ybar": moments[3] + chunk[1].start,
-                #                 "semimajor": moments[4], "semiminor": moments[5], "theta": moments[6]}
-
-                # param.update(moments_dict)
-
-                # param._error_bars_from_moments(local_noise, self.max_pix_variance_factor, self.correlation_lengths,
-                #                                threshold)
-                # param.deconvolve_from_clean_beam(self.beam)
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
