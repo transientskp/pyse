@@ -916,6 +916,7 @@ class ImageData(object):
     def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
 
+    @timeit
     @staticmethod
     def slices_to_indices(slices):
         all_indices = numpy.empty((len(slices), 4), dtype=numpy.int32)
@@ -927,6 +928,7 @@ class ImageData(object):
                                              some_slice[1].stop])
         return all_indices
 
+    @timeit
     @staticmethod
     @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
                  int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
@@ -996,6 +998,7 @@ class ImageData(object):
         maxpos[1] += inds[2]
         npix[0] = int32(segmented_island.sum())
 
+    @timeit
     @staticmethod
     @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
                  int32[:], float32[:], int32[:], int32[:])], '(n, m), (l), ' +
@@ -1265,15 +1268,12 @@ class ImageData(object):
             chunk_positions[:, 0] = indices[:, 0]
             chunk_positions[:, 1] = indices[:, 2]
 
-            start = time.time()
             dummy = numpy.empty_like(xpositions)
             ImageData.insert_island_data(self.data_bgsubbed.data.astype(
                                          dtype=numpy.float32, copy=False),
                                          indices, labelled_data, labels.astype(
                                          dtype=numpy.int32, copy=False), npixs,
                                          dummy, islands, xpositions, ypositions)
-            end = time.time()
-            print(f"This loop that fills arrays takes {1000*(end-start):.1f} ms.")
             # The result will be put in an array 'moments_of_sources' containing
             # ten quantities and their uncertainties: peak flux density,
             # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
