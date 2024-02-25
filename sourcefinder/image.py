@@ -1354,8 +1354,8 @@ class ImageData(object):
                 # in order to perform the addition.
                 helper1 = input_for_second_part[:, :1]
                 errorx_proj_and_zeros = numpy.hstack((helper1,
-                                             numpy.zeros((helper1.shape[0], 1),
-                                                 dtype=helper1.dtype)))
+                                            numpy.zeros((helper1.shape[0], 1),
+                                            dtype=helper1.dtype)))
                 pix_x_plus_errorx_proj = moments_of_sources[:, 0, 2:4] + \
                                              errorx_proj_and_zeros
                 end_ra1_end_dec1 = self.wcs.all_p2s(pix_x_plus_errorx_proj)
