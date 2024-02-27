@@ -23,13 +23,12 @@ import psutil
 from multiprocessing import Pool
 from functools import partial
 import sep
-from . import fitting
 
 try:
     import ndimage
 except ImportError:
     from scipy import ndimage
-from numba import guvectorize, float32, int32, float64
+from numba import guvectorize, float32, int32
 
 
 def timeit(method):
@@ -45,8 +44,10 @@ def timeit(method):
         return result
     return timed
 
+
 def gather(*args):
     return list(args)
+
 
 logger = logging.getLogger(__name__)
 
@@ -999,88 +1000,6 @@ class ImageData(object):
         npix[0] = int32(segmented_island.sum())
 
     @timeit
-    @staticmethod
-    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
-                 int32[:], float32[:], int32[:], int32[:])], '(n, m), (l), ' +
-                 '(n, m), (), (), (k) -> (k), (k), (k)')
-    def insert_island_data(some_image, inds, labelled_data, label,
-                           npix, dummy, island, xpos, ypos):
-
-        """
-        We want to copy the relevant island data into input arrays for
-        fitting.moments_enhanced.
-
-        :param some_image: The 2D ndarray with all the pixel values, typically
-                           self.data_bgsubbed.data.
-
-        :param inds: A ndarray of four indices indicating the slice encompassing
-                     an island. Such a slice would typically be a pick from a
-                     list of slices from a call to scipy.ndimage.find_objects.
-                     Since we are attempting vectorized processing here, the
-                     slice should have been replaced by its four coordinates
-                     through a call to slices_to_indices.
-
-        :param labelled_data: A ndarray with the same shape as some_image, with
-                              labelled islands with integer values and zeroes
-                              for all background pixels.
-
-        :param label: The label (integer value) corresponding to the slice
-                      encompassing the island. Or actually it should be the
-                      other way round, since there can be multiple islands
-                      within one rectangular slice.
-
-        :param npix: Number of pixels comprising the island with label=label.
-
-        :param dummy: Artefact of the implementation of guvectorize:
-                      Empty 1D ndarray with the same length as island, xpos and
-                      ypos, i.e. maxpix. Defined as int32 array, but could be
-                      any other type. It is needed because of a missing feature
-                      in guvectorize: there is no other way to tell guvectorize
-                      what the shape of the output array will be. Therefore, we
-                      define an otherwise redundant input array with the same
-                      shape as the desired output array.
-
-        :param island:  1D ndarray of float32 numbers of pixel values of the
-                        island with label = label. Length = maxpix, the number
-                        of pixels in the largest possible island, indicating
-                        that there will be a number of unassigned values for
-                        the highest indices.
-
-        :param xpos: 1D ndarray of integers indicating the row indices of the
-                     pixels of the island with label = label, relative to the
-                     position of pixel [0, 0] of the rectangular slice
-                     encompassing the island. Must have same order as pixel
-                     values in island. Length = maxpix, the number of pixels in
-                     the largest possible island, indicating that there will be
-                     a number of unassigned values for the highest indices.
-
-        :param ypos: 1D ndarray of integers indicating the column indices of the
-                     pixels of the island with label = label, relative to the
-                     position of pixel [0, 0]  of the rectangular slice
-                     encompassing the island. Must have same order as
-                     pixel values in island. Length = maxpix, the number of
-                     pixels in the largest possible island, indicating that
-                     there will be a number of unassigned values for the highest
-                     indices.
-
-        :return: No return values, because of the use of the guvectorize
-                 decorator: 'guvectorize() functions don’t return their
-                 result value: they take it as an array argument,
-                 which must be filled in by the function'. In this case
-                 island, xpos and ypos will be filled with values.
-        """
-
-        # pos = "positions", i.e. the row and column indices of the island pixels.
-        pos = (labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
-               == label[0]).nonzero()
-        enclosed_island = some_image[inds[0]:inds[1], inds[2]:inds[3]]
-
-        for i in range(npix[0]):
-            index = pos[0][i], pos[1][i]
-            island[i] = enclosed_island[index]
-            xpos[i], ypos[i] = index
-
-    @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None, labels=[],
@@ -1110,7 +1029,7 @@ class ImageData(object):
 
         Returns:
 
-            (..utility.containers.ExtractionResults):
+            (.utility.containers.ExtractionResults):
 
         This is described in detail in the "Source Extraction System" document
         by John Swinbank, available from TKP svn.
@@ -1217,229 +1136,25 @@ class ImageData(object):
                     self.residuals_from_gauss_fitting[island.chunk] += residual
 
         elif num_islands>0:
-            # This is the conditional route to the fastest algorithm for source
-            # measurements, with no forced_beam and deblending options and no
-            # Gauss fitting, so a coarser way of measuring sources.
 
-            # Make 2D input data suitable for moments_enhanced with guvectorize
-            # decorator, Each row will contain the pixel values of a flattened
-            # island.
-            # First, determine the correct dimensions for the input
-            # The number of rows will be num_labels = number of islands
-            # (sources).
-            # The number of columns will be max_pixels = the maximum number
-            # of pixels an island can have.
-            # We will also be needing auxiliary arrays.
-            # One will be an index array, with an extra dimension
-            # (num_labels, max_pixels, 2).
-            # This will be a 3D array of integers, indicating the relative
-            # positions of the source pixel relative to a corner of the slice
-            # enclosing the island.
-            # Later we will be needing another 2D array of floats with a number
-            # of quantities related to sky position.
-
-            max_pixels = npixs.max()
-
-            islands = numpy.empty((num_islands, max_pixels), \
-                                  dtype=numpy.float32)
-            # In order to convert to celestial coordinates, at a later stage, we
-            # need to keep a record of the positions of the upper left corners
-            # of the chunks. moments_enhanced starts by calculating xbar and
-            # ybar as if those upper left corners have indices [0, 0] in the
-            # image. We can add the indices of the chunks as arguments of
-            # moments_enhanced to correct for that.
-            chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
-            # xpositions and ypositions are relative to the upper left corner of
-            # the chunk.
-            xpositions = numpy.empty((num_islands, max_pixels),
-                                     dtype=numpy.int32)
-            ypositions = numpy.empty((num_islands, max_pixels),
-                                     dtype=numpy.int32)
-            # Make sure we get a single precision array of floats, which
-            # fitting.moments_enhanced expects.
-            thresholds = analysisthresholdmap.data[maxposs[:, 0],
-                                                   maxposs[:, 1]].astype(
-                                                   numpy.float32, copy=False)
-
-            local_noise_levels = self.rmsmap.data[maxposs[:, 0],
-                                                  maxposs[:, 1]].astype(
-                                                  numpy.float32, copy=False)
-
-            chunk_positions[:, 0] = indices[:, 0]
-            chunk_positions[:, 1] = indices[:, 2]
-
-            dummy = numpy.empty_like(xpositions)
-            ImageData.insert_island_data(self.data_bgsubbed.data.astype(
-                                         dtype=numpy.float32, copy=False),
-                                         indices, labelled_data, labels.astype(
-                                         dtype=numpy.int32, copy=False), npixs,
-                                         dummy, islands, xpositions, ypositions)
-            # The result will be put in an array 'moments_of_sources' containing
-            # ten quantities and their uncertainties: peak flux density,
-            # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
-            # gaussian position angle and the deconvolved equivalents of the latter
-            # three quantities.
-            moments_of_sources = numpy.empty((num_islands, 2, 10),
-                                             dtype=numpy.float32)
-            dummy = numpy.empty_like(moments_of_sources)
-
-            # This is a workaround for an unresolved issue:
-            # https://github.com/numba/numba/issues/6690
-            # The output shape can apparently not be set as fixed numbers.
-            # So we will add a dummy array with shape corresponding
-            # to the output array (moments_of_sources), as (useless) input
-            # array. In this way Numba can infer the shape of the output array.
-            fitting.moments_enhanced(islands, chunk_positions, xpositions,
-                                     ypositions, npixs,
-                                     thresholds, local_noise_levels,
-                                     maxis, self.fudge_max_pix_factor,
-                                     self.max_pix_variance_factor,
-                                     numpy.array(self.beam),
-                                     self.beamsize,
-                                     numpy.array(self.correlation_lengths),
-                                     0, 0, dummy, moments_of_sources)
-
-            barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
-            # Convert the barycentric positions to celestial_coordinates.
-            sky_barycenters = self.wcs.all_p2s(barycentric_pixel_positions)
-            # We need to determine the orientation of the y-axis wrt local north
-            # by incrementing y by a small amount and converting that
-            # to celestial coordinates. That small increment is conveniently
-            # chosen to be an increment of 1 pixel.
-            endy_barycentric_positions = barycentric_pixel_positions.copy()
-            endy_barycentric_positions[:, 1] += 1
-            endy_sky_coordinates = self.wcs.all_p2s(endy_barycentric_positions)
-
-            input_for_second_part = \
-                numpy.empty((num_islands, 11), dtype=numpy.float32)
-            # Unfortunately, the use of the guvectorize decorator again
-            # requires a dummy input with the same shape as the output,
-            # such that Numba can infer the shape of the output array.
-            dummy = numpy.empty_like(input_for_second_part)
-
-            extract.first_part_of_celestial_coordinates(sky_barycenters,
-                endy_sky_coordinates, moments_of_sources[:, 1, 2:4],
-                    moments_of_sources[:, 0, 2:7], dummy, input_for_second_part)
-
-            # Derive an absolute angular error on position, as
-            # utils.get_error_radius does, but less involved.
-            # Simply derive the angle between the celestial positions
-            # corresponding to [xbar, ybar] and [xbar + errorx,
-            # ybar + errory], that should suffice.
-            error_radii = numpy.empty(num_islands, dtype=numpy.float64)
-            try:
-                # Compute sky positions corresponding to [x_bar + x_error,
-                #                                         y_bar + y_error]
-                pix_offset = moments_of_sources[:, 0, 2:4] + \
-                             moments_of_sources[:, 1, 2:4]
-                sky_offset = self.wcs.all_p2s(pix_offset)
-                coordinates.angsep_vectorized(sky_barycenters, sky_offset,
-                                              error_radii)
-
-            except RuntimeError:
-                # Mimic error handling from utils.get_error_radius.
-                # The downside is that all error radii will be infinite
-                # also when only the calculation of the error radius for a
-                # single source gives a RuntimeError.
-                error_radii.fill(float('inf'))
-
-            # Now we have to sort out which combination of errorx_proj and
-            # errory_proj gives the largest errors in RA and Dec.
-            try:
-                # Derive end_ra1, end_dec1, end_ra2, end_dec2 as in
-                # extract.Detection._physical_coordinates.
-                # We need to add errorx_proj to xbar and zero to ybar.
-                # So we need to extract the first column from
-                # input_for_second_part and append a column with zeros
-                # in order to perform the addition.
-                helper1 = input_for_second_part[:, :1]
-                errorx_proj_and_zeros = numpy.hstack((helper1,
-                                            numpy.zeros((helper1.shape[0], 1),
-                                            dtype=helper1.dtype)))
-                pix_x_plus_errorx_proj = moments_of_sources[:, 0, 2:4] + \
-                                             errorx_proj_and_zeros
-                end_ra1_end_dec1 = self.wcs.all_p2s(pix_x_plus_errorx_proj)
-
-                # Now we need to add errory_proj to ybar and zero to xbar.
-                # So we need to extract the second column from
-                # input_for_second_part and prepend a column with zeros
-                # in order to perform the addition.
-                helper2 = input_for_second_part[:, 1:2]
-                zeros_and_errory_proj = numpy.hstack((
-                    numpy.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
-                    helper2))
-                pix_y_plus_errory_proj = moments_of_sources[:, 0, 2:4] + \
-                                             zeros_and_errory_proj
-
-                end_ra2_end_dec2 = self.wcs.all_p2s(pix_y_plus_errory_proj)
-
-                # Here we include the position calibration errors
-                ra_errors = eps_ra + numpy.maximum(
-                    numpy.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
-                    numpy.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]))
-
-                dec_errors = eps_dec + numpy.maximum(
-                    numpy.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
-                    numpy.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]))
-            except RuntimeError:
-                # We get a runtime error from wcs.all_p2s if the errors place the
-                # limits outside of the image.
-                # In which case we set the RA / DEC uncertainties to infinity.
-                # The downside of this vectorized approach is that the position
-                # errors for all the sources will be set to infinity.
-                ra_errors = numpy.empty(num_islands).fill(numpy.inf)
-                dec_errors = numpy.empty(num_islands).fill(numpy.inf)
-
-            theta_celes_values = (numpy.degrees(moments_of_sources[:, 0, 6:7]) +
-                                  input_for_second_part[:, 2:3]) % 180
-
-            theta_celes_errors = numpy.degrees(moments_of_sources[:, 1, 6:7])
-
-            # This should also work for any nan value of theta_dc.
-            theta_dc_celes_values = \
-                (numpy.degrees(moments_of_sources[:, 0, 9:10]) +
-                 input_for_second_part[:, 2:3]) % 180
-
-            theta_dc_celes_errors = numpy.degrees(moments_of_sources[:, 1, 9:10])
-
-            try:
-                end_smaj_ra_dec = \
-                    self.wcs.all_p2s(input_for_second_part[:, [3, 5]])
-                end_smin_ra_dec = \
-                    self.wcs.all_p2s(input_for_second_part[:, [7, 9]])
-
-            except RuntimeError:
-                # Here we are again facing a downside of the vectorized
-                # approach: if the FWHM ends of any source give a problem
-                # wrt to pixel to sky conversion, all sky coordinates have to
-                # be set to nans.
-                logger.debug("pixel_to_spatial failed")
-                end_smaj_ra_dec = \
-                    numpy.empty((num_islands, 2)).fill(numpy.nan)
-                end_smin_ra_dec = \
-                    numpy.empty((num_islands, 2)).fill(numpy.nan)
-
-            smaj_asec = numpy.empty(num_islands, dtype=numpy.float64)
-            coordinates.angsep_vectorized(sky_barycenters, end_smaj_ra_dec,
-                                          smaj_asec)
-
-            scaling_smaj = smaj_asec / moments_of_sources[:, 0, 4]
-
-            errsmaj_asec = scaling_smaj * moments_of_sources[:, 1, 4]
-
-            smin_asec = numpy.empty(num_islands, dtype=numpy.float64)
-            coordinates.angsep_vectorized(sky_barycenters, end_smin_ra_dec,
-                                          smin_asec)
-
-            scaling_smin = smin_asec / moments_of_sources[:, 0, 5]
-
-            errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
+            (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
+             error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
+             theta_celes_values, theta_celes_errors, theta_dc_celes_values,
+             theta_dc_celes_errors) = \
+                extract.source_measurements_pixels_and_celestial_vectorised(
+                    num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
+                    self.rmsmap.data, analysisthresholdmap.data, indices,
+                    labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
+                    self.max_pix_variance_factor,  self.beam, self.beamsize,
+                    self.correlation_lengths, eps_ra, eps_dec
+                )
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
 
                 param = extract.ParamSet()
-                param.sig = maxis[count] / local_noise_levels[count]
+                # param.sig = maxis[count] / local_noise_levels[count]
+                param.sig = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
 
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
                 param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])

@@ -6,7 +6,7 @@ These are used in conjunction with image.ImageData.
 
 import logging
 from collections.abc import MutableMapping
-from numba import guvectorize, float64, float32
+from numba import guvectorize, float64, float32, int32
 import numpy
 
 try:
@@ -165,9 +165,9 @@ class Island(object):
                 # subthreshold (=level) must exceed some user given fraction
                 # of the composite object, i.e., the original island.
                 subislands = [isl for isl in subislands if (isl.data - numpy.ma.array(
-                        numpy.ones(isl.data.shape) * level,
-                        mask=isl.data.mask)).sum() > self.deblend_mincont *
-                                                     self.flux_orig]
+                    numpy.ones(isl.data.shape) * level,
+                    mask=isl.data.mask)).sum() > self.deblend_mincont *
+                              self.flux_orig]
                 # Discard subislands below detection threshold
                 subislands = [isl for isl in subislands if (isl.data - isl.detection_map).max() >= 0]
                 numbersignifsub = len(subislands)
@@ -212,7 +212,7 @@ class Island(object):
         except ValueError:
             # Fitting failed
             logger.error("Moments & Gaussian fitting failed at %s" % (
-            str(self.position)))
+                str(self.position)))
             return None
         measurement["xbar"] += self.position[0]
         measurement["ybar"] += self.position[1]
@@ -941,7 +941,7 @@ class Detection(object):
                 numpy.fabs(self.dec.value - end_dec2))
         except RuntimeError:
             # We get a runtime error from wcs.p2s if the errors place the
-            # limits outside of the image.
+            # limits outside the image.
             # In which case we set the RA / DEC uncertainties to infinity
             self.ra.error = float('inf')
             self.dec.error = float('inf')
@@ -969,9 +969,9 @@ class Detection(object):
         if not numpy.isnan(self.theta_dc.value):
             self.theta_dc_celes = Uncertain(
                 (self.theta_dc.value + yoffset_angle) % 180,
-                 numpy.degrees(self.theta_dc.error))
+                numpy.degrees(self.theta_dc.error))
         else:
-             self.theta_dc_celes = Uncertain(numpy.nan, numpy.nan)
+            self.theta_dc_celes = Uncertain(numpy.nan, numpy.nan)
 
         # Next, the axes.
         # Note that the signs of numpy.sin and numpy.cos in the
@@ -1050,7 +1050,8 @@ class Detection(object):
             self.reduced_chisq
         ]
 
-@guvectorize([(float64[:],float64[:], float32[:], float32[:], float32[:],
+
+@guvectorize([(float64[:], float64[:], float32[:], float32[:], float32[:],
                float32[:])], '(n), (n), (n), (l), (m) -> (m)', nopython=True)
 def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
                                         xbar_ybar_error,
@@ -1183,5 +1184,496 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
     start_smin_y = ybar - numpy.sin(theta) * smin
 
     return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle,
-                           end_smaj_x, start_smaj_x, end_smaj_y,  start_smaj_y,
-                           end_smin_x, start_smin_x, end_smin_y,  start_smin_y])
+                                    end_smaj_x, start_smaj_x, end_smaj_y, start_smaj_y,
+                                    end_smin_x, start_smin_x, end_smin_y, start_smin_y])
+
+
+@guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
+               int32[:], float32[:], int32[:], int32[:])], '(n, m), (l), ' +
+             '(n, m), (), (), (k) -> (k), (k), (k)')
+def insert_island_data(some_image, inds, labelled_data, label,
+                       npix, dummy, island, xpos, ypos):
+    """
+    We want to copy the relevant island data into input arrays for
+    fitting.moments_enhanced.
+
+    :param some_image: The 2D ndarray with all the pixel values, typically
+                       self.data_bgsubbed.data.
+
+    :param inds: A ndarray of four indices indicating the slice encompassing
+                 an island. Such a slice would typically be a pick from a
+                 list of slices from a call to scipy.ndimage.find_objects.
+                 Since we are attempting vectorized processing here, the
+                 slice should have been replaced by its four coordinates
+                 through a call to slices_to_indices.
+
+    :param labelled_data: A ndarray with the same shape as some_image, with
+                          labelled islands with integer values and zeroes
+                          for all background pixels.
+
+    :param label: The label (integer value) corresponding to the slice
+                  encompassing the island. Or actually it should be the
+                  other way round, since there can be multiple islands
+                  within one rectangular slice.
+
+    :param npix: Number of pixels comprising the island with label=label.
+
+    :param dummy: Artefact of the implementation of guvectorize:
+                  Empty 1D ndarray with the same length as island, xpos and
+                  ypos, i.e. maxpix. Defined as int32 array, but could be
+                  any other type. It is needed because of a missing feature
+                  in guvectorize: there is no other way to tell guvectorize
+                  what the shape of the output array will be. Therefore, we
+                  define an otherwise redundant input array with the same
+                  shape as the desired output array.
+
+    :param island:  1D ndarray of float32 numbers of pixel values of the
+                    island with label = label. Length = maxpix, the number
+                    of pixels in the largest possible island, indicating
+                    that there will be a number of unassigned values for
+                    the highest indices.
+
+    :param xpos: 1D ndarray of integers indicating the row indices of the
+                 pixels of the island with label = label, relative to the
+                 position of pixel [0, 0] of the rectangular slice
+                 encompassing the island. Must have same order as pixel
+                 values in island. Length = maxpix, the number of pixels in
+                 the largest possible island, indicating that there will be
+                 a number of unassigned values for the highest indices.
+
+    :param ypos: 1D ndarray of integers indicating the column indices of the
+                 pixels of the island with label = label, relative to the
+                 position of pixel [0, 0]  of the rectangular slice
+                 encompassing the island. Must have same order as
+                 pixel values in island. Length = maxpix, the number of
+                 pixels in the largest possible island, indicating that
+                 there will be a number of unassigned values for the highest
+                 indices.
+
+    :return: No return values, because of the use of the guvectorize
+             decorator: 'guvectorize() functions don’t return their
+             result value: they take it as an array argument,
+             which must be filled in by the function'. In this case
+             island, xpos and ypos will be filled with values.
+    """
+
+    # pos = "positions", i.e. the row and column indices of the island pixels.
+    pos = (labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
+           == label[0]).nonzero()
+    enclosed_island = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+
+    for i in range(npix[0]):
+        index = pos[0][i], pos[1][i]
+        island[i] = enclosed_island[index]
+        xpos[i], ypos[i] = index
+
+
+def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
+                                                        maxposs, maxis,
+                                                        data_bgsubbeddata,
+                                                        rmsdata,
+                                                        analysisthresholddata,
+                                                        indices,
+                                                        labelled_data, labels, wcs,
+                                                        fudge_max_pix_factor,
+                                                        max_pix_variance_factor,
+                                                        beam, beamsize,
+                                                        correlation_lengths,
+                                                        eps_ra, eps_dec):
+    """
+    From islands of pixels above the analysis threshold with peaks above the
+    detection threshold source parameters are extracted, including error bars
+    These quantities are transformed to celestial coordinates in a vectorized
+    way, making it suitable for tens of thousands of sources per image.
+    Per island one can extract a maximum of 10 quantities: peak spectral
+    brightness, flux density, i.e. the spectral brightness integrated over
+    the source, position in the sky along both axes and the source shape
+    parameters: semi-major and semi-minor axes and the position angle of the
+    major axis, measured east from local north. The latter three quantities can
+    be deconvolved from the clean beam if the source is resolved. That gives a
+    total af 20 numbers, 10 measurements and their error bars. 8 of these
+    have to be transformed to celestial coordinates, which adds another 16
+    numbers.
+    This function is a duplicate of code elsewhere, in particular of
+    'fitting.moments' and 'extract.Detection._physical_coordinates' but with
+    a data layout suitable for vectorisation.
+
+    :param eps_ra:
+    :param num_islands: integer equal to the number of islands detected.
+
+    :param npixs: 1D int32 ndarray of length num_islands representing the number
+                  of pixels comprising every island.
+
+    :param maxposs: 2D int32 ndarray of shape (num_islands, 2) with the peak
+                    positions per island
+
+    :param maxis: 1D float32 ndarray of length num_islands with the peak pixel
+                  values corresponding to the maxposs positions.
+
+    :param data_bgsubbeddata: 2D ndarray of float32 or float64, representing the
+                              image. These are the data of
+                              ImageData.data_bgsubbed, i.e.
+                              ImageData.data_bgsubbed.data, without the mask,
+                              since we assume that any mask has already
+                              been properly propagated in selecting the islands
+                              pixels. The interpolated mean background has been
+                              subtracted from the image data.
+
+    :param rmsdata: 2D ndarray of float32 or float64, same shape as the image
+                    (data_bgsubbeddata). rms is jargon in image processing, it
+                    refers to "Root mean square", but is taken as the
+                    standard deviation of the background noise, assuming
+                    zero mean. The standard deviation of the background noise
+                    is determined after kappa, sigma clipping subimages of
+                    appropriate size and interpolating this across the image
+                    while including masks. This is ImageData.rmsmap.data, i.e.
+                    without the mask,since we assume that any mask has already
+                    been properly propagated in selecting the islands pixels.
+
+    :param analysisthresholddata: 2D ndarray of float32 or float64, same shape
+                                  as data_bgsubbeddata. These are the data of
+                                  the analysisthresholdmap, i.e.
+                                  analysisthresholdmap.data, without the mask,
+                                  since we assume that any mask has already
+                                  been properly propagated in the process
+                                  of selecting the island pixels.
+
+    :param indices: 2D int32 ndarray of shape (num_islands, 4) representing
+                    positions of the corners of the "chunks", i.e. slices
+                    encompassing every island, relative to upper left corner
+                    of the image, i.e. relative to array element [0,0] of
+                    data_bgsubbeddata.
+
+    :param labelled_data: 2D int32 ndarray of shape data_bgsubbeddata.shape,
+                          representing all unmasked island pixels above the
+                          analysis threshold, with labels (integers) > 0.
+                          All background or masked pixels from
+                          ImageData.data_bgsubbed should have value (label) = 0.
+
+    :param labels: 1D int32 or int64 ndarray representing the labels in
+                   labelled_data corresponding to islands in
+                   data_bgsubbeddata that have peak values above the local
+                   detection threshold. Thus, it is a subset of
+                   numpy.unique(labelled_data) because the
+                   'insignificant' islands have been filtered out, i.e.
+                   the islands above the analysis threshold with peak
+                   values below the (local) detection threshold. Also,
+                   labels does not contain the zero label corresponding
+                   to background or masked pixels in ImageData.data_bgsubbed.
+
+    :param wcs:  A utility.coordinates.wcs instance, filled with appropriate
+                 values from the image header, issued e.g. through
+                 accessors.fitsimage.FitSImage. With numbers representing
+                 the center of the image and the width of the pixels in
+                 celestial coordinates plus the type of projection used,
+                 we can transform from pixel coordinates to celestial
+                 coordinates.
+
+    :param fudge_max_pix_factor: float to correct for the underestimate of the
+                 true peak when the maximum pixel method is used. It is a
+                 statistical correction, so on average correct over a large
+                 ensemble of unresolved sources, when a circular restoring beam
+                 is appropriate.
+
+    :param max_pix_variance_factor: float to take account of the additional
+             uncertainty introduced by fudge_max_pix. Can probably be removed
+             since its effect is negligible in all sensible cases.
+
+    :param beam: tuple of 3 floats describing the restoring beam in terms of
+                 its semi-major and semi-minor axes (in pixels) and the position
+                 angle of the semi-major axis, east from local north, in
+                 radians.
+
+    :param beamsize: area (float) of the restoring beam, in pixels.
+
+    :param correlation_lengths: tuple of 2 floats describing over which
+             distance (in pixels) noise should be considered correlated, along
+             both principal axes of the Gaussian profile of the restoring
+             beam.
+
+    :param eps_ra, eps_dec: floats (degrees) that reflect an extra positional
+            uncertainty from calibration errors along right ascension and
+            declination.
+
+    :return: moments_of_sources, a 3D float32 ndarray, with a row index
+             corresponding to each island, i.e. num_islands rows, a 0 or 1
+             column index corresponding to values and their error bars,
+             respectively and a third index [0...9] which represents the
+             measurements of the sources, i.e. peak specific brightness,
+             in Jy/beam and the integrated specific brightness a.k.a. flux
+             density in Jy. All the other numbers in moments_of_sources are
+             in pixel coordinates. These are position on the sky, along both
+             axes, semi-major and semi-minor axis of the Gaussian profile of
+             the source and the position angle of the major axis measured east
+             from local north. These three Gaussian profile parameters can be
+             deconvolved from the clean beam if the source is resolved. This
+             adds up to ten quantities and corresponding error bars for each
+             island.
+
+             sky_barycenters: a (num_islands, 2) ndarray of floats: each row
+                              has an entry for Right ascension (float64) and
+                              Declination (float64).
+
+             ra_errors, dec_errors: Both are 1D float64 ndarrays corresponding
+                                    to the two columns in sky_barycenters.
+
+             error_radii: a 1D float64 ndarray representing an absolute error
+                          bar on the position of every source. This is an
+                          important quantity to associate an observation of a
+                          source with its previous observations.
+
+            smaj_asec, errsmaj_asec, smin_asec, errsmin_asec: Four 1D float64
+                          ndarrays representing the convolved semi-major and
+                          semi-minor axes - i.e. not deconvolved from the
+                          restoring beam - transformed from pixel coordinates
+                          to celestial coordinates and their 1-sigma error bars.
+
+            theta_celes_values and theta_celes_errors:  Both are 1D float32
+                          ndarrays representing the position angle of the
+                          semi-major axis of the convolved Gaussian profile,
+                          i.e. not yet deconvolved from the restoring beam and
+                          its estimated 1-sigma error bar.
+
+            theta_dc_celes_values and theta_dc_celes_errors: Both are 1D
+                          float32 ndarrays representing the position angle of
+                          the semi-major axis of the deconvolved Gaussian
+                          profile, i.e. deconvolved from the restoring beam and
+                          its estimated 1-sigma error bar. The function we are
+                          describing here is mimicking the Detection class as
+                          closely as possible, including the
+                          ._physical_coordinates function, that is why we are
+                          including these two quantities. Oddly enough, these
+                          are not propagated into the serialize function, which
+                          aggregates quantities for database storage, nor are
+                          the deconvolved semi-major and semi-minor axes
+                          transformed to celestial coordinates. It would be
+                          straightforward to calculate these and to include
+                          them for database storage, together with
+                          theta_dc_celes_values and theta_dc_celes_errors. A
+                          reason not to pass them on for database storage may
+                          be that most sources are unresolved, so the
+                          deconvolved source shape parameters will be nans.
+
+    """
+    # This is the conditional route to the fastest algorithm for source
+    # measurements, with no forced_beam and deblending options and no
+    # Gauss fitting, so a coarser way of measuring sources.
+
+    # Make 2D input data suitable for moments_enhanced with guvectorize
+    # decorator, Each row will contain the pixel values of a flattened
+    # island.
+    # First, determine the correct dimensions for the input
+    # The number of rows will be num_labels = number of islands
+    # (sources).
+    # The number of columns will be max_pixels = the maximum number
+    # of pixels an island can have.
+    # We will also be needing auxiliary arrays.
+    # One will be an index array, with an extra dimension
+    # (num_labels, max_pixels, 2).
+    # This will be a 3D array of integers, indicating the relative
+    # positions of the source pixel relative to a corner of the slice
+    # enclosing the island.
+    # Later we will be needing another 2D array of floats with a number
+    # of quantities related to sky position.
+
+    max_pixels = npixs.max()
+
+    islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+    # In order to convert to celestial coordinates, at a later stage, we
+    # need to keep a record of the positions of the upper left corners
+    # of the chunks. moments_enhanced starts by calculating xbar and
+    # ybar as if those upper left corners have indices [0, 0] in the
+    # image. We can add the indices of the chunks as arguments of
+    # moments_enhanced to correct for that.
+    chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
+    # xpositions and ypositions are relative to the upper left corner of
+    # the chunk.
+    xpositions = numpy.empty((num_islands, max_pixels),
+                             dtype=numpy.int32)
+    ypositions = numpy.empty((num_islands, max_pixels),
+                             dtype=numpy.int32)
+    # Make sure we get a single precision array of floats, which
+    # fitting.moments_enhanced expects.
+    thresholds = analysisthresholddata[maxposs[:, 0],
+                                       maxposs[:, 1]].astype(
+                                       numpy.float32, copy=False)
+
+    local_noise_levels = rmsdata[maxposs[:, 0],
+                                 maxposs[:, 1]].astype(
+                                 numpy.float32, copy=False)
+
+    chunk_positions[:, 0] = indices[:, 0]
+    chunk_positions[:, 1] = indices[:, 2]
+
+    dummy = numpy.empty_like(xpositions)
+
+    insert_island_data(data_bgsubbeddata.astype(
+        dtype=numpy.float32, copy=False),
+        indices, labelled_data, labels.astype(
+            dtype=numpy.int32, copy=False), npixs,
+        dummy, islands, xpositions, ypositions)
+    # The result will be put in an array 'moments_of_sources' containing
+    # ten quantities and their uncertainties: peak flux density,
+    # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
+    # gaussian position angle and the deconvolved equivalents of the latter
+    # three quantities.
+    moments_of_sources = numpy.empty((num_islands, 2, 10),
+                                     dtype=numpy.float32)
+    dummy = numpy.empty_like(moments_of_sources)
+
+    # This is a workaround for an unresolved issue:
+    # https://github.com/numba/numba/issues/6690
+    # The output shape can apparently not be set as fixed numbers.
+    # So we will add a dummy array with shape corresponding
+    # to the output array (moments_of_sources), as (useless) input
+    # array. In this way Numba can infer the shape of the output array.
+    fitting.moments_enhanced(islands, chunk_positions, xpositions,
+                             ypositions, npixs,
+                             thresholds, local_noise_levels,
+                             maxis, fudge_max_pix_factor,
+                             max_pix_variance_factor,
+                             numpy.array(beam),
+                             beamsize,
+                             numpy.array(correlation_lengths),
+                             0, 0, dummy, moments_of_sources)
+
+    barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
+    # Convert the barycentric positions to celestial_coordinates.
+    sky_barycenters = wcs.all_p2s(barycentric_pixel_positions)
+    # We need to determine the orientation of the y-axis wrt local north
+    # by incrementing y by a small amount and converting that
+    # to celestial coordinates. That small increment is conveniently
+    # chosen to be an increment of 1 pixel.
+    endy_barycentric_positions = barycentric_pixel_positions.copy()
+    endy_barycentric_positions[:, 1] += 1
+    endy_sky_coordinates = wcs.all_p2s(endy_barycentric_positions)
+
+    input_for_second_part = \
+        numpy.empty((num_islands, 11), dtype=numpy.float32)
+    # Unfortunately, the use of the guvectorize decorator again
+    # requires a dummy input with the same shape as the output,
+    # such that Numba can infer the shape of the output array.
+    dummy = numpy.empty_like(input_for_second_part)
+
+    first_part_of_celestial_coordinates(sky_barycenters,
+                                        endy_sky_coordinates,
+                                        moments_of_sources[:, 1, 2:4],
+                                        moments_of_sources[:, 0, 2:7],
+                                        dummy, input_for_second_part)
+
+    # Derive an absolute angular error on position, as
+    # utils.get_error_radius does, but less involved.
+    # Simply derive the angle between the celestial positions
+    # corresponding to [xbar, ybar] and [xbar + errorx,
+    # ybar + errory], that should suffice.
+    error_radii = numpy.empty(num_islands, dtype=numpy.float64)
+    try:
+        # Compute sky positions corresponding to [x_bar + x_error,
+        #                                         y_bar + y_error]
+        pix_offset = moments_of_sources[:, 0, 2:4] + \
+                     moments_of_sources[:, 1, 2:4]
+        sky_offset = wcs.all_p2s(pix_offset)
+        coordinates.angsep_vectorized(sky_barycenters, sky_offset,
+                                      error_radii)
+
+    except RuntimeError:
+        # Mimic error handling from utils.get_error_radius.
+        # The downside is that all error radii will be infinite
+        # also when only the calculation of the error radius for a
+        # single source gives a RuntimeError.
+        error_radii.fill(float('inf'))
+
+    # Now we have to sort out which combination of errorx_proj and
+    # errory_proj gives the largest errors in RA and Dec.
+    try:
+        # Derive end_ra1, end_dec1, end_ra2, end_dec2 as in
+        # extract.Detection._physical_coordinates.
+        # We need to add errorx_proj to xbar and zero to ybar.
+        # So we need to extract the first column from
+        # input_for_second_part and append a column with zeros
+        # in order to perform the addition.
+        helper1 = input_for_second_part[:, :1]
+        errorx_proj_and_zeros = numpy.hstack((helper1,
+                                              numpy.zeros((helper1.shape[0], 1),
+                                                          dtype=helper1.dtype)))
+        pix_x_plus_errorx_proj = (moments_of_sources[:, 0, 2:4] +
+                                  errorx_proj_and_zeros)
+        end_ra1_end_dec1 = wcs.all_p2s(pix_x_plus_errorx_proj)
+
+        # Now we need to add errory_proj to ybar and zero to xbar.
+        # So we need to extract the second column from
+        # input_for_second_part and prepend a column with zeros
+        # in order to perform the addition.
+        helper2 = input_for_second_part[:, 1:2]
+        zeros_and_errory_proj = numpy.hstack((
+            numpy.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
+            helper2))
+        pix_y_plus_errory_proj = moments_of_sources[:, 0, 2:4] + \
+                                 zeros_and_errory_proj
+
+        end_ra2_end_dec2 = wcs.all_p2s(pix_y_plus_errory_proj)
+
+        # Here we include the position calibration errors
+        ra_errors = eps_ra + numpy.maximum(
+            numpy.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
+            numpy.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]))
+
+        dec_errors = eps_dec + numpy.maximum(
+            numpy.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
+            numpy.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]))
+    except RuntimeError:
+        # We get a runtime error from wcs.all_p2s if the errors place the
+        # limits outside the image.
+        # In which case we set the RA / DEC uncertainties to infinity.
+        # The downside of this vectorized approach is that the position
+        # errors for all the sources will be set to infinity.
+        ra_errors = numpy.empty(num_islands).fill(numpy.inf)
+        dec_errors = numpy.empty(num_islands).fill(numpy.inf)
+
+    theta_celes_values = (numpy.degrees(moments_of_sources[:, 0, 6:7]) +
+                          input_for_second_part[:, 2:3]) % 180
+
+    theta_celes_errors = numpy.degrees(moments_of_sources[:, 1, 6:7])
+
+    # This should also work for any nan value of theta_dc.
+    theta_dc_celes_values = \
+        (numpy.degrees(moments_of_sources[:, 0, 9:10]) +
+         input_for_second_part[:, 2:3]) % 180
+
+    theta_dc_celes_errors = numpy.degrees(moments_of_sources[:, 1, 9:10])
+
+    try:
+        end_smaj_ra_dec = wcs.all_p2s(input_for_second_part[:, [3, 5]])
+        end_smin_ra_dec = wcs.all_p2s(input_for_second_part[:, [7, 9]])
+
+    except RuntimeError:
+        # Here we are again facing a downside of the vectorized
+        # approach: if the FWHM ends of any source give a problem
+        # wrt to pixel to sky conversion, all sky coordinates have to
+        # be set to nans.
+        logger.debug("pixel_to_spatial failed")
+        end_smaj_ra_dec = \
+            numpy.empty((num_islands, 2)).fill(numpy.nan)
+        end_smin_ra_dec = \
+            numpy.empty((num_islands, 2)).fill(numpy.nan)
+
+    smaj_asec = numpy.empty(num_islands, dtype=numpy.float64)
+    coordinates.angsep_vectorized(sky_barycenters, end_smaj_ra_dec,
+                                  smaj_asec)
+
+    scaling_smaj = smaj_asec / moments_of_sources[:, 0, 4]
+
+    errsmaj_asec = scaling_smaj * moments_of_sources[:, 1, 4]
+
+    smin_asec = numpy.empty(num_islands, dtype=numpy.float64)
+    coordinates.angsep_vectorized(sky_barycenters, end_smin_ra_dec,
+                                  smin_asec)
+
+    scaling_smin = smin_asec / moments_of_sources[:, 0, 5]
+
+    errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
+
+    return (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
+            error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
+            theta_celes_values, theta_celes_errors, theta_dc_celes_values,
+            theta_dc_celes_errors)
