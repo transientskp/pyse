@@ -1117,7 +1117,7 @@ class ImageData(object):
                         island.data.filled(fill_value=0.))
                     self.residuals_from_gauss_fitting[island.chunk] += residual
 
-        elif num_islands>0:
+        elif num_islands > 0:
 
             (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
              error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
@@ -1135,7 +1135,6 @@ class ImageData(object):
                 chunk = slices[label - 1]
 
                 param = extract.ParamSet()
-                # param.sig = maxis[count] / local_noise_levels[count]
                 param.sig = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
 
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
