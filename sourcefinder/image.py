@@ -1076,11 +1076,13 @@ class ImageData(object):
                 deblended_list = [x.deblend() for x in island_list]
                 island_list = list(utils.flatten(deblended_list))
 
-        # Set up the fixed fit parameters if 'force beam' is on:
-        if force_beam:
-            fixed = {'semimajor': self.beam[0],
-                     'semiminor': self.beam[1],
-                     'theta': self.beam[2]}
+            # Set up the fixed fit parameters if 'force beam' is on:
+            if force_beam:
+                fixed = {'semimajor': self.beam[0],
+                         'semiminor': self.beam[1],
+                         'theta': self.beam[2]}
+            else:
+                fixed = None
 
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
