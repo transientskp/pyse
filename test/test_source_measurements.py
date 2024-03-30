@@ -110,9 +110,8 @@ class SourceParameters(unittest.TestCase):
             sum_peak_weights = np.sum(peak_weights)
             av_peak = np.sum(self.peak_fluxes[:, 0] * peak_weights /
                              sum_peak_weights)
-            av_peak_err = np.mean(self.peak_fluxes[:, 1])
-            signif_dev_peak = ((TRUE_PEAK_FLUX - av_peak) *
-                               np.sqrt(self.number_sources) / av_peak_err)
+            av_peak_err = 1 / np.sqrt(sum_peak_weights)
+            signif_dev_peak = (TRUE_PEAK_FLUX - av_peak) / av_peak_err
             self.assertTrue(np.abs(signif_dev_peak) < MAX_BIAS)
 
             # Test major axes
@@ -120,9 +119,8 @@ class SourceParameters(unittest.TestCase):
             sum_smaj_weights = np.sum(smaj_weights)
             av_smaj = np.sum(self.deconv_smajaxes[:, 0] * smaj_weights /
                              sum_smaj_weights)
-            av_smaj_err = np.mean(self.deconv_smajaxes[:, 1])
-            signif_dev_smaj = ((TRUE_DECONV_SMAJ - av_smaj) *
-                               np.sqrt(self.number_sources) / av_smaj_err)
+            av_smaj_err = 1 / np.sqrt(sum_smaj_weights)
+            signif_dev_smaj = (TRUE_DECONV_SMAJ - av_smaj) / av_smaj_err
             self.assertTrue(np.abs(signif_dev_smaj) < MAX_BIAS)
 
             # Test minor axes
@@ -130,18 +128,16 @@ class SourceParameters(unittest.TestCase):
             sum_smin_weights = np.sum(smin_weights)
             av_smin = np.sum(self.deconv_sminaxes[:, 0] * smin_weights /
                              sum_smin_weights)
-            av_smin_err = np.mean(self.deconv_sminaxes[:, 1])
-            signif_dev_smin = ((TRUE_DECONV_SMIN - av_smin) *
-                               np.sqrt(self.number_sources) / av_smin_err)
+            av_smin_err = 1 / np.sqrt(sum_smin_weights)
+            signif_dev_smin = (TRUE_DECONV_SMIN - av_smin) / av_smin_err
             self.assertTrue(np.abs(signif_dev_smin) < MAX_BIAS)
 
             # Test position angles
             bpa_weights = 1. / self.deconv_bpas[:, 1] ** 2
             sum_bpa_weights = np.sum(bpa_weights)
             av_bpa = np.sum(self.deconv_bpas[:, 0] * bpa_weights / sum_bpa_weights)
-            av_bpa_err = np.mean(self.deconv_bpas[:, 1])
-            signif_dev_bpa = ((TRUE_DECONV_BPA - av_bpa) *
-                              np.sqrt(self.number_sources) / av_bpa_err)
+            av_bpa_err = 1 / np.sqrt(sum_bpa_weights)
+            signif_dev_bpa = (TRUE_DECONV_BPA - av_bpa) / av_bpa_err
             self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS)
         else:
             print("Sorry, no sources could be fitted, so bias checks do not")
