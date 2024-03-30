@@ -73,7 +73,7 @@ class SourceParameters(unittest.TestCase):
             # seemed impossible to tweak the shape parameters, i.e. the axes
             # and position angles, derived using moments, in such a way that it
             # does not result in unbiased estimates.
-            if source.gaussian==True:
+            if source.gaussian:
                 peak_fluxes.append([source.peak.value, source.peak.error])
                 deconv_smajaxes.append([source.smaj_dc.value,
                                         source.smaj_dc.error])
