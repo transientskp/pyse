@@ -6,7 +6,7 @@ import math
 
 import numpy
 import scipy.optimize
-from .gaussian import gaussian
+from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
 from numba import guvectorize, float64, float32, int32
@@ -99,7 +99,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         # short circuit!
         theta = 0.
     else:
-        if xxbar!=yybar:
+        if xxbar != yybar:
             theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
         else:
             theta = numpy.sign(xybar) * math.pi / 4.0
@@ -537,7 +537,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
                                               semimin_deconv_error,
                                               theta_deconv_error])
 
-def fitgaussian(pixels, params, fixed=None, maxfev=0):
+def fitgaussian(pixels, params, fixed=None, maxfev=None):
     """Calculate source positional values by fitting a 2D Gaussian
 
     Args:
@@ -567,6 +567,12 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
     """
     fixed = fixed or {}
 
+    def wipe_out_fixed(some_list):
+        wiped_out_mapping = map(lambda x: some_list[x[0]],
+                                filter(lambda x: x[1] not in fixed.keys(),
+                                       enumerate(FIT_PARAMS)))
+        return list(wiped_out_mapping)
+
     # Collect necessary values from parameter dict; only those which aren't
     # fixed.
     initial = []
@@ -577,18 +583,18 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
             else:
                 initial.append(params[param])
 
-    def residuals(paramlist):
+    def residuals(params):
         """Error function to be used in chi-squared fitting
 
-        :argument paramlist: fitting parameters
-        :type paramlist: numpy.ndarray
-        :argument fixed: parameters to be held frozen
-        :type fixed: dict
+        Args:
+            params(numpy.ndarray): fitting parameters
 
-        :returns: 2d-array of difference between estimated Gaussian function
-            and the actual pixels
+        Returns:
+            1d-array of difference between estimated Gaussian function
+            and the actual pixels. (pixel_resids is a 2d-array, but the
+            .compressed() makes it 1d.)
         """
-        paramlist = list(paramlist)
+        paramlist = list(params)
         gaussian_args = []
         for param in FIT_PARAMS:
             if param in fixed:
@@ -602,20 +608,71 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
 
         # The .compressed() below is essential so the Gaussian fit will not
         # take account of the masked values (=below threshold) at the edges
-        # and corners of pixels (=(masked) array, so rectangular in shape).
+        # and corners of pixels (=(masked) array, so rectangular).
         pixel_resids = numpy.ma.MaskedArray(
             data=numpy.fromfunction(g, pixels.shape) - pixels,
             mask=pixels.mask)
+
         return pixel_resids.compressed()
+
+    def jacobian_values(params):
+        """The Jacobian of an anisotropic 2D Gaussian at the pixel positions.
+
+        Args:
+            params(numpy.ndarray): fitting parameters
+
+        Returns:
+             2d-array with values of the partial derivatives of the
+             2d anisotropic Gaussian along its six parameters. These
+             values are evaluated across the unmasked pixel positions of
+             the island that constitutes the source. The number of rows
+             equals the number of pixels of the flattened unmasked island.
+             The number of columns equals the number of partial
+             derivatives of the Gaussian (=6). For fixed Gaussian
+             parameters the Jacobian component is obviously zero, so that
+             results in a column of only zeroes.
+
+        """
+        paramlist = list(params)
+        gaussian_args = []
+        for param in FIT_PARAMS:
+            if param in fixed:
+                gaussian_args.append(fixed[param])
+            else:
+                gaussian_args.append(paramlist.pop(0))
+
+        # jac is a list of six functions corresponding to the six partial
+        # derivatives of the 2D anisotropic Gaussian profile.
+        jac = jac_gaussian(gaussian_args)
+
+        # From the six functions in jac, wipe out the ones that
+        # correspond to fixed parameters.
+        jac_filtered = wipe_out_fixed(jac)
+
+        jac_values = [numpy.ma.MaskedArray(
+            data=numpy.fromfunction(jac_el, pixels.shape),
+            mask=pixels.mask).compressed() for jac_el in jac_filtered]
+
+        return numpy.array(jac_values).T
 
     # maxfev=0, the default, corresponds to 200*(N+1) (NB, not 100*(N+1) as
     # the scipy docs state!) function evaluations, where N is the number of
     # parameters in the solution.
     # Convergence tolerances xtol and ftol established by experiment on images
     # from Paul Hancock's simulations.
-    soln, success = scipy.optimize.leastsq(
-        residuals, initial, maxfev=maxfev, xtol=1e-4, ftol=1e-4
+    # April 2024 update.
+    # scipy.optimize.leastsq was replaced by scipy.optimize.least_squares,
+    # because it offers more fitting options. max_nfev instead of maxfev is one
+    # of its keyword arguments, with a default value of None instead of 0.
+
+    Fitting_results = scipy.optimize.least_squares(
+        residuals, initial, jac=jacobian_values,
+        method="dogbox",
+        max_nfev=maxfev, xtol=1e-4, ftol=1e-4
     )
+
+    soln = Fitting_results["x"]
+    success = Fitting_results["success"]
 
     if success > 4:
         raise ValueError("leastsq returned %d; bailing out" % (success,))
@@ -626,7 +683,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
     # a numpy.ndarray (if fitting multiple values); we need to turn that into
     # a list for the merger.
     try:
-        # If an ndarray (or other iterable)
+        # If a ndarray (or other iterable)
         soln = list(soln)
     except TypeError:
         soln = [soln]
