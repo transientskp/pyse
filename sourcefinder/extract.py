@@ -261,6 +261,7 @@ class ParamSet(MutableMapping):
         # parameterset have come from: we set them to True if & when moments
         # and/or Gaussian fitting succeeds.
         self.moments = False
+        self.bounds = None
         self.gaussian = False
 
         ##More metadata about the fit: only valid for Gaussian fits:
@@ -293,6 +294,19 @@ class ParamSet(MutableMapping):
     def keys(self):
         """ """
         return list(self.values.keys())
+
+    # def bounds(self):
+    #     """ Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance
+    #     on runaway solutions.The bounds are large based on the moments
+    #     estimation, so it only makes sense to impose bounds if moments
+    #     estimation was successful.
+    #
+    #     Creates dict of (float, float) tuples, i.e. for a maximum of six
+    #     Gaussian fit parameters a (lower_bound, upper_bound).
+    #     """
+    #     if self.moments:
+    #
+    #     return self
 
     def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
         """Calculate positional errors
@@ -712,6 +726,7 @@ def source_profile_and_errors(data, threshold, noise,
         # Now we can do Gauss fitting if the island or subisland has a
         # thickness of more than 2 in both dimensions.
         try:
+            # param.bounds()
             gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed)
             param.update(gaussian_soln)
             param.gaussian = True
