@@ -126,6 +126,11 @@ def jac_gaussian(gaussianargs):
         return common(x, y) * term3(x, y) * term4(x, y) * (1 / b ** 2
                                                            - 1 / d ** 2)
 
-    jacobian = [dg_dh, dg_dx0, dg_dy0, dg_dsmaj, dg_dsmin, dg_dtheta]
+    jacobian = {"peak": dg_dh,
+                "xbar": dg_dx0,
+                "ybar": dg_dy0,
+                "semimajor": dg_dsmaj,
+                "semiminor": dg_dsmin,
+                "theta": dg_dtheta}
 
     return jacobian
