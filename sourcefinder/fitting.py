@@ -567,21 +567,47 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None):
     """
     fixed = fixed or {}
 
-    def wipe_out_fixed(some_list):
-        wiped_out_mapping = map(lambda x: some_list[x[0]],
-                                filter(lambda x: x[1] not in fixed.keys(),
-                                       enumerate(FIT_PARAMS)))
-        return list(wiped_out_mapping)
+    def wipe_out_fixed(some_dict):
+        wiped_out = map(lambda key: (key, some_dict[key]),
+                        filter(lambda key: key not in fixed.keys(),
+                        iter(FIT_PARAMS)))
+        return dict(wiped_out)
 
     # Collect necessary values from parameter dict; only those which aren't
     # fixed.
     initial = []
+    # To avoid fits from derailing, it helps to set some reasonable bounds on
+    # the fitting results.
+    lower_bounds = []
+    upper_bounds = []
     for param in FIT_PARAMS:
         if param not in fixed:
             if hasattr(params[param], "value"):
                 initial.append(params[param].value)
+                if param in ["peak", "semimajor", "semiminor"]:
+                    lower_bounds.append(0.5 * params[param].value)
+                    upper_bounds.append(1.5 * params[param].value)
             else:
                 initial.append(params[param])
+                if param in ["peak", "semimajor", "semiminor"]:
+                    lower_bounds.append(0.5 * params[param])
+                    upper_bounds.append(1.5 * params[param])
+
+            if param == "xbar":
+                lower_bounds.append(0)
+                upper_bounds.append(pixels.shape[0])
+            elif param == "ybar":
+                lower_bounds.append(0)
+                upper_bounds.append(pixels.shape[1])
+            elif param == "theta":
+                lower_bounds.append(-numpy.pi/2)
+                upper_bounds.append(+numpy.pi)
+
+            # Accommodate for negative heights.
+            if lower_bounds[-1] > upper_bounds[-1]:
+                true_upper = lower_bounds[-1]
+                lower_bounds[-1] = upper_bounds[-1]
+                upper_bounds[-1] = true_upper
 
     def residuals(params):
         """Error function to be used in chi-squared fitting
@@ -650,8 +676,8 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None):
         jac_filtered = wipe_out_fixed(jac)
 
         jac_values = [numpy.ma.MaskedArray(
-            data=numpy.fromfunction(jac_el, pixels.shape),
-            mask=pixels.mask).compressed() for jac_el in jac_filtered]
+            data=numpy.fromfunction(jac_filtered[key], pixels.shape),
+            mask=pixels.mask).compressed() for key in jac_filtered]
 
         return numpy.array(jac_values).T
 
