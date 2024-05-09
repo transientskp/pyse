@@ -8,6 +8,7 @@ import logging
 from collections.abc import MutableMapping
 from numba import guvectorize, float64, float32, int32
 import numpy
+numpy.seterr(divide="raise", invalid="raise")
 
 try:
     import ndimage
@@ -261,7 +262,10 @@ class ParamSet(MutableMapping):
         # parameterset have come from: we set them to True if & when moments
         # and/or Gaussian fitting succeeds.
         self.moments = False
-        self.bounds = None
+        # Gaussian fits are preferable performed with bounds for better
+        # stability, but to establish those bounds in a meaningful manner
+        # moments estimation is required, i.e. self.moments = True.
+        self.bounds = {}
         self.gaussian = False
 
         ##More metadata about the fit: only valid for Gaussian fits:
@@ -295,18 +299,70 @@ class ParamSet(MutableMapping):
         """ """
         return list(self.values.keys())
 
-    # def bounds(self):
-    #     """ Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance
-    #     on runaway solutions.The bounds are large based on the moments
-    #     estimation, so it only makes sense to impose bounds if moments
-    #     estimation was successful.
-    #
-    #     Creates dict of (float, float) tuples, i.e. for a maximum of six
-    #     Gaussian fit parameters a (lower_bound, upper_bound).
-    #     """
-    #     if self.moments:
-    #
-    #     return self
+    def compute_bounds(self, data_shape):
+        """ Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance
+        on runaway solutions. The bounds are largely based on moments
+        estimation, so it only makes sense to impose bounds if moments
+        estimation was successful.
+
+        Args:
+            data_shape: (int32, int32) or (int64, int64) tuple describing the
+                        shape of the rectangular area (slice) encompassing the
+                        island used for the fit. Used to set bounds for the
+                        position of the source in the fitting process.
+
+        Creates dict of (float, float, bool) tuples, i.e. for a maximum of six
+        Gaussian fit parameters a (lower_bound, upper_bound, bool) tuple. The
+        boolean entry is used to loosen a bound when a fit becomes unfeasible,
+        see the documentation on scipy.optimize.Bounds.
+        """
+        if self.moments:
+            if hasattr(self["peak"], "value"):
+                self.bounds["peak"] = (0.5 * self["peak"].value,
+                                       1.5 * self["peak"].value, False)
+            else:
+                self.bounds["peak"] = (0.5 * self["peak"], 1.5 * self["peak"],
+                                       False)
+            # Accommodate for negative heights. The "bounds" argument in
+            # scipy.optimize.least-squares demands that the lower bound is
+            # smaller than the upper bound and with the (0.5, 1.5) fractions
+            # this does not work out well for negative heights. Background:
+            # only to be expected in images from visibilities from polarization
+            # products other than Stokes I.
+            if self.bounds["peak"][0] > self.bounds["peak"][1]:
+                true_upper = self.bounds["peak"][0]
+                self.bounds["peak"][0] = self.bounds["peak"][1]
+                self.bounds["peak"][1] = true_upper
+
+            if hasattr(self["semimajor"], "value"):
+                self.bounds["semimajor"] = (0.5 * self["semimajor"].value,
+                                            1.5 * self["semimajor"].value,
+                                            False)
+            else:
+                self.bounds["semimajor"] = (0.5 * self["semimajor"],
+                                            1.5 * self["semimajor"], False)
+
+            if hasattr(self["semiminor"], "value"):
+                self.bounds["semiminor"] = (0.5 * self["semiminor"].value,
+                                            1.5 * self["semiminor"].value,
+                                            False)
+            else:
+                self.bounds["semiminor"] = (0.5 * self["semiminor"],
+                                            1.5 * self["semiminor"], False)
+
+            self.bounds["xbar"] = (0., data_shape[0], False)
+            self.bounds["ybar"] = (0., data_shape[1], False)
+            # The upper bound for theta is a bit odd, one would expect
+            # numpy.pi/2 here, but that will yield imperfect fits in
+            # cases where the axes are aligned with the coordinate axes,
+            # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
+            # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
+            # margin needs to be applied. 1.05 was chosen here.
+            # keep_feasibly is True here to accommodate for a fitting process
+            # where the margin is exceeded.
+            self.bounds["theta"] = (-numpy.pi/2 * 1.05, numpy.pi * 1.05, True)
+
+        return self
 
     def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
         """Calculate positional errors
@@ -726,8 +782,9 @@ def source_profile_and_errors(data, threshold, noise,
         # Now we can do Gauss fitting if the island or subisland has a
         # thickness of more than 2 in both dimensions.
         try:
-            # param.bounds()
-            gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed)
+            param.compute_bounds(data.shape)
+            gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
+                                                bounds=param.bounds)
             param.update(gaussian_soln)
             param.gaussian = True
             logger.debug('Gauss fitting was successful.')
