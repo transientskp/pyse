@@ -772,13 +772,14 @@ def source_profile_and_errors(data, threshold, noise,
                      " Proceeding with defaults %s""",
                      str(param))
 
-    ranges = data.nonzero()
-    xmin = min(ranges[0])
-    xmax = max(ranges[0])
-    ymin = min(ranges[1])
-    ymax = max(ranges[1])
+    # data_as_ones is constructed to help determine if the island has enough
+    # width for Gauss fitting.
+    data_as_ones = numpy.ma.where(data != 0, 1, 0)
+    max_along_x = numpy.sum(data_as_ones, axis=0).max()
+    max_along_y = numpy.sum(data_as_ones, axis=1).max()
+    minimum_width = min(max_along_x, max_along_y)
 
-    if (numpy.fabs(xmax - xmin) > 2) and (numpy.fabs(ymax - ymin) > 2):
+    if minimum_width > 2:
         # Now we can do Gauss fitting if the island or subisland has a
         # thickness of more than 2 in both dimensions.
         try:
