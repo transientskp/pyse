@@ -537,7 +537,8 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
                                               semimin_deconv_error,
                                               theta_deconv_error])
 
-def fitgaussian(pixels, params, fixed=None, maxfev=None):
+
+def fitgaussian(pixels, params, fixed=None, maxfev=None, bounds={}):
     """Calculate source positional values by fitting a 2D Gaussian
 
     Args:
@@ -578,36 +579,12 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None):
     initial = []
     # To avoid fits from derailing, it helps to set some reasonable bounds on
     # the fitting results.
-    lower_bounds = []
-    upper_bounds = []
     for param in FIT_PARAMS:
         if param not in fixed:
             if hasattr(params[param], "value"):
                 initial.append(params[param].value)
-                if param in ["peak", "semimajor", "semiminor"]:
-                    lower_bounds.append(0.5 * params[param].value)
-                    upper_bounds.append(1.5 * params[param].value)
             else:
                 initial.append(params[param])
-                if param in ["peak", "semimajor", "semiminor"]:
-                    lower_bounds.append(0.5 * params[param])
-                    upper_bounds.append(1.5 * params[param])
-
-            if param == "xbar":
-                lower_bounds.append(0)
-                upper_bounds.append(pixels.shape[0])
-            elif param == "ybar":
-                lower_bounds.append(0)
-                upper_bounds.append(pixels.shape[1])
-            elif param == "theta":
-                lower_bounds.append(-numpy.pi/2)
-                upper_bounds.append(+numpy.pi)
-
-            # Accommodate for negative heights.
-            if lower_bounds[-1] > upper_bounds[-1]:
-                true_upper = lower_bounds[-1]
-                lower_bounds[-1] = upper_bounds[-1]
-                upper_bounds[-1] = true_upper
 
     def residuals(params):
         """Error function to be used in chi-squared fitting
@@ -672,7 +649,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None):
         jac = jac_gaussian(gaussian_args)
 
         # From the six functions in jac, wipe out the ones that
-        # correspond to fixed parameters.
+        # correspond to fixed parameters, must be in sync with initial.
         jac_filtered = wipe_out_fixed(jac)
 
         jac_values = [numpy.ma.MaskedArray(
@@ -691,9 +668,29 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None):
     # because it offers more fitting options. max_nfev instead of maxfev is one
     # of its keyword arguments, with a default value of None instead of 0.
 
+    if bounds:
+        # Wipe out fixed parameters, keep synced with initial.
+        bounds_filtered = wipe_out_fixed(bounds)
+        # bounds and bounds_filtered are dicts of 3-tuples with the third
+        # element of those tuples a Boolean value, which can be passed to a
+        # scipy.optimize.Bounds instance to allow for loosening of the bounds
+        # when these bounds turn out infeasible in the fitting process. However,
+        # The 3-tuples need to extracted into separate array_like objects to be
+        # passed on as lb, ub and keep_feasible keyword arguments to the Bounds
+        # instance.
+        bounds_filtered_values = [[bounds_filtered[x][index] for x in
+                                   bounds_filtered] for index in range(3)]
+        lb = bounds_filtered_values[0]
+        ub = bounds_filtered_values[1]
+        keep_feasible = bounds_filtered_values[2]
+        applied_bounds = scipy.optimize.Bounds(lb=lb, ub=ub,
+                                               keep_feasible=keep_feasible)
+    else:
+        applied_bounds = (-numpy.inf, numpy.inf)
+
     Fitting_results = scipy.optimize.least_squares(
         residuals, initial, jac=jacobian_values,
-        method="dogbox",
+        bounds=applied_bounds, method="dogbox",
         max_nfev=maxfev, xtol=1e-4, ftol=1e-4
     )
 
