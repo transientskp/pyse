@@ -4,6 +4,12 @@ Source Extraction Helpers.
 These are used in conjunction with image.ImageData.
 """
 
+from sourcefinder.deconv import deconv
+from sourcefinder.utility import coordinates
+from sourcefinder.utility.uncertain import Uncertain
+from .gaussian import gaussian
+from . import fitting
+from . import utils
 import logging
 from collections.abc import MutableMapping
 from numba import guvectorize, float64, float32, int32
@@ -14,12 +20,6 @@ try:
     import ndimage
 except ImportError:
     from scipy import ndimage
-from sourcefinder.deconv import deconv
-from sourcefinder.utility import coordinates
-from sourcefinder.utility.uncertain import Uncertain
-from .gaussian import gaussian
-from . import fitting
-from . import utils
 
 logger = logging.getLogger(__name__)
 
