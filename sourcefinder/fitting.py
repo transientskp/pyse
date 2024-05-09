@@ -538,7 +538,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
                                               theta_deconv_error])
 
 
-def fitgaussian(pixels, params, fixed=None, maxfev=None, bounds={}):
+def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     """Calculate source positional values by fitting a 2D Gaussian
 
     :Args:
@@ -551,7 +551,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None, bounds={}):
         fixed (dict): parameters & their values to be kept frozen (ie, not
             fitted)
 
-        maxfev (int): maximum number of calls to the error function
+        max_nfev (int): maximum number of calls to the error function
 
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor,
@@ -691,7 +691,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=None, bounds={}):
     Fitting_results = scipy.optimize.least_squares(
         residuals, initial, jac=jacobian_values,
         bounds=applied_bounds, method="dogbox",
-        max_nfev=maxfev, xtol=1e-4, ftol=1e-4
+        max_nfev=max_nfev, xtol=1e-4, ftol=1e-4
     )
 
     soln = Fitting_results["x"]
