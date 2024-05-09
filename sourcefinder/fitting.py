@@ -541,13 +541,13 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
 def fitgaussian(pixels, params, fixed=None, maxfev=None, bounds={}):
     """Calculate source positional values by fitting a 2D Gaussian
 
-    Args:
+    :Args:
         pixels (numpy.ma.MaskedArray): Pixel values (with bad pixels masked)
 
         params (dict): initial fit parameters (possibly estimated
             using the moments() function, above)
 
-    Kwargs:
+    :Kwargs:
         fixed (dict): parameters & their values to be kept frozen (ie, not
             fitted)
 
