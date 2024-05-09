@@ -358,7 +358,7 @@ class ParamSet(MutableMapping):
             # margin needs to be applied. 1.05 was chosen here.
             # keep_feasibly is True here to accommodate for a fitting process
             # where the margin is exceeded.
-            self.bounds["theta"] = (-numpy.pi/2 * 1.05, numpy.pi * 1.05, True)
+            self.bounds["theta"] = (-numpy.pi/2, numpy.pi, True)
 
         return self
 
