@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "radio-pyse"
+dynamic = ["version"]
+description = "Python Source Extractor"
+readme = {file = "README.rst", content-type = "text/x-rst"}
+license = {file = "LICENSE"}
+authors = [
+    { name = "TKP Discovery WG", email = "discovery@transientskp.org" },
+]
+requires-python = ">=3.10, <3.12"
+dependencies = [
+    "astropy",
+    "dask[array]",
+    "numpy",
+    "psutil",
+    "python-casacore",
+    "python-dateutil",
+    "pytz",
+    "scipy",
+    "six",
+]
+
+[project.urls]
+Homepage = "http://docs.transientskp.org/"
+
+[tool.hatch.version]
+path = "sourcefinder/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/sourcefinder",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["sourcefinder"]
+
+[tool.hatch.envs.test]
+extra-dependencies = [
+    "mypy",
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+    "black",
+    "ruff",
+]
