@@ -41,6 +41,7 @@ packages = ["sourcefinder"]
 [tool.hatch.envs.test]
 extra-dependencies = [
     "mypy",
+    "flake8",
     "pytest",
     "pytest-cov",
 ]
