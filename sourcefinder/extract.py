@@ -1619,7 +1619,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
     fitting.moments_enhanced(islands, chunk_positions, xpositions,
-                             ypositions, npixs,
+                             ypositions, minimum_widths, npixs,
                              thresholds, local_noise_levels,
                              maxis, fudge_max_pix_factor,
                              max_pix_variance_factor,
