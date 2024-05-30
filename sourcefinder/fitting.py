@@ -123,12 +123,12 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, float32,
+@guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, int32, float32,
                float32, float32, float64, float64, float64[:], float64,
                float64[:], float64, float64, float32[:, :], float32[:, :])],
-              ('(n), (m), (n), (n), (), (), (), (), (), (), (k), (), (m), ' +
+              ('(n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), (m), ' +
                '(), (), (l, p) -> (l, p)'), nopython=True)
-def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
+def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
                      threshold, noise, maxi, fudge_max_pix_factor,
                      max_pix_variance_factor, beam, beamsize,
                      correlation_lengths,
@@ -164,6 +164,10 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
 
         posy: Column indices of the pixels in island_data as taken from the actual
               2D images data (rectangular slice).
+
+        min_width (integer): The minimum width (in pixels) of the island. This
+            was derived by calculating the maximum width of the island over x
+            and y and then taking the minimum of those two numbers.
 
         no_pixels (integer): The number of pixels that constitute the island.
 
@@ -243,6 +247,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
         peak = maxi * fudge_max_pix_factor
     else:
         peak = island_data.min()
+
     ratio = threshold / peak
     total = island_data.sum()
     xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
@@ -267,59 +272,73 @@ def moments_enhanced(island_data, chunkpos, posx, posy, no_pixels,
 
     working1 = (xxbar + yybar) / 2.0
     working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
+    smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+    smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+    # ratio will be 0 for data that hasn't been selected according to a
+    # threshold.
+    if ratio != 0:
+        # The corrections below for the semi-major and semi-minor axes are
+        # to compensate for the underestimate of these quantities
+        # due to the cutoff at the threshold.
+        smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
 
-    # Some problems arise with the sqrt of (working1-working2) when they are
-    # equal, this happens with islands that have a thickness of only one pixel
-    # in at least one dimension.  Due to rounding errors this difference
-    # becomes negative--->math domain error in sqrt.
-    if no_pixels == 1:
-        # This is the case when the island (or more likely subisland) has
-        # a size of only one pixel.
-        smin = numpy.sqrt(beamsize / numpy.pi)
-        smaj = numpy.sqrt(beamsize / numpy.pi)
-    else:
-        smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
-        smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
-        # ratio will be 0 for data that hasn't been selected according to a
-        # threshold.
-        if ratio != 0:
-            # The corrections below for the semi-major and semi-minor axes are
-            # to compensate for the underestimate of these quantities
-            # due to the cutoff at the threshold.
-            smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-            smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-        smaj = math.sqrt(smaj_tmp)
-        smin = math.sqrt(smin_tmp)
-        if smin == 0:
-            # A semi-minor axis exactly zero gives all kinds of problems.
-            # For instance wrt conversion to celestial coordinates.
-            # This is a quick fix.
-            smin = beamsize / (numpy.pi * smaj)
+    # We need this width to determine Gaussian shape parameters in a meaningful
+    # way.
+    if min_width > 2:
+        # The idea of the try except here is that, even though we require a
+        # minimum width of the island, there may still be occasions where
+        # working2 can be slightly higher than working1, perhaps due to rounding
+        # errors.
+        try:
+            smaj = math.sqrt(smaj_tmp)
+            smin = math.sqrt(smin_tmp)
+            if smin == 0:
+                # A semi-minor axis exactly zero gives all kinds of problems.
+                # For instance wrt conversion to celestial coordinates.
+                # This is a quick fix.
+                smin = beamsize / (numpy.pi * smaj)
 
-    if (numpy.isnan(xbar) or numpy.isnan(ybar) or
-            numpy.isnan(smaj) or numpy.isnan(smin)):
-        raise ValueError("Unable to estimate Gauss shape")
+            if (numpy.isnan(xbar) or numpy.isnan(ybar) or
+                    numpy.isnan(smaj) or numpy.isnan(smin)):
+                raise ValueError("Unable to estimate Gauss shape")
 
-    # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
-    # page 45).
-    if abs(smaj - smin) < 0.01:
-        # short circuit!
-        theta = 0.
-    else:
-        if xxbar != yybar:
-            theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
-        else:
-            theta = numpy.sign(xybar) * math.pi / 4.0
-
-        if theta * xybar > 0.:
-            if theta < 0.:
-                theta += math.pi / 2.0
+            # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
+            # page 45).
+            if abs(smaj - smin) < 0.01:
+                # short circuit!
+                theta = 0.
             else:
-                theta -= math.pi / 2.0
+                if xxbar != yybar:
+                    theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+                else:
+                    theta = numpy.sign(xybar) * math.pi / 4.0
+
+                if theta * xybar > 0.:
+                    if theta < 0.:
+                        theta += math.pi / 2.0
+                    else:
+                        theta -= math.pi / 2.0
+
+        # In all cases where we hit a math domain error, we can use the clean
+        # beam parameters to derive reasonable estimates for the Gaussian shape
+        # parameters.
+        except Exception:
+            smaj = beam[0]
+            smin = beam[1]
+            theta = beam[2]
+    else:
+        # In the case that the island has insufficient width, we can also derive
+        # reasonable estimates for Gaussian shape parameters using the clean
+        # beam.
+        smaj = beam[0]
+        smin = beam[1]
+        theta = beam[2]
 
     #  Equivalent of param["flux"] = (numpy.pi * param["peak"] *
     #  param["semimajor"] * param["semiminor"] / beamsize) from extract.py.
     flux = numpy.pi * peak * smaj * smin / beamsize
+
     # Update xbar and ybar with the position of the upper left corner of the
     # chunk.
     xbar += chunkpos[0]
