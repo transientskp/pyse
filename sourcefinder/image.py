@@ -94,7 +94,7 @@ class ImageData(object):
         # single precision is good enough in all cases.
         self.rawdata = numpy.ascontiguousarray(data, dtype=numpy.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
-        self.beam = beam  # tuple of (semimaj, semimin, theta)
+        self.beam = beam  # tuple of (semimaj, semimin, theta) in pixel coordinates.
         # These three quantities are only dependent on the beam, so should be calculated
         # once the beam is known and not for each source separately.
         self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
