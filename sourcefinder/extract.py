@@ -1260,10 +1260,10 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
 
 
 @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
-               int32[:], float32[:], int32[:], int32[:])], '(n, m), (l), ' +
-             '(n, m), (), (), (k) -> (k), (k), (k)')
+               int32[:], float32[:], int32[:], int32[:], int32[:])],
+             '(n, m), (l), (n, m), (), (), (k) -> (k), (k), (k), ()')
 def insert_island_data(some_image, inds, labelled_data, label,
-                       npix, dummy, island, xpos, ypos):
+                       npix, dummy, island, xpos, ypos, min_width):
     """
     We want to copy the relevant island data into input arrays for
     fitting.moments_enhanced.
@@ -1321,17 +1321,28 @@ def insert_island_data(some_image, inds, labelled_data, label,
                  there will be a number of unassigned values for the highest
                  indices.
 
+    :param min_width: int32 indicating the minimum width of the island, in order
+                 to assess whether the island has sufficient width to determine
+                 Gaussian parameters. Calculated from the maximum widths of the
+                 island over x and y and subsequently taking the minimum of
+                 those two maximum widths.
+
     :return: No return values, because of the use of the guvectorize
              decorator: 'guvectorize() functions don’t return their
              result value: they take it as an array argument,
              which must be filled in by the function'. In this case
-             island, xpos and ypos will be filled with values.
+             island, xpos, ypos and min_width will be filled with values.
     """
 
     # pos = "positions", i.e. the row and column indices of the island pixels.
     pos = (labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
            == label[0]).nonzero()
     enclosed_island = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+
+    data_as_ones = numpy.where(enclosed_island != 0, 1, 0)
+    max_along_x = numpy.sum(data_as_ones, axis=0).max()
+    max_along_y = numpy.sum(data_as_ones, axis=1).max()
+    min_width[0] = min(max_along_x, max_along_y)
 
     for i in range(npix[0]):
         index = pos[0][i], pos[1][i]
@@ -1559,10 +1570,19 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
     # xpositions and ypositions are relative to the upper left corner of
     # the chunk.
-    xpositions = numpy.empty((num_islands, max_pixels),
-                             dtype=numpy.int32)
-    ypositions = numpy.empty((num_islands, max_pixels),
-                             dtype=numpy.int32)
+    xpositions = numpy.empty((num_islands, max_pixels), dtype=numpy.int32)
+    ypositions = numpy.empty((num_islands, max_pixels), dtype=numpy.int32)
+
+    # It makes sense to calculate the minimum width of each island of pixels
+    # upfront such that we are not trying to estimate any Gaussian parameters,
+    # either through moments estimation or through fitting, when the island has
+    # a width of less than 3 pixels along any axis. For these "thin" detections
+    # we can still determine the peak spectral brightness and position, but the
+    # other four Gaussian parameters, i.e. the flux density, the axes and the
+    # position angle will have to be derived with the help of the clean beam
+    # parameters, i.e. by assuming the source is unresolved.
+    minimum_widths = numpy.empty(num_islands, dtype=numpy.int32)
+
     # Make sure we get a single precision array of floats, which
     # fitting.moments_enhanced expects.
     thresholds = analysisthresholddata[maxposs[:, 0],
@@ -1582,7 +1602,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         dtype=numpy.float32, copy=False),
         indices, labelled_data, labels.astype(
             dtype=numpy.int32, copy=False), npixs,
-        dummy, islands, xpositions, ypositions)
+        dummy, islands, xpositions, ypositions, minimum_widths)
     # The result will be put in an array 'moments_of_sources' containing
     # ten quantities and their uncertainties: peak flux density,
     # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
