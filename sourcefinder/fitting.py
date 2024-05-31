@@ -6,7 +6,7 @@ import math
 
 import numpy
 import scipy.optimize
-from .gaussian import gaussian
+from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
 from numba import guvectorize, float64, float32, int32
@@ -16,6 +16,10 @@ FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     """Calculate source positional values using moments
+
+    Use the first moment of the distribution is the barycenter of an
+    ellipse. The second moments are used to estimate the rotation angle
+    and the length of the axes.
 
     Args:
 
@@ -37,9 +41,6 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     Raises:
         exceptions.ValueError: in case of NaN in input.
 
-    Use the first moment of the distribution is the barycenter of an
-    ellipse. The second moments are used to estimate the rotation angle
-    and the length of the axes.
     """
 
     # Are we fitting a -ve or +ve Gaussian?
@@ -98,7 +99,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         # short circuit!
         theta = 0.
     else:
-        if xxbar!=yybar:
+        if xxbar != yybar:
             theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
         else:
             theta = numpy.sign(xybar) * math.pi / 4.0
@@ -122,33 +123,51 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], int32[:], int32[:], int32, float32, float32, float64,
-              float64, float64[:], float64, float64[:], float64, float64,
-              float32[:, :], float32[:, :])], ('(n), (n), (n), (), (), (), ' +
-             '(), (), (k), (), (m), (), (), (l, p) -> (l, p)'), nopython=True)
-def moments_enhanced(island_data, posx, posy, no_pixels,
-                     threshold, noise, fudge_max_pix_factor,
+@guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, int32, float32,
+               float32, float32, float64, float64, float64[:], float64,
+               float64[:], float64, float64, float32[:, :], float32[:, :])],
+              ('(n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), (m), ' +
+               '(), (), (l, p) -> (l, p)'), nopython=True)
+def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
+                     threshold, noise, maxi, fudge_max_pix_factor,
                      max_pix_variance_factor, beam, beamsize,
                      correlation_lengths,
                      clean_bias_error, frac_flux_cal_error, dummy,
                      computed_moments):
-    """Calculate source properties using moments. Accelerated using JIT
-    compilation.
+    """Calculate source properties using moments. Vectorized using the
+    guvectorize decorator.
+
+    Use the first moment of the distribution is the barycenter of an
+    ellipse. The second moments are used to estimate the rotation angle
+    and the length of the axes.
+
     Also, a positional 2D index local to the island is used such that every
     pixel value can be linked to a position relative to a corner of the island.
 
     Args:
 
-        island_data (numpy.ndarray): Selected from the actual 2D image data, by taking
-                                     pixels above the analysis threshold only, with its
-                                     peak above the detection threshold. This selection
+        island_data (numpy.ndarray): Selected from the actual 2D image data,
+                                     by taking pixels above the analysis
+                                     threshold only, with its peak above the
+                                     detection threshold. This selection
                                      results in a 1D ndarray (without a mask).
+
+        chunkpos (numpy.ndarray): Index array denoting the position of the top
+                                  left corner of the rectangular slice
+                                  encompassing the island relative to the top
+                                  left corner of the image, which has pixel
+                                  coordinates (0, 0), i.e. we need chunkpos
+                                  to return to absolute pixel coordinates.
 
         posx: Row indices of the pixels in island_data as taken from the actual
               2D images data (rectangular slice).
 
         posy: Column indices of the pixels in island_data as taken from the actual
               2D images data (rectangular slice).
+
+        min_width (integer): The minimum width (in pixels) of the island. This
+            was derived by calculating the maximum width of the island over x
+            and y and then taking the minimum of those two numbers.
 
         no_pixels (integer): The number of pixels that constitute the island.
 
@@ -160,6 +179,8 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
         noise(float): local noise, i.e. the standard deviation of the
                       background pixel values, at the position of the
                       peak pixel value of the island.
+
+        maxi(float): peak pixel value from island.
 
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
@@ -190,6 +211,14 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
         frac_flux_cal_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
 
+        dummy (numpy.ndarray): Empty array with the same shape as
+                               computed_moments needed because of a flau
+                               in guvectorize: There is no other way to tell
+                               guvectorize what the shape of the output array
+                               will be. Therefore, we define an otherwise
+                               redundant input array with the same shape as
+                               the desired output array.
+
         computed_moments(numpy.ndarray): a (10, 2) array of floats containing
                                 the computed moments, i.e.peak flux density,
                                 total flux, x barycenter, y barycenter,
@@ -198,15 +227,15 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
                                 three quantities. This constitutes a total of
                                 ten quantities and their corresponding errors.
 
-    Returns: None (because of the guvectorize decorator)
+    Returns:
+        None (because of the guvectorize decorator), but computed_moments is
+             filled with values.
 
     Raises:
         exceptions.ValueError: in case of NaN in input.
 
-    Use the first moment of the distribution is the barycenter of an
-    ellipse. The second moments are used to estimate the rotation angle
-    and the length of the axes.
     """
+
     # Not every island has the same size. The number of columns of the array
     # containing all islands is equal to the maximum number of pxiels over
     # all islands. This containing array was created by numpy.empty, so better
@@ -215,11 +244,12 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
     # Are we fitting a -ve or +ve Gaussian?
     if island_data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
-        peak = island_data.max() * fudge_max_pix_factor
+        peak = maxi * fudge_max_pix_factor
     else:
         peak = island_data.min()
+
     ratio = threshold / peak
-    flux = island_data.sum()
+    total = island_data.sum()
     xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
 
     for index in range(no_pixels):
@@ -231,66 +261,88 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
         yybar += j * j * island_data[index]
         xybar += i * j * island_data[index]
 
-    xbar /= flux
-    ybar /= flux
-    xxbar /= flux
+    xbar /= total
+    ybar /= total
+    xxbar /= total
     xxbar -= xbar ** 2
-    yybar /= flux
+    yybar /= total
     yybar -= ybar ** 2
-    xybar /= flux
+    xybar /= total
     xybar -= xbar * ybar
 
     working1 = (xxbar + yybar) / 2.0
     working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
+    smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+    smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+    # ratio will be 0 for data that hasn't been selected according to a
+    # threshold.
+    if ratio != 0:
+        # The corrections below for the semi-major and semi-minor axes are
+        # to compensate for the underestimate of these quantities
+        # due to the cutoff at the threshold.
+        smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
 
-    # Some problems arise with the sqrt of (working1-working2) when they are
-    # equal, this happens with islands that have a thickness of only one pixel
-    # in at least one dimension.  Due to rounding errors this difference
-    # becomes negative--->math domain error in sqrt.
-    if no_pixels == 1:
-        # This is the case when the island (or more likely subisland) has
-        # a size of only one pixel.
-        smin = numpy.sqrt(beamsize / numpy.pi)
-        smaj = numpy.sqrt(beamsize / numpy.pi)
-    else:
-        smaj_tmp = (working1 + working2) * 2.0 * math.log(2.0)
-        smin_tmp = (working1 - working2) * 2.0 * math.log(2.0)
-        # ratio will be 0 for data that hasn't been selected according to a
-        # threshold.
-        if ratio != 0:
-            # The corrections below for the semi-major and semi-minor axes are
-            # to compensate for the underestimate of these quantities
-            # due to the cutoff at the threshold.
-            smaj_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-            smin_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-        smaj = math.sqrt(smaj_tmp)
-        smin = math.sqrt(smin_tmp)
-        if smin == 0:
-            # A semi-minor axis exactly zero gives all kinds of problems.
-            # For instance wrt conversion to celestial coordinates.
-            # This is a quick fix.
-            smin = beamsize / (numpy.pi * smaj)
+    # We need this width to determine Gaussian shape parameters in a meaningful
+    # way.
+    if min_width > 2:
+        # The idea of the try except here is that, even though we require a
+        # minimum width of the island, there may still be occasions where
+        # working2 can be slightly higher than working1, perhaps due to rounding
+        # errors.
+        try:
+            smaj = math.sqrt(smaj_tmp)
+            smin = math.sqrt(smin_tmp)
+            if smin == 0:
+                # A semi-minor axis exactly zero gives all kinds of problems.
+                # For instance wrt conversion to celestial coordinates.
+                # This is a quick fix.
+                smin = beamsize / (numpy.pi * smaj)
 
-    if (numpy.isnan(xbar) or numpy.isnan(ybar) or
-            numpy.isnan(smaj) or numpy.isnan(smin)):
-        raise ValueError("Unable to estimate Gauss shape")
+            if (numpy.isnan(xbar) or numpy.isnan(ybar) or
+                    numpy.isnan(smaj) or numpy.isnan(smin)):
+                raise ValueError("Unable to estimate Gauss shape")
 
-    # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
-    # page 45).
-    if abs(smaj - smin) < 0.01:
-        # short circuit!
-        theta = 0.
-    else:
-        if xxbar != yybar:
-            theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
-        else:
-            theta = numpy.sign(xybar) * math.pi / 4.0
-
-        if theta * xybar > 0.:
-            if theta < 0.:
-                theta += math.pi / 2.0
+            # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
+            # page 45).
+            if abs(smaj - smin) < 0.01:
+                # short circuit!
+                theta = 0.
             else:
-                theta -= math.pi / 2.0
+                if xxbar != yybar:
+                    theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
+                else:
+                    theta = numpy.sign(xybar) * math.pi / 4.0
+
+                if theta * xybar > 0.:
+                    if theta < 0.:
+                        theta += math.pi / 2.0
+                    else:
+                        theta -= math.pi / 2.0
+
+        # In all cases where we hit a math domain error, we can use the clean
+        # beam parameters to derive reasonable estimates for the Gaussian shape
+        # parameters.
+        except Exception:
+            smaj = beam[0]
+            smin = beam[1]
+            theta = beam[2]
+    else:
+        # In the case that the island has insufficient width, we can also derive
+        # reasonable estimates for Gaussian shape parameters using the clean
+        # beam.
+        smaj = beam[0]
+        smin = beam[1]
+        theta = beam[2]
+
+    #  Equivalent of param["flux"] = (numpy.pi * param["peak"] *
+    #  param["semimajor"] * param["semiminor"] / beamsize) from extract.py.
+    flux = numpy.pi * peak * smaj * smin / beamsize
+
+    # Update xbar and ybar with the position of the upper left corner of the
+    # chunk.
+    xbar += chunkpos[0]
+    ybar += chunkpos[1]
 
     """Provide reasonable error estimates from the moments"""
 
@@ -504,20 +556,30 @@ def moments_enhanced(island_data, posx, posy, no_pixels,
                                               semimin_deconv_error,
                                               theta_deconv_error])
 
-def fitgaussian(pixels, params, fixed=None, maxfev=0):
+
+def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     """Calculate source positional values by fitting a 2D Gaussian
 
-    Args:
+    :Args:
         pixels (numpy.ma.MaskedArray): Pixel values (with bad pixels masked)
 
         params (dict): initial fit parameters (possibly estimated
             using the moments() function, above)
 
-    Kwargs:
+    :Kwargs:
         fixed (dict): parameters & their values to be kept frozen (ie, not
             fitted)
 
-        maxfev (int): maximum number of calls to the error function
+        max_nfev (int): maximum number of calls to the error function
+
+        bounds (dict): can be a dict such as the extract.ParamSet().bounds
+            attribute generated by the extract.ParamSet().compute_bounds method,
+            but any dict with keys from FIT_PARAMS and
+            (lower_bound, upper_bound, bool) tuples as values will do. The
+            boolean argument accommodates for loosening a bound when a fit
+            becomes unfeasible because of the bound, see the
+            scipy.optimize.Bounds documentation and source code for background.
+            lower_bound and upper_bound are floats.
 
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor,
@@ -534,9 +596,17 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
     """
     fixed = fixed or {}
 
+    def wipe_out_fixed(some_dict):
+        wiped_out = map(lambda key: (key, some_dict[key]),
+                        filter(lambda key: key not in fixed.keys(),
+                        iter(FIT_PARAMS)))
+        return dict(wiped_out)
+
     # Collect necessary values from parameter dict; only those which aren't
     # fixed.
     initial = []
+    # To avoid fits from derailing, it helps to set some reasonable bounds on
+    # the fitting results.
     for param in FIT_PARAMS:
         if param not in fixed:
             if hasattr(params[param], "value"):
@@ -544,18 +614,18 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
             else:
                 initial.append(params[param])
 
-    def residuals(paramlist):
+    def residuals(params):
         """Error function to be used in chi-squared fitting
 
-        :argument paramlist: fitting parameters
-        :type paramlist: numpy.ndarray
-        :argument fixed: parameters to be held frozen
-        :type fixed: dict
+        Args:
+            params(numpy.ndarray): fitting parameters
 
-        :returns: 2d-array of difference between estimated Gaussian function
-            and the actual pixels
+        Returns:
+            1d-array of difference between estimated Gaussian function
+            and the actual pixels. (pixel_resids is a 2d-array, but the
+            .compressed() makes it 1d.)
         """
-        paramlist = list(paramlist)
+        paramlist = list(params)
         gaussian_args = []
         for param in FIT_PARAMS:
             if param in fixed:
@@ -569,20 +639,91 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
 
         # The .compressed() below is essential so the Gaussian fit will not
         # take account of the masked values (=below threshold) at the edges
-        # and corners of pixels (=(masked) array, so rectangular in shape).
+        # and corners of pixels (=(masked) array, so rectangular).
         pixel_resids = numpy.ma.MaskedArray(
             data=numpy.fromfunction(g, pixels.shape) - pixels,
             mask=pixels.mask)
+
         return pixel_resids.compressed()
+
+    def jacobian_values(params):
+        """The Jacobian of an anisotropic 2D Gaussian at the pixel positions.
+
+        Args:
+            params(numpy.ndarray): fitting parameters
+
+        Returns:
+             2d-array with values of the partial derivatives of the
+             2d anisotropic Gaussian along its six parameters. These
+             values are evaluated across the unmasked pixel positions of
+             the island that constitutes the source. The number of rows
+             equals the number of pixels of the flattened unmasked island.
+             The number of columns equals the number of partial
+             derivatives of the Gaussian (=6). For fixed Gaussian
+             parameters the Jacobian component is obviously zero, so that
+             results in a column of only zeroes.
+
+        """
+        paramlist = list(params)
+        gaussian_args = []
+        for param in FIT_PARAMS:
+            if param in fixed:
+                gaussian_args.append(fixed[param])
+            else:
+                gaussian_args.append(paramlist.pop(0))
+
+        # jac is a list of six functions corresponding to the six partial
+        # derivatives of the 2D anisotropic Gaussian profile.
+        jac = jac_gaussian(gaussian_args)
+
+        # From the six functions in jac, wipe out the ones that
+        # correspond to fixed parameters, must be in sync with initial.
+        jac_filtered = wipe_out_fixed(jac)
+
+        jac_values = [numpy.ma.MaskedArray(
+            data=numpy.fromfunction(jac_filtered[key], pixels.shape),
+            mask=pixels.mask).compressed() for key in jac_filtered]
+
+        return numpy.array(jac_values).T
 
     # maxfev=0, the default, corresponds to 200*(N+1) (NB, not 100*(N+1) as
     # the scipy docs state!) function evaluations, where N is the number of
     # parameters in the solution.
     # Convergence tolerances xtol and ftol established by experiment on images
     # from Paul Hancock's simulations.
-    soln, success = scipy.optimize.leastsq(
-        residuals, initial, maxfev=maxfev, xtol=1e-4, ftol=1e-4
+    # April 2024 update.
+    # scipy.optimize.leastsq was replaced by scipy.optimize.least_squares,
+    # because it offers more fitting options. max_nfev instead of maxfev is one
+    # of its keyword arguments, with a default value of None instead of 0.
+
+    if bounds:
+        # Wipe out fixed parameters, keep synced with initial.
+        bounds_filtered = wipe_out_fixed(bounds)
+        # bounds and bounds_filtered are dicts of 3-tuples with the third
+        # element of those tuples a Boolean value, which can be passed to a
+        # scipy.optimize.Bounds instance to allow for loosening of the bounds
+        # when these bounds turn out infeasible in the fitting process. However,
+        # The 3-tuples need to extracted into separate array_like objects to be
+        # passed on as lb, ub and keep_feasible keyword arguments to the Bounds
+        # instance.
+        bounds_filtered_values = [[bounds_filtered[x][index] for x in
+                                   bounds_filtered] for index in range(3)]
+        lb = bounds_filtered_values[0]
+        ub = bounds_filtered_values[1]
+        keep_feasible = bounds_filtered_values[2]
+        applied_bounds = scipy.optimize.Bounds(lb=lb, ub=ub,
+                                               keep_feasible=keep_feasible)
+    else:
+        applied_bounds = (-numpy.inf, numpy.inf)
+
+    Fitting_results = scipy.optimize.least_squares(
+        residuals, initial, jac=jacobian_values,
+        bounds=applied_bounds, method="dogbox",
+        max_nfev=max_nfev, xtol=1e-4, ftol=1e-4
     )
+
+    soln = Fitting_results["x"]
+    success = Fitting_results["success"]
 
     if success > 4:
         raise ValueError("leastsq returned %d; bailing out" % (success,))
@@ -593,7 +734,7 @@ def fitgaussian(pixels, params, fixed=None, maxfev=0):
     # a numpy.ndarray (if fitting multiple values); we need to turn that into
     # a list for the merger.
     try:
-        # If an ndarray (or other iterable)
+        # If a ndarray (or other iterable)
         soln = list(soln)
     except TypeError:
         soln = [soln]

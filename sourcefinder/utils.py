@@ -10,7 +10,6 @@ import scipy.integrate
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
-
 def generate_subthresholds(min_value, max_value, num_thresholds):
     """
     Generate a series of ``num_thresholds`` logarithmically spaced values
@@ -64,7 +63,6 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
         # uncertainty to infinity.
         error_radius = float('inf')
     return error_radius
-
 
 def circular_mask(xdim, ydim, radius):
     """
