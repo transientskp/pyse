@@ -228,7 +228,7 @@ class ImageData(object):
         del (self.data_bgsubbed)
         del (self.grids)
         if hasattr(self, 'residuals_from_gauss_fitting'):
-            del self.residuals_from_gauss_fitting
+            del self.residuals_from_Gaussian_profile
         if hasattr(self, 'residuals_from_deblending'):
             del self.residuals_from_deblending
 
@@ -1065,7 +1065,7 @@ class ImageData(object):
             # If required, we can save the 'left overs' from the deblending and
             # fitting processes for later analysis. This needs setting up here:
             if self.residuals:
-                self.residuals_from_gauss_fitting = numpy.zeros(self.data.shape)
+                self.residuals_from_Gaussian_profile = numpy.zeros(self.data.shape)
                 self.residuals_from_deblending = numpy.zeros(self.data.shape)
                 for island in island_list:
                     self.residuals_from_deblending[island.chunk] += (
@@ -1117,7 +1117,7 @@ class ImageData(object):
                 if self.residuals:
                     self.residuals_from_deblending[island.chunk] -= (
                         island.data.filled(fill_value=0.))
-                    self.residuals_from_gauss_fitting[island.chunk] += residual
+                    self.residuals_from_Gaussian_profile[island.chunk] += residual
 
         elif num_islands > 0:
 
