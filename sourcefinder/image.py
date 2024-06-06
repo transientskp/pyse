@@ -1130,8 +1130,7 @@ class ImageData(object):
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
-                    self.correlation_lengths, eps_ra, eps_dec
-                )
+                    self.correlation_lengths, eps_ra, eps_dec)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
