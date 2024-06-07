@@ -159,15 +159,18 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
                                   coordinates (0, 0), i.e. we need chunkpos
                                   to return to absolute pixel coordinates.
 
-        posx: Row indices of the pixels in island_data as taken from the actual
-              2D images data (rectangular slice).
+        posx (numpy.ndarray): Row indices of the pixels in island_data as taken
+                              from the actual 2D images data
+                              (rectangular slice).
 
-        posy: Column indices of the pixels in island_data as taken from the actual
-              2D images data (rectangular slice).
+        posy  (numpy.ndarray): Column indices of the pixels in island_data as
+                               taken from the actual 2D images data (rectangular
+                                slice).
 
         min_width (integer): The minimum width (in pixels) of the island. This
-            was derived by calculating the maximum width of the island over x
-            and y and then taking the minimum of those two numbers.
+                             was derived by calculating the maximum width of the
+                             island over x and y and then taking the minimum of
+                             those two numbers.
 
         no_pixels (integer): The number of pixels that constitute the island.
 
