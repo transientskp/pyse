@@ -152,10 +152,10 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
                                      detection threshold. This selection
                                      results in a 1D ndarray (without a mask).
 
-        chunkpos (numpy.ndarray): Index array denoting the position of the top
-                                  left corner of the rectangular slice
-                                  encompassing the island relative to the top
-                                  left corner of the image, which has pixel
+        chunkpos (numpy.ndarray): Index array of length 2 denoting the position
+                                  of the top left corner of the rectangular
+                                  slice encompassing the island relative to the
+                                  top left corner of the image, which has pixel
                                   coordinates (0, 0), i.e. we need chunkpos
                                   to return to absolute pixel coordinates.
 
