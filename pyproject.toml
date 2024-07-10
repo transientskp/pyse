@@ -52,3 +52,20 @@ dependencies = [
     "mypy",
     "ruff",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q"]
+
+[tool.black]
+include = '\.pyi?$'
+extend-exclude ='''
+(
+  ^test/data
+)
+'''
+
+[tool.mypy]
+ignore_missing_imports = true
+check_untyped_defs = true
+files = "sourcefinder"
