@@ -6,8 +6,20 @@ name: Format, lint, type check, test!
 on:
   push:
     branches: [ "master" ]
+    paths-ignore:
+      - "*.md"
+      - "*.rst"
+      - "docs"
+      - "*.sh"
+      - ".github/workflows/publish-pypi.yml"
   pull_request:
     branches: [ "master" ]
+    paths-ignore:
+      - "*.md"
+      - "*.rst"
+      - "docs"
+      - "*.sh"
+      - ".github/workflows/publish-pypi.yml"
 
 permissions:
   contents: read
