@@ -385,18 +385,6 @@ class TestMaskedSource(unittest.TestCase):
     @requires_data(GRB120422A)
     def testWholeSourceMasked(self):
         """
-        Source in masked region
-        """
-
-        self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
-        self.image.data[250:280, 250:280] = np.ma.masked
-        results = self.image.extract(det=5, anl=3)
-        self.assertFalse(results)
-
-    @requires_data(GRB120422A)
-    def testWholeSourceMasked(self):
-        """
         Part of source masked
 
         Tip of major axis is around 267, 264
@@ -404,6 +392,8 @@ class TestMaskedSource(unittest.TestCase):
 
         self.image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
+        # FIXME: the line below was in a shadowed method with an identical name
+        # self.image.data[250:280, 250:280] = np.ma.masked
         self.image.data[266:269, 263:266] = np.ma.masked
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches an extra noise peak at the 5 sigma level.
