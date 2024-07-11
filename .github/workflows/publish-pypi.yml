@@ -57,6 +57,9 @@ jobs:
       - name: Install PySE
         run: |
           pip install dist/*.whl
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
       - name: Remove source, run tests on installed package
         run: |
           rm -rf sourcefinder
