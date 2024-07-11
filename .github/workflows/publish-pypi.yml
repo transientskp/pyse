@@ -60,7 +60,7 @@ jobs:
       - name: Remove source, run tests on installed package
         run: |
           rm -rf sourcefinder
-          pytest --cov= test
+          pytest --cov=
 
   publish:
     # isolate from test, to prevent partial uploads
