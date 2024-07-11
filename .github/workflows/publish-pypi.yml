@@ -2,7 +2,8 @@ name: Workflow to publish wheels to PyPI
 
 on:
   release:
-
+    types:
+      - released
   workflow_dispatch:
 
 jobs:
