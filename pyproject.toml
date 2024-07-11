@@ -15,7 +15,7 @@ requires-python = ">=3.10, <3.12"
 dependencies = [
     "astropy",
     "dask[array]",
-    "numpy",
+    "numpy<2.0",
     "psutil",
     "python-casacore",
     "python-dateutil",
