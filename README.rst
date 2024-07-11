@@ -42,5 +42,5 @@ The list of authors, sorted by the number of commits:
 Developer information
 ---------------------
 
-.. image:: https://github.com/transientskp/pyse/actions/workflows/ci.yaml/badge.svg
-   :target: https://github.com/transientskp/pyse/actions
+.. image:: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml/badge.svg
+   :target: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml
