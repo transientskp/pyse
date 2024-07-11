@@ -56,7 +56,7 @@ jobs:
           # pytest-cov needed as config includes --cov
       - name: Install PySE
         run: |
-          pip install dist/*.whl
+          pip install *.whl
       - name: Remove source, run tests on installed package
         run: |
           rm -rf sourcefinder
