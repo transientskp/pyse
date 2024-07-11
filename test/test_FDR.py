@@ -39,7 +39,7 @@ import os
 import unittest
 
 from sourcefinder import accessors
-from sourcefinder.testutil.data import DATAPATH
+from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 
 from sourcefinder import image

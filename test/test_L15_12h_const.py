@@ -6,7 +6,7 @@ import gc
 import os
 import unittest
 
-from sourcefinder.testutil.data import DATAPATH
+from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 
 import sourcefinder.accessors.fitsimage

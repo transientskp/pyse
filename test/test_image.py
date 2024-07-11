@@ -4,8 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
-from sourcefinder.testutil.data import DATAPATH
-from sourcefinder.testutil.data import fits_file
+from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
 
@@ -415,20 +414,20 @@ class TestMaskedSource(unittest.TestCase):
 
 class TestMaskedBackground(unittest.TestCase):
     # We force the mask by setting the usable region << grid size.
-    @requires_data(fits_file)
+    @requires_data(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
     def testMaskedBackgroundForcedFit(self):
         """
         Background at forced fit is masked
         """
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(fits_file), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
         result = self.image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
 
-    @requires_data(fits_file)
+    @requires_data(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
     def testMaskedBackgroundBlind(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(fits_file), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
         result = self.image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
 
