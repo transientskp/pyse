@@ -16,11 +16,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install dependencies
+      - name: Install build tool
         run: |
           python -m pip install --upgrade pip
           python -m pip install hatch
-          hatch env create test
       - name: Build
         run: |
           hatch build
@@ -31,9 +30,41 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout pyse
+        uses: actions/checkout@v4
+      - name: Make dist directory
+        run: mkdir -p dist
+      - name: Download all wheels
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-cov
+          # pytest-cov needed as config includes --cov
+      - name: Install PySE
+        run: |
+          pip install dist/*.whl
+      - name: Remove source, run tests on installed package
+        run: |
+          rm -rf sourcefinder
+          pytest --cov= test
+
   publish:
     # isolate from test, to prevent partial uploads
-    needs: build
+    needs: [build, test]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
