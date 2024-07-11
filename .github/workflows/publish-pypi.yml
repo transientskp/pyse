@@ -26,6 +26,7 @@ jobs:
       - name: Save wheel
         uses: actions/upload-artifact@v4
         with:
+          name: dist
           path: dist/*
           if-no-files-found: error
           retention-days: 7
@@ -40,12 +41,10 @@ jobs:
     steps:
       - name: Checkout pyse
         uses: actions/checkout@v4
-      - name: Make dist directory
-        run: mkdir -p dist
       - name: Download all wheels
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          name: dist
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -70,12 +69,10 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Make dist directory
-        run: mkdir -p dist
       - name: Download all wheels
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          name: dist
       - name: Publish to PyPI using trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
