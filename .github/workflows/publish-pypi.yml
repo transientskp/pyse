@@ -72,7 +72,7 @@ jobs:
       - name: Publish to PyPI using trusted publishing
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # repository-url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
           packages-dir: dist/
           # skip-existing: true
           # verify-metadata: false
