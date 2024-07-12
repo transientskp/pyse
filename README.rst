@@ -15,7 +15,7 @@ PySE available on pypi::
 
     $ pip install radio-pyse
 
-PySE is Python 2 and Python 3 compatible.
+PySE is compatible with Python 3.10 or up.
 
 
 License
