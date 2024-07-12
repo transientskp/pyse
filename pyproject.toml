@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "radio-pyse"
+name = "sa-radio-pyse"
 dynamic = ["version"]
 description = "Python Source Extractor"
 readme = {file = "README.rst", content-type = "text/x-rst"}
