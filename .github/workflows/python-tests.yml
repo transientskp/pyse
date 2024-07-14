@@ -95,4 +95,4 @@ jobs:
           python -m pip install hatch
           hatch env create lint
       - name: Type check w/ mypy
-        run: mypy --install-types --non-interactive --pretty
+        run: hatch run lint:mypy --install-types --non-interactive --pretty
