@@ -573,7 +573,7 @@ def eq_to_cart(ra, dec):
     math.sin(math.radians(dec)))  # Cartesian z
 
 
-class CoordSystem(object):
+class CoordSystem:
     """A container for constant strings representing different coordinate
     systems."""
     FK4 = "B1950 (FK4)"
@@ -624,7 +624,7 @@ def convert_coordsystem(ra, dec, insys, outsys):
     return ra, dec
 
 
-class WCS(object):
+class WCS:
     """
     Wrapper around pywcs.WCS.
 
@@ -657,13 +657,11 @@ class WCS(object):
                 value = (value[0], value[1] * (1 - sys.float_info.epsilon))
             self.wcs.wcs.__setattr__(attrname, value)
         else:
-            super(WCS, self).__setattr__(attrname, value)
+            super().__setattr__(attrname, value)
 
     def __getattr__(self, attrname):
         if attrname in self.WCS_ATTRS:
             return getattr(self.wcs.wcs, attrname)
-        else:
-            super(WCS, self).__getattr__(attrname)
 
     def p2s(self, pixpos):
         """

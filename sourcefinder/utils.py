@@ -42,7 +42,7 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
     to the major/minor axes of the elliptical fit, but this should do for
     now.
     """
-    error_radius = 0
+    error_radius = 0.0
     try:
         centre_ra, centre_dec = wcs.p2s([x_value, y_value])
         # We check all possible combinations in case we have a nonlinear

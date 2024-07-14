@@ -12,13 +12,12 @@ from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
-from sourcefinder.utility.memoize import Memoize
 
-import time
 import dask.array as da
 from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
+from functools import cached_property
 from functools import partial
 
 try:
@@ -95,53 +94,31 @@ class ImageData(object):
     # Properties and attributes.                                              #
     #                                                                         #
     # Properties are attributes managed by methods; rather than calling the   #
-    # method directly, the attribute automatically invokes it. We can use     #
-    # this to do cunning transparent caching ("memoizing") etc; see the       #
-    # Memoize class.                                                          #
+    # method directly, the attribute automatically invokes it. Result of the  #
+    # function calls are cached, subsequent calls doesn't recompute.          #
     #                                                                         #
-    # clearcache() clears all the memoized data, which can get quite large.   #
+    # clearcache() clears all the cached data, which can get quite large.     #
     # It may be wise to call this, for example, in an exception handler       #
     # dealing with MemoryErrors.                                              #
     #                                                                         #
     ###########################################################################
-    @Memoize
-    def _grids(self):
+    @cached_property
+    def grids(self):
         """Gridded RMS and background data for interpolating"""
         return self.__grids()
 
-    grids = property(fget=_grids, fdel=_grids.delete)
-
-    @Memoize
-    def _backmap(self):
+    @cached_property
+    def backmap(self):
         """Background map"""
-        if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'])
-        else:
-            return self._user_backmap
+        return self._interpolate(self.grids['bg'])
 
-    def _set_backmap(self, bgmap):
-        self._user_backmap = bgmap
-        del (self.backmap)
-        del (self.data_bgsubbed)
-
-    backmap = property(fget=_backmap, fdel=_backmap.delete, fset=_set_backmap)
-
-    @Memoize
-    def _get_rm(self):
+    @cached_property
+    def rmsmap(self):
         """RMS map"""
-        if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'], roundup=True)
-        else:
-            return self._user_noisemap
+        return self._interpolate(self.grids['rms'], roundup=True)
 
-    def _set_rm(self, noisemap):
-        self._user_noisemap = noisemap
-        del (self.rmsmap)
-
-    rmsmap = property(fget=_get_rm, fdel=_get_rm.delete, fset=_set_rm)
-
-    @Memoize
-    def _get_data(self):
+    @cached_property
+    def data(self):
         """Masked image data"""
         # We will ignore all the data which is masked for the rest of the
         # sourcefinding process. We build up the mask by stacking ("or-ing
@@ -161,15 +138,10 @@ class ImageData(object):
         mask = numpy.logical_or(mask, numpy.isnan(self.rawdata))
         return numpy.ma.array(self.rawdata, mask=mask)
 
-    data = property(fget=_get_data, fdel=_get_data.delete)
-
-    @Memoize
-    def _get_data_bgsubbed(self):
+    @cached_property
+    def data_bgsubbed(self):
         """Background subtracted masked image data"""
         return self.data - self.backmap
-
-    data_bgsubbed = property(fget=_get_data_bgsubbed,
-                             fdel=_get_data_bgsubbed.delete)
 
     @property
     def xdim(self):
