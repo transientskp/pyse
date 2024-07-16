@@ -1,6 +1,7 @@
 """
 This module implements the CASA kat7 data container format.
 """
+
 import logging
 
 from casacore.tables import table as casacore_table
@@ -30,6 +31,6 @@ class AmiCasaImage(CasaImage):
 
     def __init__(self, url, plane=0, beam=None):
         super(AmiCasaImage, self).__init__(url, plane, beam)
-        table = casacore_table(self.url.encode(), ack=False)
+        table = casacore_table(self.url, ack=False)
         self.taustart_ts = self.parse_taustartts(table)
         self.tau_time = 1  # Placeholder value until properly implemented

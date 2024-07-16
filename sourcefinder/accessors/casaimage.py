@@ -29,7 +29,6 @@ class CasaImage(DataAccessor):
 
         # we don't want the table as a property since it makes the accessor
         # not serializable
-        #table = casacore_table(self.url.encode(), ack=False)
         table = casacore_table(self.url, ack=False)
         self.data = self.parse_data(table, plane)
         self.wcs = self.parse_coordinates(table)
