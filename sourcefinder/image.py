@@ -243,7 +243,7 @@ class ImageData(object):
         del self.data_bgsubbed
         del self.grids
         if hasattr(self, 'residuals_from_gauss_fitting'):
-            del self.residuals_from_Gaussian_profile
+            del self.Gaussian_residuals
         if hasattr(self, 'residuals_from_deblending'):
             del self.residuals_from_deblending
 
@@ -1083,7 +1083,7 @@ class ImageData(object):
             # If required, we can save the 'left overs' from the deblending and
             # fitting processes for later analysis. This needs setting up here:
             if self.residuals:
-                self.residuals_from_Gaussian_profile = numpy.zeros(self.data.shape)
+                self.Gaussian_residuals = numpy.zeros(self.data.shape)
                 self.residuals_from_deblending = numpy.zeros(self.data.shape)
                 for island in island_list:
                     self.residuals_from_deblending[island.chunk] += (
@@ -1135,20 +1135,36 @@ class ImageData(object):
                 if self.residuals:
                     self.residuals_from_deblending[island.chunk] -= (
                         island.data.filled(fill_value=0.))
-                    self.residuals_from_Gaussian_profile[island.chunk] += residual
+                    self.Gaussian_residuals[island.chunk] += residual
 
         elif num_islands > 0:
 
-            (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
-             error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
-             theta_celes_values, theta_celes_errors, theta_dc_celes_values,
-             theta_dc_celes_errors) = \
+            (moments_of_sources, sky_barycenters, xpositions, ypositions,
+             ra_errors, dec_errors, error_radii, smaj_asec, errsmaj_asec,
+             smin_asec, errsmin_asec, theta_celes_values, theta_celes_errors,
+             theta_dc_celes_values, theta_dc_celes_errors) = \
                 extract.source_measurements_pixels_and_celestial_vectorised(
                     num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
                     self.correlation_lengths, eps_ra, eps_dec)
+
+            if self.residuals:
+                # Select the relevant elements of moments_sources, include the
+                # peak spectral brightness, but exclude the flux density.
+                self.Gaussian_residuals = \
+                    numpy.zeros_like(self.data_bgsubbed.data)
+                relevant_moments = (
+                    numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
+                               axis=1))
+                extract.calculate_and_insert_residuals(self.data_bgsubbed.data,
+                                                       self.Gaussian_residuals,
+                                                       indices[:, 0],
+                                                       indices[:, 2],
+                                                       xpositions, ypositions,
+                                                       npixs,
+                                                       relevant_moments)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
