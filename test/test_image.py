@@ -205,7 +205,7 @@ class TestFitFixedPositions(unittest.TestCase):
         img = self.image
 
         fake_params = sourcefinder.extract.ParamSet()
-        fake_params.values.update({
+        fake_params.measurements.update({
             'peak': Uncertain(0.0, 0.5),
             'flux': Uncertain(0.0, 0.5),
             'xbar': Uncertain(5.5, 10000.5),  # Danger Will Robinson

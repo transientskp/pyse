@@ -15,7 +15,7 @@ class DummyImage(object):
 def get_paramset():
     paramset = ParamSet()
     paramset.sig = 1
-    paramset.values = {
+    paramset.measurements = {
         'peak': Uncertain(10, 0),
         'flux': Uncertain(10, 0),
         'semimajor': Uncertain(10, 1),
@@ -100,13 +100,13 @@ class TestPositionErrors(unittest.TestCase):
         # See HipChat discussion of 2013-08-28.
         # Values of all parameters are dummies except for the pixel position.
         # First, construct a source at the NCP
-        self.p.values['xbar'] = Uncertain(1025, 1)
-        self.p.values['ybar'] = Uncertain(1025, 1)
+        self.p.measurements['xbar'] = Uncertain(1025, 1)
+        self.p.measurements['ybar'] = Uncertain(1025, 1)
         d_ncp = Detection(self.p, self.ncp_image)
 
         # Then construct a source somewhere away from the NCP
-        self.p.values['xbar'] = Uncertain(125, 1)
-        self.p.values['ybar'] = Uncertain(125, 1)
+        self.p.measurements['xbar'] = Uncertain(125, 1)
+        self.p.measurements['ybar'] = Uncertain(125, 1)
         d_not_ncp = Detection(self.p, self.ncp_image)
 
         # One source is at higher declination
@@ -118,24 +118,24 @@ class TestPositionErrors(unittest.TestCase):
     def test_error_radius_value(self):
         # Demonstrate that we calculate the expected value for the error
         # radius
-        self.p.values['xbar'] = Uncertain(1025, 1)
-        self.p.values['ybar'] = Uncertain(1025, 1)
+        self.p.measurements['xbar'] = Uncertain(1025, 1)
+        self.p.measurements['ybar'] = Uncertain(1025, 1)
         d_ncp = Detection(self.p, self.ncp_image)
 
         # cdelt gives the per-pixel increment along the axis in degrees
         # Detection.error_radius is in arcsec
         expected_error_radius = math.sqrt(
-            (self.p.values['xbar'].error * self.ncp_image.wcs.cdelt[
+            (self.p.measurements['xbar'].error * self.ncp_image.wcs.cdelt[
                 0] * 3600) ** 2 +
-            (self.p.values['ybar'].error * self.ncp_image.wcs.cdelt[
+            (self.p.measurements['ybar'].error * self.ncp_image.wcs.cdelt[
                 1] * 3600) ** 2
         )
 
         self.assertAlmostEqual(d_ncp.error_radius, expected_error_radius, 6)
 
     def test_error_radius_with_dec(self):
-        self.p.values['xbar'] = Uncertain(1025, 1)
-        self.p.values['ybar'] = Uncertain(1025, 1)
+        self.p.measurements['xbar'] = Uncertain(1025, 1)
+        self.p.measurements['ybar'] = Uncertain(1025, 1)
         d_ncp = Detection(self.p, self.ncp_image)
         d_equator = Detection(self.p, self.equator_image)
         self.assertEqual(d_ncp.error_radius, d_equator.error_radius)
