@@ -280,17 +280,17 @@ class ParamSet(MutableMapping):
             raise AttributeError("Invalid parameter")
 
     def __delitem__(self, key):
-        raise Exception
+        del self.measurements[key]
 
     def __iter__(self):
-        raise Exception
+        return iter(self.measurements)
 
     def __len__(self):
-        raise Exception
+        return len(self.measurements)
 
     def keys(self):
         """ """
-        return list(self.values.keys())
+        return list(self.measurements.keys())
 
     def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
         """Calculate positional errors
