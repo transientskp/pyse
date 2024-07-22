@@ -241,7 +241,7 @@ class ParamSet(MutableMapping):
         self.alpha_maj3 = alpha_maj3
         self.alpha_min3 = alpha_min3
 
-        self.values = {
+        self.measurements = {
             'peak': Uncertain(),
             'flux': Uncertain(),
             'xbar': Uncertain(),
@@ -268,14 +268,14 @@ class ParamSet(MutableMapping):
         self.reduced_chisq = None
 
     def __getitem__(self, item):
-        return self.values[item]
+        return self.measurements[item]
 
     def __setitem__(self, item, value):
-        if item in self.values:
+        if item in self.measurements:
             if isinstance(value, Uncertain):
-                self.values[item] = value
+                self.measurements[item] = value
             else:
-                self.values[item].value = value
+                self.measurements[item].value = value
         elif item[:3] == 'err' and item[3:] in self.values:
             self.values[item[3:]].error = value
         else:
