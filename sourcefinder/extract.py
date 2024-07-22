@@ -276,8 +276,6 @@ class ParamSet(MutableMapping):
                 self.measurements[item] = value
             else:
                 self.measurements[item].value = value
-        elif item[:3] == 'err' and item[3:] in self.values:
-            self.values[item[3:]].error = value
         else:
             raise AttributeError("Invalid parameter")
 
