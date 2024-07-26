@@ -42,14 +42,15 @@ The list of authors, sorted by the number of commits:
 Developer information
 ---------------------
 
-PySE uses ```hatch`` <https://hatch.pypa.io/latest/>`_ to manage the
-different environments while development.  So make sure you have
-``hatch`` installed *globally*.  You could either use your system's
-package manager to install ``hatch``, or use ``pipx`` to install as a
-regular user.  Please ensure that you are using a version
+PySE uses |hatch|_ to manage the different environments while development.
+So make sure you have ``hatch`` installed *globally*.  You could either use
+your system's package manager to install ``hatch``, or use ``pipx`` to
+install as a regular user.  Please ensure that you are using a version
 ``hatch>=1.10``, otherwise you might encounter `this bug
 <https://github.com/pypa/hatch/issues/1395>`_.
 
 
+.. |hatch| replace:: ``hatch``
+.. _hatch: https://hatch.pypa.io/latest/
 .. image:: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml/badge.svg
    :target: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml
