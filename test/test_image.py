@@ -435,3 +435,28 @@ class TestFailureModes(unittest.TestCase):
                         msg="Data should be flat")
         with self.assertRaises(RuntimeError):
             sfimage.extract(det=5, anl=3)
+
+class TestNegationImage(unittest.TestCase):
+    """
+    Check if we do not detect any sources from the negation of a Stokes I
+    image with many sources.
+    """
+    def setUp(self):
+        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
+                                                            'deconvolved.fits'))
+        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+
+    @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
+    def testReverseSE(self):
+        """
+        We extract with a 5 sigma detection limit on the negation of an
+        artificial 2K * 2K Stokes I image with 3969 bright sources in
+        correlated noise. With this limit one should barely extract a source,
+        since erfc(5/sqrt(2))/2 * 2**22 ~ 1. This simple calculation, however,
+        assumes uncorrelated noise. A 6 sigma detection limit may be needed
+        when this test is applied to other 2K *2K images or to larger images.
+        """
+        extraction_results = self.img.reverse_se(det=5.0, anl=4.0)
+        self.assertTrue(len(extraction_results) == 0,
+                        msg=("Extracting sources from the negation of a Stokes"
+                             " I image should yield only noise peaks."))

@@ -451,7 +451,7 @@ class ImageData(object):
             labelled_data=labelled_data, labels=labels
         )
 
-    def reverse_se(self, det):
+    def reverse_se(self, det, anl):
         """Run source extraction on the negative of this image.
 
         Obviously, there should be no sources in the negative image, so this
@@ -465,7 +465,7 @@ class ImageData(object):
         self.labels.clear()
         self.clip.clear()
         self.data_bgsubbed *= -1
-        results = self.extract(det=det)
+        results = self.extract(det=det, anl=anl)
         self.data_bgsubbed *= -1
         self.labels.clear()
         self.clip.clear()
