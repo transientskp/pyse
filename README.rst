@@ -91,14 +91,14 @@ need to ensure all Git tags are present.
 
    .. code-block:: bash
 
-   $ git fetch --tags
+      $ git fetch --tags
 
 2. You can now build a distribution (a wheel file and a source
    tarball) locally using:
 
    .. code-block:: bash
 
-   $ hatch build
+      $ hatch build
 
    This creates the distribution files in the ``dist/`` directory in
    the project root.
@@ -114,7 +114,7 @@ need to ensure all Git tags are present.
 
    .. code-block:: bash
 
-   $ hatch build --hooks-only
+      $ hatch build --hooks-only
 
    This is necessary to refresh the version information if you update
    any of the build configuration in ``pyproject.toml``, or if you are
