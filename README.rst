@@ -1,3 +1,7 @@
+.. image:: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml/badge.svg
+   :target: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml
+
+
 Python Source Extractor
 =======================
 
@@ -165,5 +169,3 @@ specify the ``<envrironment>:`` prefix in the run command.
 
 .. |hatch| replace:: ``hatch``
 .. _hatch: https://hatch.pypa.io/latest/
-.. image:: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml/badge.svg
-   :target: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml
