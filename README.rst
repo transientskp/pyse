@@ -46,7 +46,7 @@ The list of authors, sorted by the number of commits:
 Developer information
 ---------------------
 
-PySE uses |hatch|_ to manage the different environments while development.
+PySE uses |hatch|_ to manage the different environments during development.
 So make sure you have ``hatch`` installed *globally*.  You could either use
 your system's package manager to install ``hatch``, or use ``pipx`` to
 install as a regular user.  Please ensure that you are using a version
@@ -87,9 +87,9 @@ Package builds
 ++++++++++++++
 
 ``hatch`` does package builds in an isolated environment.  The package
-build setup also uses a dynamic hook to generate the package version
-from Git repository release tags.  So to do a local package build, you
-need to ensure all Git tags are present.
+build setup also uses a dynamic hook (also known as build hooks) to
+generate the package version from Git repository release tags.  So to
+do a local package build, you need to ensure all Git tags are present.
 
 1. Fetch all Git release tags locally.
 
@@ -114,7 +114,8 @@ need to ensure all Git tags are present.
      ├── radio_pyse-0.3.2.dev9+gfb04dc7.d20240729-py3-none-any.whl
      └── radio_pyse-0.3.2.dev9+gfb04dc7.d20240729.tar.gz
 
-3. If you want to trigger only the build hooks, you can do:
+3. If you want to trigger only the build hooks (like generating the
+   package version), you can do:
 
    .. code-block:: bash
 
