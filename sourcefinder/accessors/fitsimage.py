@@ -1,17 +1,16 @@
+import numpy
+import pytz
 import datetime
+import dateutil.parser
 import logging
 import re
 
 import astropy.io.fits as pyfits
-import dateutil.parser
-import numpy
-import pytz
 
 from sourcefinder.accessors.dataaccessor import DataAccessor
 from sourcefinder.utility.coordinates import WCS
 
 logger = logging.getLogger(__name__)
-
 
 class FitsImage(DataAccessor):
     """
@@ -21,7 +20,6 @@ class FitsImage(DataAccessor):
     provide a ``telescope`` attribute if the FITS file has a ``TELESCOP``
     header.
     """
-
     def __init__(self, url, plane=None, beam=None, hdu_index=0):
         super(FitsImage, self).__init__()
         self.url = url
@@ -66,11 +64,11 @@ class FitsImage(DataAccessor):
             data = data[plane].squeeze()
         n_dim = len(data.shape)
         if n_dim != 2:
-            logger.warn(
-                "Loaded datacube with %s dimensions, assuming Stokes I and taking plane 0" % n_dim)
+            logger.warning("Loaded datacube with %s dimensions, assuming Stokes I and taking plane 0" % n_dim)
             data = data[0, :, :]
         data = data.transpose()
         return data
+
 
     def parse_coordinates(self):
         """Returns a WCS object"""
@@ -104,10 +102,12 @@ class FitsImage(DataAccessor):
             wcs.cunit = 'deg', 'deg'
         return wcs
 
+
     def calculate_phase_centre(self):
         x, y = self.data.shape
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))
         return float(centre_ra), float(centre_decl)
+
 
     def parse_frequency(self):
         """
@@ -121,31 +121,30 @@ class FitsImage(DataAccessor):
         freq_bw = None
         try:
             header = self.header
-            if header['TELESCOP'] in ('LOFAR', 'AARTFAAC'):
+            if 'RESTFRQ' in header:
                 freq_eff = header['RESTFRQ']
                 if 'RESTBW' in header:
                     freq_bw = header['RESTBW']
-
                 else:
                     logger.warning("bandwidth header missing in image {},"
                                    " setting to 1 MHz".format(self.url))
                     freq_bw = 1e6
+            elif ('CTYPE3' in header) and (header['CTYPE3'] in ('FREQ', 'VOPT')):
+                freq_eff = header['CRVAL3']
+                freq_bw = header['CDELT3']
+            elif ('CTYPE4' in header) and (header['CTYPE4'] in ('FREQ', 'VOPT')):
+                freq_eff = header['CRVAL4']
+                freq_bw = header['CDELT4']
             else:
-                if header['ctype3'] in ('FREQ', 'VOPT'):
-                    freq_eff = header['crval3']
-                    freq_bw = header['cdelt3']
-                elif header['ctype4'] in ('FREQ', 'VOPT'):
-                    freq_eff = header['crval4']
-                    freq_bw = header['cdelt4']
-                else:
-                    freq_eff = header['restfreq']
-                    freq_bw = 0.0
+                freq_eff = header['RESTFREQ']
+                freq_bw = 1e6
         except KeyError:
             msg = "Frequency not specified in headers for {}".format(self.url)
             logger.error(msg)
             raise TypeError(msg)
 
         return freq_eff, freq_bw
+
 
     def parse_beam(self):
         """Read and return the beam properties bmaj, bmin and bpa values from
@@ -194,6 +193,7 @@ class FitsImage(DataAccessor):
 
         return bmaj, bmin, bpa
 
+
     def parse_times(self):
         """Returns:
           - taustart_ts: tz naive (implicit UTC) datetime at start of observation.
@@ -204,7 +204,7 @@ class FitsImage(DataAccessor):
             start = self.parse_start_time()
         except KeyError:
             # If no start time specified, give up:
-            logger.warn("Timestamp not specified in FITS file:"
+            logger.warning("Timestamp not specified in FITS file:"
                         " using 'now' with dummy (zero-valued) integration time.")
             return datetime.datetime.now(), 0.
 
@@ -230,6 +230,7 @@ class FitsImage(DataAccessor):
             logger.debug("Timezone not specified in FITS file: assuming UTC.")
             return start, tau_time
 
+
     def parse_start_time(self):
         """
         Returns:
@@ -237,11 +238,15 @@ class FitsImage(DataAccessor):
         """
         header = self.header
         try:
-            start = dateutil.parser.parse(header['date-obs'])
+            if ";" in header['date-obs']:
+                start = dateutil.parser.parse(header['date-obs']\
+                    .split(";")[0].split('"')[1])
+            else:
+                start = dateutil.parser.parse(header['date-obs'])
         except AttributeError:
             # Maybe it's a float, Westerbork-style?
             if isinstance(header['date-obs'], float):
-                logger.warn("Non-standard date specified in FITS file!")
+                logger.warning("Non-standard date specified in FITS file!")
                 frac, year = numpy.modf(header['date-obs'])
                 start = datetime.datetime(int(year), 1, 1)
                 delta = datetime.timedelta(365.242199 * frac)
