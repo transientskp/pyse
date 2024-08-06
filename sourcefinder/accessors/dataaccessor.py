@@ -1,12 +1,12 @@
 import logging
 from math import degrees, sqrt, sin, pi, cos
-from six import with_metaclass
+
 from sourcefinder.accessors.requiredatts import RequiredAttributesMetaclass
 
 logger = logging.getLogger(__name__)
 
 
-class DataAccessor(with_metaclass(RequiredAttributesMetaclass, object)):
+class DataAccessor(object, metaclass=RequiredAttributesMetaclass):
     _required_attributes = [
         'beam',
         'centre_ra',
@@ -84,8 +84,6 @@ class DataAccessor(with_metaclass(RequiredAttributesMetaclass, object)):
 
         May be extended by subclasses to return additional data.
         """
-        # some values are casted to a standard float since MonetDB cannot
-        # handle numpy.float64
         return {
             'tau_time': self.tau_time,
             'freq_eff': self.freq_eff,
