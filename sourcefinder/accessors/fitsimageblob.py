@@ -42,10 +42,15 @@ class FitsImageBlob(FitsImage):
         if 'TELESCOP' in self.header:
             self.telescope = self.header['TELESCOP']
 
-    def _get_header(self, hdulist, hdu_index):
+    def _get_header(self, *args):
+        hdulist = args[0]
+        hdu_index = args[1]
         return hdulist[hdu_index].header
 
-    def read_data(self, hdulist, hdu_index, plane):
+    def read_data(self, *args):
+        hdulist = args[0]
+        hdu_index = args[1]
+        plane = args[2]
         hdu = hdulist[hdu_index]
         data = numpy.float64(hdu.data.squeeze())
         if plane is not None and len(data.shape) > 2:
