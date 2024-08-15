@@ -244,7 +244,8 @@ class TestFitFixedPositions(unittest.TestCase):
         nanbox_radius *= boxsize_proportion
 
         nandata[int(x0 - nanbox_radius):int(x0 + nanbox_radius + 1),
-        int(y0 - nanbox_radius):int(y0 + nanbox_radius + 1)] = float('nan')
+                int(y0 - nanbox_radius):int(y0 + nanbox_radius + 1)] = \
+            float('nan')
 
         # Dump image data for manual inspection:
         # import astropy.io.fits as fits
@@ -252,7 +253,6 @@ class TestFitFixedPositions(unittest.TestCase):
         # output_data = nandata
         # hdu = fits.PrimaryHDU((output_data).transpose())
         # hdu.writeto('/tmp/nandata.fits',clobber=True)
-
 
         nan_image = ImageData(nandata, beam=self.image.beam,
                               wcs=self.image.wcs)
