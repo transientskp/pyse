@@ -44,7 +44,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):
     """
 
     def __init__(self, url, plane=0, beam=None):
-        super(LofarCasaImage, self).__init__(url, plane, beam)
+        super().__init__(url, plane, beam)
         table = casacore_table(self.url, ack=False)
         subtables = self.open_subtables(table)
         self.taustart_ts = self.parse_taustartts(subtables)
