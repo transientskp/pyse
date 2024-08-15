@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class AartfaacCasaImage(CasaImage):
     def __init__(self, url, plane=0, beam=None):
-        super(AartfaacCasaImage, self).__init__(url, plane=0, beam=None)
+        super().__init__(url, plane=0, beam=None)
         table = casacore_table(self.url, ack=False)
         self.taustart_ts = self.parse_taustartts(table)
         self.telescope = table.getkeyword('coords')['telescope']
