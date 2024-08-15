@@ -12,6 +12,7 @@ from sourcefinder.utility.coordinates import WCS
 
 logger = logging.getLogger(__name__)
 
+
 class FitsImage(DataAccessor):
     """
     Use PyFITS to pull image data out of a FITS file.
@@ -21,7 +22,6 @@ class FitsImage(DataAccessor):
     header.
     """
     def __init__(self, url, plane=None, beam=None, hdu_index=0):
-        super(FitsImage, self).__init__()
         self.url = url
         self.header = self._get_header(hdu_index)
         self.wcs = self.parse_coordinates()
@@ -68,7 +68,6 @@ class FitsImage(DataAccessor):
             data = data[0, :, :]
         data = data.transpose()
         return data
-
 
     def parse_coordinates(self):
         """Returns a WCS object"""
