@@ -24,7 +24,7 @@ class CasaImage(DataAccessor):
     """
 
     def __init__(self, url, plane=0, beam=None):
-        super(CasaImage, self).__init__()
+        # super().__init__()
         self.url = url
 
         # we don't want the table as a property since it makes the accessor

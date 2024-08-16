@@ -16,7 +16,7 @@ class FitsImageBlob(FitsImage):
     def __init__(self, hdulist, plane=None, beam=None, hdu_index=0):
         # set the URL in case we need it during header parsing for error loggign
         self.url = "AARTFAAC streaming image"
-        super(FitsImage, self).__init__()
+        # super(FitsImage, self).__init__()
 
         self.header = self._get_header(hdulist, hdu_index)
         self.wcs = self.parse_coordinates()
@@ -42,10 +42,15 @@ class FitsImageBlob(FitsImage):
         if 'TELESCOP' in self.header:
             self.telescope = self.header['TELESCOP']
 
-    def _get_header(self, hdulist, hdu_index):
+    def _get_header(self, *args):
+        hdulist = args[0]
+        hdu_index = args[1]
         return hdulist[hdu_index].header
 
-    def read_data(self, hdulist, hdu_index, plane):
+    def read_data(self, *args):
+        hdulist = args[0]
+        hdu_index = args[1]
+        plane = args[2]
         hdu = hdulist[hdu_index]
         data = numpy.float64(hdu.data.squeeze())
         if plane is not None and len(data.shape) > 2:

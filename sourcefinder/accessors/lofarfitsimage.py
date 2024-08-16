@@ -4,7 +4,7 @@ from sourcefinder.accessors.lofaraccessor import LofarAccessor
 
 class LofarFitsImage(FitsImage, LofarAccessor):
     def __init__(self, url, plane=False, beam=False, hdu=0):
-        super(LofarFitsImage, self).__init__(url, plane, beam, hdu)
+        super().__init__(url, plane, beam, hdu)
         header = self._get_header(hdu)
         self.antenna_set = header['ANTENNA']
         self.ncore = header['NCORE']

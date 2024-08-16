@@ -1,7 +1,8 @@
-from sourcefinder.accessors.dataaccessor import RequiredAttributesMetaclass
+from dataclasses import dataclass
 
 
-class LofarAccessor(object, metaclass=RequiredAttributesMetaclass):
+@dataclass
+class LofarAccessor():
     """
     Additional metadata required for processing LOFAR images through QC
     checks.
@@ -15,11 +16,10 @@ class LofarAccessor(object, metaclass=RequiredAttributesMetaclass):
         subbandwidth(float): Width of a subband in Hz.
         subbands(int): Number of subbands.
     """
-    _required_attributes = [
-        'antenna_set',
-        'ncore',
-        'nremote',
-        'nintl',
-        'subbandwidth',
-        'subbands',
-    ]
+
+    antenna_set: str
+    ncore: int
+    nremote: int
+    nintl: int
+    subbandwidth: float
+    subbands: int
