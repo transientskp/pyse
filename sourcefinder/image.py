@@ -1132,21 +1132,21 @@ class ImageData(object):
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
                     self.correlation_lengths, eps_ra, eps_dec)
 
-            if self.residuals:
-                # Select the relevant elements of moments_sources, include the
-                # peak spectral brightness, but exclude the flux density.
-                self.Gaussian_residuals = \
-                    numpy.zeros_like(self.data_bgsubbed.data)
-                relevant_moments = (
-                    numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
-                               axis=1))
-                extract.calculate_and_insert_residuals(self.data_bgsubbed.data,
-                                                       self.Gaussian_residuals,
-                                                       indices[:, 0],
-                                                       indices[:, 2],
-                                                       xpositions, ypositions,
-                                                       npixs,
-                                                       relevant_moments)
+            # if self.residuals:
+            #     # Select the relevant elements of moments_sources, include the
+            #     # peak spectral brightness, but exclude the flux density.
+            #     self.Gaussian_residuals = \
+            #         numpy.zeros_like(self.data_bgsubbed.data)
+            #     relevant_moments = (
+            #         numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
+            #                    axis=1))
+            #     extract.calculate_and_insert_residuals(self.data_bgsubbed.data,
+            #                                            self.Gaussian_residuals,
+            #                                            indices[:, 0],
+            #                                            indices[:, 2],
+            #                                            xpositions, ypositions,
+            #                                            npixs,
+            #                                            relevant_moments)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
