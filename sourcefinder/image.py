@@ -7,6 +7,7 @@ import itertools
 import logging
 
 import numpy
+import time
 
 from sourcefinder import extract
 from sourcefinder import stats
@@ -28,8 +29,6 @@ except ImportError:
     from scipy import ndimage
 from numba import guvectorize, float32, int32
 
-numpy.seterr(all='print')
-    
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
