@@ -464,7 +464,8 @@ class TestNegationImage(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs,
+                             back_size_x=128, back_size_y=128)
 
     @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
     def testReverseSE(self):
