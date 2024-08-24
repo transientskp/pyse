@@ -906,9 +906,9 @@ class ImageData(object):
         all_indices = numpy.empty((len(slices), 4), dtype=numpy.int32)
         for i in range(len(slices)):
             some_slice = slices[i]
-            all_indices[i, :] = numpy.array([some_slice[0].start, \
-                                             some_slice[0].stop, \
-                                             some_slice[1].start, \
+            all_indices[i, :] = numpy.array([some_slice[0].start,
+                                             some_slice[0].stop,
+                                             some_slice[1].start,
                                              some_slice[1].stop])
         return all_indices
 
