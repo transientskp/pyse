@@ -143,6 +143,7 @@ class ImageData(object):
                               bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
 
     @cached_property
+    @timeit
     def backmap(self):
         """Background map"""
         if not hasattr(self, "_user_backmap"):
@@ -154,6 +155,7 @@ class ImageData(object):
             return self._user_backmap
 
     @cached_property
+    @timeit
     def rmsmap(self):
         """RMS map"""
         if not hasattr(self, "_user_noisemap"):
@@ -220,12 +222,12 @@ class ImageData(object):
         """
         self.labels.clear()
         self.clip.clear()
-        del (self.background)
-        del (self.backmap)
-        del (self.rmsmap)
-        del (self.data)
-        del (self.data_bgsubbed)
-        del (self.grids)
+        del self.background
+        del self.backmap
+        del self.rmsmap
+        del self.data
+        del self.data_bgsubbed
+        del self.grids
         if hasattr(self, 'residuals_from_gauss_fitting'):
             del self.Gaussian_residuals
         if hasattr(self, 'residuals_from_deblending'):
@@ -1169,8 +1171,6 @@ class ImageData(object):
 
         end_post_labelling = time.time()
         print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
-
-        start_of_rest = time.time()
 
         def is_usable(det):
             # Check that both ends of each axis are usable; that is, that they
