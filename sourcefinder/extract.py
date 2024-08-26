@@ -1334,19 +1334,20 @@ def insert_island_data(some_image, inds, labelled_data, label,
              island, xpos, ypos and min_width will be filled with values.
     """
 
-    # pos = "positions", i.e. the row and column indices of the island pixels.
-    pos = (labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
-           == label[0]).nonzero()
-    enclosed_island = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+    labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
+    segmented_island = numpy.where(labelled_data_chunk == label[0], 1, 0)
 
-    data_as_ones = numpy.where(enclosed_island != 0, 1, 0)
-    max_along_x = numpy.sum(data_as_ones, axis=0).max()
-    max_along_y = numpy.sum(data_as_ones, axis=1).max()
+    max_along_x = numpy.sum(segmented_island, axis=0).max()
+    max_along_y = numpy.sum(segmented_island, axis=1).max()
     min_width[0] = min(max_along_x, max_along_y)
+
+    # pos = "positions", i.e. the row and column indices of the island pixels.
+    pos = segmented_island.nonzero()
+    image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
 
     for i in range(npix[0]):
         index = pos[0][i], pos[1][i]
-        island[i] = enclosed_island[index]
+        island[i] = image_chunk[index]
         xpos[i], ypos[i] = index
 
 
