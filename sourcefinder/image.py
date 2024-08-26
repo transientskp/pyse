@@ -973,6 +973,7 @@ class ImageData(object):
         labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
         image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
         segmented_island = numpy.where(labelled_data_chunk == label[0], 1, 0)
+
         selected_data = segmented_island * image_chunk
         maxpos_flat = selected_data.argmax()
         maxpos[0] = numpy.floor_divide(maxpos_flat, selected_data.shape[1])
@@ -1133,22 +1134,22 @@ class ImageData(object):
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
                     self.correlation_lengths, eps_ra, eps_dec)
 
-            if self.residuals:
-                # Select the relevant elements of moments_sources, include the
-                # peak spectral brightness, but exclude the flux density.
-                self.Gaussian_residuals = \
-                    numpy.zeros_like(self.data_bgsubbed.data)
-                relevant_moments = (
-                    numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
-                               axis=1))
-
-                extract.calculate_and_insert_residuals(indices[:, 0],
-                                                       indices[:, 2],
-                                                       xpositions, ypositions,
-                                                       npixs,
-                                                       relevant_moments,
-                                                       self.data_bgsubbed.data,
-                                                       self.Gaussian_residuals)
+            # if self.residuals:
+            #     # Select the relevant elements of moments_sources, include the
+            #     # peak spectral brightness, but exclude the flux density.
+            #     self.Gaussian_residuals = \
+            #         numpy.zeros_like(self.data_bgsubbed.data)
+            #     relevant_moments = (
+            #         numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
+            #                    axis=1))
+            #
+            #     extract.calculate_and_insert_residuals(indices[:, 0],
+            #                                            indices[:, 2],
+            #                                            xpositions, ypositions,
+            #                                            npixs,
+            #                                            relevant_moments,
+            #                                            self.data_bgsubbed.data,
+            #                                            self.Gaussian_residuals)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
