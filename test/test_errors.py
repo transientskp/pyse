@@ -59,14 +59,14 @@ class TestFluxErrors(unittest.TestCase):
         self.assertGreaterEqual(self.p['flux'].error, 0)
 
     def test_negative_flux_moments(self):
-        # Calculation of moment-based errors with a negative peak flux is
-        # impossible given the current method.
+        # A negative peak spectral brightness from moments computations implies
+        # serious problems with the detectionthresholdmap and, in turn, with the
+        # rms noisemap: it must have negative values, which is physically
+        # impossible. Cancel any further processing of the image.
         self.p['peak'] *= -1
-        self.p['flux'] *= -1
-        self.p._error_bars_from_moments(self.noise, self.max_pix_variance_factor,
-                                        self.correlation_lengths, self.threshold)
-        self.assertEqual(self.p['peak'].error, float('inf'))
-        self.assertEqual(self.p['flux'].error, float('inf'))
+        self.assertRaises(ValueError, self.p._error_bars_from_moments,
+                          self.noise, self.max_pix_variance_factor,
+                          self.correlation_lengths, self.threshold)
 
 
 class TestPositionErrors(unittest.TestCase):

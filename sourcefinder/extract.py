@@ -484,15 +484,15 @@ class ParamSet(MutableMapping):
         theta = self['theta'].value
 
         # This analysis is only possible if the peak flux is >= 0. This
-        # follows from the definition of eq. 2.81 in Spreeuw's thesis. In that
-        # situation, we set all errors to be infinite
+        # follows from the definition of eq. 2.81 in Spreeuw's thesis.
+        # There is no point in proceeding with processing an image if any
+        # detected peak spectral brightness is below zero since that implies
+        # that part of detectionthresholdmap is below zero.
         if peak < 0:
-            self['peak'].error = float('inf')
-            self['flux'].error = float('inf')
-            self['semimajor'].error = float('inf')
-            self['semiminor'].error = float('inf')
-            self['theta'].error = float('inf')
-            return self
+            raise ValueError((f"Peak from moments = {peak:.2e}, something is "
+                              "possibly wrong with detectionthresholdmap, "
+                              "since a negative peak from moments analysis "
+                              "should not occur."))
 
         clean_bias_error = self.clean_bias_error
         frac_flux_cal_error = self.frac_flux_cal_error
