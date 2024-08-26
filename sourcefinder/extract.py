@@ -1792,13 +1792,12 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
             theta_celes_errors, theta_dc_celes_values, theta_dc_celes_errors)
 
 
-@guvectorize([(float32[:, :], float32[:, :], int32, int32, int32[:], int32[:],
-               int32, float32[:])],
-             '(l, p), (l, p), (), (), (n), (n), (), (k)', nopython=True,
-             writable_args=('residual_map',))
-def calculate_and_insert_residuals(data_bgsubbed, residual_map, chunkposx,
-                                   chunkposy, posx, posy, no_pixels,
-                                   gaussian_parms):
+@guvectorize([(int32, int32, int32[:], int32[:], int32, float32[:],
+               float32[:, :], float32[:, :])],
+             '(), (), (n), (n), (), (k), (l, p) -> (l, p)', nopython=True)
+def calculate_and_insert_residuals(chunkposx, chunkposy, posx, posy, no_pixels,
+                                   gaussian_parms, data_bgsubbed,
+                                   residual_map):
     """Based on the derived Gaussian parameters, either through moments or
     fitting, calculate the residuals of every island and insert them in a
     residual map. Initially, this map will contain only zeros.
