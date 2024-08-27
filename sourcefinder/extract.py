@@ -483,8 +483,6 @@ class ParamSet(MutableMapping):
         smin = self['semiminor'].value
         theta = self['theta'].value
 
-        # This analysis is only possible if the peak flux is >= 0. This
-        # follows from the definition of eq. 2.81 in Spreeuw's thesis.
         # There is no point in proceeding with processing an image if any
         # detected peak spectral brightness is below zero since that implies
         # that part of detectionthresholdmap is below zero.
