@@ -753,16 +753,31 @@ def source_profile_and_errors(data, threshold, noise,
     except ValueError:
         # If this happens, we have two choices:
         # 1) Bomb out and tell the user to fit something sensible instead;
-        # 2) Make up our own estimate (all 1s or something) to give the
-        # gaussian fitter a starting point.
+        # 2) Make up our own estimate by assuming the source is unresolved.
+        #    No matter what caused the ValueError, we should always be able
+        #    to find the maximum pixel value and the barycenter position.
+        #    The other three Gaussian parameters we can copy from the clean
+        #    beam.
+
+        # Are we fitting a -ve or +ve Gaussian?
+        if data.mean() >= 0:
+            # The peak is always underestimated when you take the highest pixel.
+            peak = data.max() * fudge_max_pix_factor
+        else:
+            peak = data.min()
+        total = data.sum()
+        x, y = numpy.indices(data.shape)
+        xbar = float((x * data).sum() / total)
+        ybar = float((y * data).sum() / total)
+
         param.update({
-            "peak": 1,
-            "flux": 1,
-            "xbar": data.shape[0] / 2.0,
-            "ybar": data.shape[1] / 2.0,
-            "semimajor": 1,
-            "semiminor": 1,
-            "theta": 0
+            "peak": peak,
+            "flux": peak,
+            "xbar": xbar,
+            "ybar": ybar,
+            "semimajor": beam[0],
+            "semiminor": beam[1],
+            "theta": beam[2]
         })
         logger.debug("Unable to estimate gaussian parameters."
                      " Proceeding with defaults %s""",
