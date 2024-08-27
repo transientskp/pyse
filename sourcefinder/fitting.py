@@ -347,217 +347,201 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
     xbar += chunkpos[0]
     ybar += chunkpos[1]
 
+    # There is no point in proceeding with processing an image if any
+    # detected peak spectral brightness is below zero since that implies
+    # that part of detectionthresholdmap is below zero.
+    if peak < 0:
+        raise ValueError
+
     """Provide reasonable error estimates from the moments"""
 
     # The formulae below should give some reasonable estimate of the
     # errors from moments, should always be higher than the errors from
     # Gauss fitting.
+    theta_B = correlation_lengths[0]
+    theta_b = correlation_lengths[1]
 
-    # This analysis is only possible if the peak flux is >= 0. This
-    # follows from the definition of eq. 2.81 in Spreeuw's thesis. In that
-    # situation, we set all errors to be infinite
-    if peak < 0:
-        errorpeak = numpy.inf
-        errorflux = numpy.inf
-        errorx = numpy.inf
-        errory = numpy.inf
-        errorsmaj = numpy.inf
-        errorsmin = numpy.inf
-        errortheta = numpy.inf
-        # Deconvolved shape parameters are not derived when peak < 0.
-        # Perhaps they could be, technically. But does that make sense?
-        computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
-                                              smin, theta, numpy.nan,
-                                              numpy.nan, numpy.nan])
-        computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
-                                              errory, errorsmaj, errorsmin,
-                                              errortheta, numpy.nan,
-                                              numpy.nan, numpy.nan])
+    # This is eq. 2.81 from Spreeuw's thesis.
+    rho_sq = ((16. * smaj * smin /
+               (numpy.log(2.) * theta_B * theta_b * noise ** 2))
+              * ((peak - threshold) /
+                 (numpy.log(peak) - numpy.log(threshold))) ** 2)
+
+    rho = numpy.sqrt(rho_sq)
+    denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+
+    # Again, like above for the Condon formulae, we set the
+    # positional variances to twice the theoretical values.
+    error_par_major = 2. * smaj / denom
+    error_par_minor = 2. * smin / denom
+
+    # When these errors are converted to RA and Dec,
+    # calibration uncertainties will have to be added,
+    # like in formulae 27 of the NVSS paper.
+    errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
+                        + (error_par_minor * numpy.cos(theta)) ** 2)
+    errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
+                        + (error_par_minor * numpy.sin(theta)) ** 2)
+
+    # Note that we report errors in HWHM axes instead of FWHM axes
+    # so the errors are half the errors of formula 29 of the NVSS paper.
+    errorsmaj = numpy.sqrt(2) * smaj / rho
+    errorsmin = numpy.sqrt(2) * smin / rho
+
+    if smaj > smin:
+        errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
     else:
-        theta_B = correlation_lengths[0]
-        theta_b = correlation_lengths[1]
+        errortheta = numpy.pi
+    if errortheta > numpy.pi:
+        errortheta = numpy.pi
 
-        # This is eq. 2.81 from Spreeuw's thesis.
-        rho_sq = ((16. * smaj * smin /
-                   (numpy.log(2.) * theta_B * theta_b * noise ** 2))
-                  * ((peak - threshold) /
-                     (numpy.log(peak) - numpy.log(threshold))) ** 2)
+    # The peak from "moments" is just the value of the maximum pixel
+    # times a correction, fudge_max_pix, for the fact that the
+    # centre of the Gaussian is not at the centre of the pixel.
+    # This correction is performed in fitting.py. The maximum pixel
+    # method introduces a peak dependent error corresponding to the last
+    # term in the expression below for errorpeaksq.
+    # To this, we add, in quadrature, the errors corresponding
+    # to the first and last term of the rhs of equation 37 of the
+    # NVSS paper. The middle term in that equation 37 is heuristically
+    # replaced by noise**2 since the threshold should not affect
+    # the error from the (corrected) maximum pixel method,
+    # while it is part of the expression for rho_sq above.
+    # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+    #                clean_bias_error ** 2 + noise ** 2 +
+    #                utils.maximum_pixel_method_variance(
+    #                    beam[0], beam[1], beam[2]) * peak ** 2)
+    errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
+                   clean_bias_error ** 2 + noise ** 2 +
+                   max_pix_variance_factor * peak ** 2)
+    errorpeak = numpy.sqrt(errorpeaksq)
 
-        rho = numpy.sqrt(rho_sq)
-        denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+    help1 = (errorsmaj / smaj) ** 2
+    help2 = (errorsmin / smin) ** 2
+    help3 = theta_B * theta_b / (4. * smaj * smin)
+    errorflux = flux * numpy.sqrt(
+        errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
-        # Again, like above for the Condon formulae, we set the
-        # positional variances to twice the theoretical values.
-        error_par_major = 2. * smaj / denom
-        error_par_minor = 2. * smin / denom
+    """Deconvolve from the clean beam"""
 
-        # When these errors are converted to RA and Dec,
-        # calibration uncertainties will have to be added,
-        # like in formulae 27 of the NVSS paper.
-        errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
-                            + (error_par_minor * numpy.cos(theta)) ** 2)
-        errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
-                            + (error_par_minor * numpy.sin(theta)) ** 2)
+    # If the fitted axes are smaller than the clean beam
+    # (=restoring beam) axes, the axes and position angle
+    # can be deconvolved from it.
+    fmaj = 2. * smaj
+    fmajerror = 2. * errorsmaj
+    fmin = 2. * smin
+    fminerror = 2. * errorsmin
+    fpa = numpy.degrees(theta)
+    fpaerror = numpy.degrees(errortheta)
+    cmaj = 2. * beam[0]
+    cmin = 2. * beam[1]
+    cpa = numpy.degrees(beam[2])
 
-        # Note that we report errors in HWHM axes instead of FWHM axes
-        # so the errors are half the errors of formula 29 of the NVSS paper.
-        errorsmaj = numpy.sqrt(2) * smaj / rho
-        errorsmin = numpy.sqrt(2) * smin / rho
+    rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
+    # This parameter gives the number of components that could not be
+    # deconvolved, IERR from deconf.f.
+    deconv_imposs = ierr
+    # Now, figure out the error bars.
+    if rmaj > 0:
+        # In this case the deconvolved position angle is defined.
+        # For convenience we reset rpa to the interval [-90, 90].
+        if rpa > 90:
+            rpa = -numpy.mod(-rpa, 180.)
+        theta_deconv = rpa
 
-        if smaj > smin:
-            errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
+        # In the general case, where the restoring beam is elliptic,
+        # calculating the error bars of the deconvolved position angle
+        # is more complicated than in the NVSS case, where a circular
+        # restoring beam was used.
+        # In the NVSS case the error bars of the deconvolved angle are
+        # equal to the fitted angle.
+        rmaj1, rmin1, rpa1, ierr1 = deconv(
+            fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
+        if ierr1 < 2:
+            if rpa1 > 90:
+                rpa1 = -numpy.mod(-rpa1, 180.)
+            rpaerror1 = numpy.abs(rpa1 - rpa)
+            # An angle error can never be more than 90 degrees.
+            if rpaerror1 > 90.:
+                rpaerror1 = numpy.mod(-rpaerror1, 180.)
         else:
-            errortheta = numpy.pi
-        if errortheta > numpy.pi:
-            errortheta = numpy.pi
-
-        # The peak from "moments" is just the value of the maximum pixel
-        # times a correction, fudge_max_pix, for the fact that the
-        # centre of the Gaussian is not at the centre of the pixel.
-        # This correction is performed in fitting.py. The maximum pixel
-        # method introduces a peak dependent error corresponding to the last
-        # term in the expression below for errorpeaksq.
-        # To this, we add, in quadrature, the errors corresponding
-        # to the first and last term of the rhs of equation 37 of the
-        # NVSS paper. The middle term in that equation 37 is heuristically
-        # replaced by noise**2 since the threshold should not affect
-        # the error from the (corrected) maximum pixel method,
-        # while it is part of the expression for rho_sq above.
-        # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-        #                clean_bias_error ** 2 + noise ** 2 +
-        #                utils.maximum_pixel_method_variance(
-        #                    beam[0], beam[1], beam[2]) * peak ** 2)
-        errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-                       clean_bias_error ** 2 + noise ** 2 +
-                       max_pix_variance_factor * peak ** 2)
-        errorpeak = numpy.sqrt(errorpeaksq)
-
-        help1 = (errorsmaj / smaj) ** 2
-        help2 = (errorsmin / smin) ** 2
-        help3 = theta_B * theta_b / (4. * smaj * smin)
-        errorflux = flux * numpy.sqrt(
-            errorpeaksq / peak ** 2 + help3 * (help1 + help2))
-
-        """Deconvolve from the clean beam"""
-
-        # If the fitted axes are smaller than the clean beam
-        # (=restoring beam) axes, the axes and position angle
-        # can be deconvolved from it.
-        fmaj = 2. * smaj
-        fmajerror = 2. * errorsmaj
-        fmin = 2. * smin
-        fminerror = 2. * errorsmin
-        fpa = numpy.degrees(theta)
-        fpaerror = numpy.degrees(errortheta)
-        cmaj = 2. * beam[0]
-        cmin = 2. * beam[1]
-        cpa = numpy.degrees(beam[2])
-
-        rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
-        # This parameter gives the number of components that could not be
-        # deconvolved, IERR from deconf.f.
-        deconv_imposs = ierr
-        # Now, figure out the error bars.
-        if rmaj > 0:
-            # In this case the deconvolved position angle is defined.
-            # For convenience we reset rpa to the interval [-90, 90].
-            if rpa > 90:
-                rpa = -numpy.mod(-rpa, 180.)
-            theta_deconv = rpa
-
-            # In the general case, where the restoring beam is elliptic,
-            # calculating the error bars of the deconvolved position angle
-            # is more complicated than in the NVSS case, where a circular
-            # restoring beam was used.
-            # In the NVSS case the error bars of the deconvolved angle are
-            # equal to the fitted angle.
-            rmaj1, rmin1, rpa1, ierr1 = deconv(
-                fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
-            if ierr1 < 2:
-                if rpa1 > 90:
-                    rpa1 = -numpy.mod(-rpa1, 180.)
-                rpaerror1 = numpy.abs(rpa1 - rpa)
-                # An angle error can never be more than 90 degrees.
-                if rpaerror1 > 90.:
-                    rpaerror1 = numpy.mod(-rpaerror1, 180.)
+            rpaerror1 = numpy.nan
+        rmaj2, rmin2, rpa2, ierr2 = deconv(
+            fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
+        if ierr2 < 2:
+            if rpa2 > 90:
+                rpa2 = -numpy.mod(-rpa2, 180.)
+            rpaerror2 = numpy.abs(rpa2 - rpa)
+            # An angle error can never be more than 90 degrees.
+            if rpaerror2 > 90.:
+                rpaerror2 = numpy.mod(-rpaerror2, 180.)
+        else:
+            rpaerror2 = numpy.nan
+        if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
+            theta_deconv_error = numpy.nansum(
+                numpy.array([rpaerror1, rpaerror2]))
+        else:
+            theta_deconv_error = numpy.mean(
+                numpy.array([rpaerror1, rpaerror2]))
+        semimaj_deconv = rmaj / 2.
+        rmaj3, rmin3, rpa3, ierr3 = deconv(
+            fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
+        # If rmaj>0, then rmaj3 should also be > 0,
+        # if I am not mistaken, see the formulas at
+        # the end of ch.2 of Spreeuw's Ph.D. thesis.
+        if fmaj - fmajerror > fmin:
+            rmaj4, rmin4, rpa4, ierr4 = deconv(
+                fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
+            if rmaj4 > 0:
+                semimaj_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
             else:
-                rpaerror1 = numpy.nan
-            rmaj2, rmin2, rpa2, ierr2 = deconv(
-                fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
-            if ierr2 < 2:
-                if rpa2 > 90:
-                    rpa2 = -numpy.mod(-rpa2, 180.)
-                rpaerror2 = numpy.abs(rpa2 - rpa)
-                # An angle error can never be more than 90 degrees.
-                if rpaerror2 > 90.:
-                    rpaerror2 = numpy.mod(-rpaerror2, 180.)
+                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+        else:
+            rmin4, rmaj4, rpa4, ierr4 = deconv(
+                fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
+            if rmaj4 > 0:
+                semimaj_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
             else:
-                rpaerror2 = numpy.nan
-            if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
-                theta_deconv_error = numpy.nansum(
-                    numpy.array([rpaerror1, rpaerror2]))
+                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+        if rmin > 0:
+            semimin_deconv = rmin / 2.
+            if fmin + fminerror < fmaj:
+                rmaj5, rmin5, rpa5, ierr5 = deconv(
+                    fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa)
             else:
-                theta_deconv_error = numpy.mean(
-                    numpy.array([rpaerror1, rpaerror2]))
-            semimaj_deconv = rmaj / 2.
-            rmaj3, rmin3, rpa3, ierr3 = deconv(
-                fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
-            # If rmaj>0, then rmaj3 should also be > 0,
+                rmin5, rmaj5, rpa5, ierr5 = deconv(
+                    fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa)
+            # If rmin > 0, then rmin5 should also be > 0,
             # if I am not mistaken, see the formulas at
             # the end of ch.2 of Spreeuw's Ph.D. thesis.
-            if fmaj - fmajerror > fmin:
-                rmaj4, rmin4, rpa4, ierr4 = deconv(
-                    fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
-                if rmaj4 > 0:
-                    semimaj_deconv_error = numpy.mean(numpy.array(
-                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
-                else:
-                    semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+            rmaj6, rmin6, rpa6, ierr6 = deconv(
+                fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
+            if rmin6 > 0:
+                semimin_deconv_error = numpy.mean(numpy.array(
+                    [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)]))
             else:
-                rmin4, rmaj4, rpa4, ierr4 = deconv(
-                    fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
-                if rmaj4 > 0:
-                    semimaj_deconv_error = numpy.mean(numpy.array(
-                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
-                else:
-                    semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
-            if rmin > 0:
-                semimin_deconv = rmin / 2.
-                if fmin + fminerror < fmaj:
-                    rmaj5, rmin5, rpa5, ierr5 = deconv(
-                        fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa)
-                else:
-                    rmin5, rmaj5, rpa5, ierr5 = deconv(
-                        fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa)
-                # If rmin > 0, then rmin5 should also be > 0,
-                # if I am not mistaken, see the formulas at
-                # the end of ch.2 of Spreeuw's Ph.D. thesis.
-                rmaj6, rmin6, rpa6, ierr6 = deconv(
-                    fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
-                if rmin6 > 0:
-                    semimin_deconv_error = numpy.mean(numpy.array(
-                        [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)]))
-                else:
-                    semimin_deconv_error = numpy.abs(rmin5 - rmin)
-            else:
-                semimin_deconv = numpy.nan
-                semimin_deconv_error = numpy.nan
+                semimin_deconv_error = numpy.abs(rmin5 - rmin)
         else:
-            semimaj_deconv = numpy.nan
-            semimaj_deconv_error = numpy.nan
             semimin_deconv = numpy.nan
             semimin_deconv_error = numpy.nan
-            theta_deconv = numpy.nan
-            theta_deconv_error= numpy.nan
+    else:
+        semimaj_deconv = numpy.nan
+        semimaj_deconv_error = numpy.nan
+        semimin_deconv = numpy.nan
+        semimin_deconv_error = numpy.nan
+        theta_deconv = numpy.nan
+        theta_deconv_error= numpy.nan
 
-        computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
-                                              smin, theta, semimaj_deconv,
-                                              semimin_deconv, theta_deconv])
-        computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
-                                              errory, errorsmaj, errorsmin,
-                                              errortheta, semimaj_deconv_error,
-                                              semimin_deconv_error,
-                                              theta_deconv_error])
+    computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
+                                          smin, theta, semimaj_deconv,
+                                          semimin_deconv, theta_deconv])
+    computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
+                                          errory, errorsmaj, errorsmin,
+                                          errortheta, semimaj_deconv_error,
+                                          semimin_deconv_error,
+                                          theta_deconv_error])
 
 
 def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
