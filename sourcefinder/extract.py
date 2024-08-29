@@ -785,7 +785,13 @@ def source_profile_and_errors(data, threshold, noise,
 
     # data_as_ones is constructed to help determine if the island has enough
     # width for Gauss fitting.
-    data_as_ones = numpy.ma.where(data != 0, 1, 0)
+    try:
+        if data.mask.shape == data.data.shape:
+            data_as_ones = numpy.where(~data.mask == 1, 1, 0)
+        else:
+            data_as_ones = numpy.where(data.data > moments_threshold, 1, 0)
+    except AttributeError:
+        data_as_ones = numpy.where(data > moments_threshold, 1, 0)
     max_along_x = numpy.sum(data_as_ones, axis=0).max()
     max_along_y = numpy.sum(data_as_ones, axis=1).max()
     minimum_width = min(max_along_x, max_along_y)
