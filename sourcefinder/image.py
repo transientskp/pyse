@@ -220,18 +220,19 @@ class ImageData(object):
 
         Note that this *must* be run to pick up any new settings.
         """
-        self.labels.clear()
-        self.clip.clear()
-        del self.background
-        del self.backmap
-        del self.rmsmap
-        del self.data
-        del self.data_bgsubbed
-        del self.grids
-        if hasattr(self, 'residuals_from_gauss_fitting'):
+        try:
+            self.labels.clear()
+            self.clip.clear()
+            del self.background
+            del self.backmap
+            del self.rmsmap
+            del self.data
+            del self.data_bgsubbed
+            del self.grids
             del self.Gaussian_residuals
-        if hasattr(self, 'residuals_from_deblending'):
             del self.residuals_from_deblending
+        except AttributeError:
+            pass
 
     ###########################################################################
     #                                                                         #
