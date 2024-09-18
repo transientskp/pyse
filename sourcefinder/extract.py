@@ -119,8 +119,8 @@ class Island(object):
                 break
             clipped_data = numpy.where(
                 self.data.filled(fill_value=0) >= level, 1, 0)
-            labels, number = ndimage.label((clipped_data),
-                                           self.structuring_element)
+            labels, number = ndimage.label(clipped_data, self.structuring_element)
+
             # If we have more than one island, then we need to make subislands.
             if number > 1:
                 subislands = []
