@@ -154,7 +154,7 @@ class Island(object):
                         self.deblend_mincont,
                         self.structuring_element,
                         self.rms_orig[chunk[0].start:chunk[0].stop,
-                        chunk[1].start:chunk[1].stop],
+                                      chunk[1].start:chunk[1].stop],
                         self.flux_orig,
                         self.subthrrange
                     )
@@ -268,7 +268,7 @@ class ParamSet(MutableMapping):
         self.bounds = {}
         self.gaussian = False
 
-        ##More metadata about the fit: only valid for Gaussian fits:
+        # More metadata about the fit: only valid for Gaussian fits:
         self.chisq = None
         self.reduced_chisq = None
 
@@ -1813,26 +1813,19 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
 
 
 @guvectorize([(int32, int32, int32[:], int32[:], int32, float32[:],
-               float32[:, :], float32[:, :])],
-             '(), (), (n), (n), (), (k), (l, p) -> (l, p)', nopython=True)
-def calculate_and_insert_residuals(chunkposx, chunkposy, posx, posy, no_pixels,
-                                   gaussian_parms, data_bgsubbed,
-                                   residual_map):
-    """Based on the derived Gaussian parameters, either through moments or
-    fitting, calculate the residuals of every island and insert them in a
-    residual map. Initially, this map will contain only zeros.
+             float32[:, :])], '(), (), (n), (n), (), (k), (l, p)',
+             nopython=True)
+def calculate_Gaussian_islands(chunkposx, chunkposy, posx, posy, no_pixels,
+                               gaussian_parms, islands_map):
+    """Based on the derived Gaussian parameters, most likely through moments,
+    reconstruct every island and add it to islands_map. Initially, this map
+    will contain only zeroes. Note that the islands are reconstructed
+    only where the island pixel value exceeded the local analysis threshold
+    since this is how not only no_pixels, but also posx and posy - as positions
+    relative to chunkposx and chunkposy - have been determined. The islands
+    derived in this manner can be used to derive a residual map.
 
     Args:
-        data_bgsubbed (numpy.ndarray): The actual 2D image data, with the
-                                       background map subtracted.
-
-        residual_map (numpy.ndarray): Initially a 2D array with only zeros with
-                               the same shape as the astronomical image that we
-                               are processing, i.e. the same shape as
-                               self.data_bgsubbed from the ImageData class
-                               instantiation. The residuals computed here are
-                               inserted (i.e. added) to this map.
-
         chunkposx (numpy.ndarray): Row index of the top left corner of the
                                    rectangular slice encompassing the island
                                    relative to the top left corner of the image,
@@ -1865,9 +1858,20 @@ def calculate_and_insert_residuals(chunkposx, chunkposy, posx, posy, no_pixels,
                                 fitting, in both cases one can calculate
                                 residuals.
 
+        islands_map (numpy.ndarray): Initially a 2D array with only zeroes with
+                                     the same shape as the astronomical image
+                                     that we are processing, i.e. the same shape
+                                     as data_bgsubbed from the ImageData class
+                                     instantiation. The Gaussian islands
+                                     computed here are inserted (i.e. added)
+                                     to this map.
+
     Returns:
-        None (because of the guvectorize decorator), but residual_map is
-             filled with values.
+        None (because of the guvectorize decorator), but islands_map - initially
+        all zeroes - has reconstructed sources based on the Gaussian parameters
+        derived from e.g. moments computations. These values are filled in where
+        the source pixel values are above the local analysis threshold. At other
+        pixel positions they remain zero.
 
     """
     peak = gaussian_parms[0]
@@ -1887,8 +1891,7 @@ def calculate_and_insert_residuals(chunkposx, chunkposy, posx, posy, no_pixels,
         # relative to the upper left corner of the image, with row and column
         # index = 0.
         map_position = (posx[index] + chunkposx, posy[index] + chunkposy)
-        residual_map[map_position] = data_bgsubbed[map_position] - \
-            peak * numpy.exp(-numpy.log(2) * (
+        islands_map[map_position] = peak * numpy.exp(-numpy.log(2) * (
                 ((numpy.cos(theta) * (posx[index] - xbar)
                  + numpy.sin(theta) * (posy[index] - ybar)) / smin) ** 2 +
                 ((numpy.cos(theta) * (posy[index] - ybar)
