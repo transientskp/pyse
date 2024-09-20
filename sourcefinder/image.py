@@ -67,7 +67,7 @@ STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 # switch for choosing either should be propagated through an argument of the 
 # ImageData class instantiation, but we will implement that later. For now,
 # we will set SEP as default.
-SEP = True
+SEP = False
 
 
 class ImageData(object):
@@ -78,8 +78,7 @@ class ImageData(object):
     """
 
     def __init__(self, data, beam, wcs, margin=0, radius=0, back_size_x=32,
-                 back_size_y=32, residuals=True
-                 ):
+                 back_size_y=32, residuals=False, islands=False):
         """Sets up an ImageData object.
 
         *Args:*
@@ -117,6 +116,7 @@ class ImageData(object):
         self.margin = margin
         self.radius = radius
         self.residuals = residuals
+        self.islands = islands
 
     ###########################################################################
     #                                                                         #
@@ -268,7 +268,7 @@ class ImageData(object):
 
         # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
         # output multiple arrays. One can however output to a complex array and take real and imaginary
-        # parts afterwards. Not a very clean solution, I admit.
+        # parts afterward. Not a very clean solution, I admit.
         mode_grid = mode_and_rms.real
         rms_grid = mode_and_rms.imag
 
@@ -288,7 +288,7 @@ class ImageData(object):
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
         sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
-        row_of_complex_values = numpy.empty((0), numpy.complex64)
+        row_of_complex_values = numpy.empty(0, numpy.complex64)
 
         for starty in range(0, y_dim, back_size_y):
             chunk = row_of_subimages[:, starty:starty+back_size_y]
@@ -479,7 +479,7 @@ class ImageData(object):
             raise RuntimeError("Bad data: Image data is flat")
 
         if (type(bgmap).__name__ == 'ndarray' or
-                    type(bgmap).__name__ == 'MaskedArray'):
+                type(bgmap).__name__ == 'MaskedArray'):
             if bgmap.shape != self.backmap.shape:
                 raise IndexError("Background map has wrong shape")
             else:
@@ -1110,8 +1110,8 @@ class ImageData(object):
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
                         logger.warning('Bad fit from blind extraction at pixel coords:'
-                                    '%f %f - measurement discarded'
-                                    '(increase fitting margin?)', det.x, det.y)
+                                       '%f %f - measurement discarded'
+                                       '(increase fitting margin?)', det.x, det.y)
                     else:
                         results.append(det)
                 except RuntimeError as e:
@@ -1135,22 +1135,37 @@ class ImageData(object):
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
                     self.correlation_lengths, eps_ra, eps_dec)
 
-            # if self.residuals:
-            #     # Select the relevant elements of moments_sources, include the
-            #     # peak spectral brightness, but exclude the flux density.
-            #     self.Gaussian_residuals = \
-            #         numpy.zeros_like(self.data_bgsubbed.data)
-            #     relevant_moments = (
-            #         numpy.take(moments_of_sources[:, 0, :], [0, 2, 3, 4, 5, 5],
-            #                    axis=1))
-            #
-            #     extract.calculate_and_insert_residuals(indices[:, 0],
-            #                                            indices[:, 2],
-            #                                            xpositions, ypositions,
-            #                                            npixs,
-            #                                            relevant_moments,
-            #                                            self.data_bgsubbed.data,
-            #                                            self.Gaussian_residuals)
+            if self.islands or self.residuals:
+                self.Gaussian_islands = numpy.zeros_like(self.data.data)
+
+                # Select the relevant elements of moments_sources, include the
+                # peak spectral brightness, but exclude the flux density.
+                relevant_moments = (
+                    numpy.take(moments_of_sources[:, 0, :],
+                               [0, 2, 3, 4, 5, 6], axis=1))
+
+                extract.calculate_Gaussian_islands(indices[:, 0],
+                                                   indices[:, 2],
+                                                   xpositions, ypositions,
+                                                   npixs,
+                                                   relevant_moments,
+                                                   self.Gaussian_islands)
+
+                if self.residuals:
+                    # It only makes sense to compute residuals where we have
+                    # reconstructed Gaussian islands, i.e. above the analysis
+                    # threshold.
+                    # Some parts of self.data_bgsubbed may be masked, and we do
+                    # not want a MaskedArray as output, since we cannot save the
+                    # mask in a FITS file. Therefore, we replace masked values
+                    # by zeros, although these patches of the sky are already
+                    # zero anyway, since no sources will be detected at the
+                    # positions of masked pixels.
+                    self.Gaussian_residuals = \
+                        numpy.ma.where(self.Gaussian_islands != 0,
+                                       self.data_bgsubbed -
+                                       self.Gaussian_islands,
+                                       0).filled(fill_value=0)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
