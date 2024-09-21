@@ -360,9 +360,9 @@ def run_sourcefinder(files, options):
             regionfile.write(regions(sr))
             regionfile.close()
         # This applies a slower method for computing the Gaussian islands and
-        # residuals than the methods applied in extract.py - since these methods
-        # are called in parallel, from image.py, or vectorized - and extends
-        # to pixel positions corresponding to values below the analysis
+        # residuals than the methods from the extract module - since these
+        # methods are called in parallel, from image.py, or vectorized - and
+        # extends to pixel positions corresponding to values below the analysis
         # threshold, i.e. well into the background noise. Some users may want to
         # accept the extra compute time to be able to compare the residuals with
         # the background noise.
