@@ -204,12 +204,16 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=None):
+    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize,
+            correlation_lengths, fixed=None):
         """Fit the position"""
         try:
-            measurement, gauss_residual = source_profile_and_errors(
-                self.data, self.threshold(), self.noise(), self.beam,
-                fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
+            measurement, gauss_island, gauss_residual = \
+                source_profile_and_errors(self.data, self.threshold(),
+                                          self.noise(), self.beam,
+                                          fudge_max_pix_factor,
+                                          max_pix_variance_factor, beamsize,
+                                          correlation_lengths, fixed=fixed)
         except ValueError:
             # Fitting failed
             logger.error("Moments & Gaussian fitting failed at %s" % (
@@ -218,7 +222,7 @@ class Island(object):
         measurement["xbar"] += self.position[0]
         measurement["ybar"] += self.position[1]
         measurement.sig = self.sig()
-        return measurement, gauss_residual
+        return measurement, gauss_island, gauss_residual
 
 
 class ParamSet(MutableMapping):
@@ -712,19 +716,23 @@ def source_profile_and_errors(data, threshold, noise,
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
 
-        max_pix_variance_factor(float): Take account of additional variance induced by the
-                                        maximum pixel method, on top of the background noise.
+        max_pix_variance_factor(float): Take account of additional variance
+                                        induced by the maximum pixel method,
+                                        on top of the background noise.
 
         beamsize(float): The FWHM size of the clean beam
 
-        correlation_lengths(tuple): Tuple of two floats describing the distance along the semimajor
-                                    and semiminor axes of the clean beam beyond which noise
-                                    is assumed uncorrelated. Some background: Aperture synthesis imaging
-                                    yields noise that is partially correlated
-                                    over the entire image. This has a considerable effect on error
-                                    estimates. We approximate this by considering all noise within the
-                                    correlation length completely correlated and beyond that completely
-                                    uncorrelated.
+        correlation_lengths(tuple): Tuple of two floats describing the distance
+                                    along the semimajor and semiminor axes of
+                                    the clean beam beyond which noise is assumed
+                                    uncorrelated. Some background: Aperture
+                                    synthesis imaging yields noise that is
+                                    partially correlated over the entire image.
+                                    This has a considerable effect on error
+                                    estimates. We approximate this by
+                                    considering all noise within the
+                                    correlation length completely correlated
+                                     and beyond that completely uncorrelated.
 
     Kwargs:
 
@@ -732,9 +740,9 @@ def source_profile_and_errors(data, threshold, noise,
             Passed on to fitting.fitgaussian().
 
     Returns:
-        tuple: a populated ParamSet, and a residuals map.
-            Note the residuals map is a regular ndarray, where masked (unfitted)
-            regions have been filled with 0-values.
+        tuple: a populated ParamSet, an islands map and a residuals map.
+            Note that both the islands and residuals maps are regular ndarrays,
+            where masked (unfitted) regions have been filled with 0-values.
 
     """
 
@@ -827,14 +835,24 @@ def source_profile_and_errors(data, threshold, noise,
                  param["semimajor"].value,
                  param["semiminor"].value,
                  param["theta"].value)
-    gauss_resid_masked = -(
-        gaussian(*gauss_arg)(*numpy.indices(data.shape)) - data)
+
+    try:
+        gauss_island_masked = \
+            numpy.ma.array(gaussian(*gauss_arg)(*numpy.indices(data.shape)),
+                           mask=data.mask)
+        gauss_resid_masked = data - gauss_island_masked
+        gauss_island_filled = gauss_island_masked.filled(fill_value=0.)
+        gauss_resid_filled = gauss_resid_masked.filled(fill_value=0.)
+    except AttributeError:
+        gauss_island_masked = gaussian(*gauss_arg)(*numpy.indices(data.shape))
+        gauss_resid_masked = data - gauss_island_masked
+        gauss_island_filled = gauss_island_masked
+        gauss_resid_filled = gauss_resid_masked
 
     param.chisq, param.reduced_chisq = fitting.goodness_of_fit(
         gauss_resid_masked, noise, correlation_lengths)
 
-    gauss_resid_filled = gauss_resid_masked.filled(fill_value=0.)
-    return param, gauss_resid_filled
+    return param, gauss_island_filled, gauss_resid_filled
 
 
 class Detection(object):
@@ -1823,7 +1841,7 @@ def calculate_Gaussian_islands(chunkposx, chunkposy, posx, posy, no_pixels,
     only where the island pixel value exceeded the local analysis threshold
     since this is how not only no_pixels, but also posx and posy - as positions
     relative to chunkposx and chunkposy - have been determined. The islands
-    derived in this manner can be used to derive a residual map.
+    constructed in this manner can be used to derive a residual map.
 
     Args:
         chunkposx (numpy.ndarray): Row index of the top left corner of the
