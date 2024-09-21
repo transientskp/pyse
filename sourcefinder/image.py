@@ -1155,17 +1155,14 @@ class ImageData(object):
                     # It only makes sense to compute residuals where we have
                     # reconstructed Gaussian islands, i.e. above the analysis
                     # threshold.
-                    # Some parts of self.data_bgsubbed may be masked, and we do
-                    # not want a MaskedArray as output, since we cannot save the
-                    # mask in a FITS file. Therefore, we replace masked values
-                    # by zeros, although these patches of the sky are already
-                    # zero anyway, since no sources will be detected at the
-                    # positions of masked pixels.
+                    # Some parts of self.data_bgsubbed may be masked, but no
+                    # sources will have been detected in those masked patches
+                    # of the sky, so no need to apply that mask here.
                     self.Gaussian_residuals = \
-                        numpy.ma.where(self.Gaussian_islands != 0,
-                                       self.data_bgsubbed -
-                                       self.Gaussian_islands,
-                                       0).filled(fill_value=0)
+                        numpy.where(self.Gaussian_islands != 0,
+                                    self.data_bgsubbed.data -
+                                    self.Gaussian_islands,
+                                    0).astype(numpy.float32)
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
