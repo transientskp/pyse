@@ -29,6 +29,7 @@ except ImportError:
     from scipy import ndimage
 from numba import guvectorize, float32, int32
 
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
@@ -229,6 +230,7 @@ class ImageData(object):
             del self.data
             del self.data_bgsubbed
             del self.grids
+            del self.Gaussian_islands
             del self.Gaussian_residuals
             del self.residuals_from_deblending
         except AttributeError:
@@ -705,11 +707,11 @@ class ImageData(object):
             threshold_at_pixel = None
 
         try:
-            measurement, residuals = extract.source_profile_and_errors(
+            measurement, _, _ = extract.source_profile_and_errors(
                 fitme, threshold_at_pixel, self.rmsmap[int(x), int(y)],
-                self.beam, self.fudge_max_pix_factor, self.max_pix_variance_factor,
-                self.beamsize, self.correlation_lengths, fixed=fixed
-            )
+                self.beam, self.fudge_max_pix_factor,
+                self.max_pix_variance_factor,
+                self.beamsize, self.correlation_lengths, fixed=fixed)
         except ValueError:
             # Fit failed to converge
             # Moments are not applicable when holding parameters fixed
@@ -784,7 +786,7 @@ class ImageData(object):
                         # We were unable to get a good fit
                         continue
                     if (fit_results.ra.error == float('inf') or
-                                fit_results.dec.error == float('inf')):
+                            fit_results.dec.error == float('inf')):
                         logging.warning("position errors extend outside image")
                     else:
                         successful_fits.append(fit_results)
@@ -898,10 +900,11 @@ class ImageData(object):
                 slices)
 
     @staticmethod
-    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed, island):
-        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize, correlation_lengths, fixed=fixed)
+    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
+                    correlation_lengths, fixed, island):
+        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
+                          correlation_lengths, fixed=fixed)
 
-    @timeit
     @staticmethod
     def slices_to_indices(slices):
         all_indices = numpy.empty((len(slices), 4), dtype=numpy.int32)
@@ -913,7 +916,6 @@ class ImageData(object):
                                              some_slice[1].stop])
         return all_indices
 
-    @timeit
     @staticmethod
     @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
                  int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
@@ -1065,7 +1067,9 @@ class ImageData(object):
                     )
                 )
 
-            # If required, we can save the 'left overs' from the deblending and
+            if self.islands:
+                self.Gaussian_islands = numpy.zeros(self.data.shape)
+            # If required, we can save the 'leftovers' from the deblending and
             # fitting processes for later analysis. This needs setting up here:
             if self.residuals:
                 self.Gaussian_residuals = numpy.zeros(self.data.shape)
@@ -1099,7 +1103,7 @@ class ImageData(object):
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
-                    measurement, residual = fit_result
+                    measurement, Gauss_island, Gauss_residual = fit_result
                 else:
                     # Failed to fit; drop this island and go to the next.
                     continue
@@ -1117,10 +1121,13 @@ class ImageData(object):
                 except RuntimeError as e:
                     logger.error("Island not processed; unphysical?")
 
+                if self.islands:
+                    self.Gaussian_islands[island.chunk] += Gauss_island
+
                 if self.residuals:
                     self.residuals_from_deblending[island.chunk] -= (
                         island.data.filled(fill_value=0.))
-                    self.Gaussian_residuals[island.chunk] += residual
+                    self.Gaussian_residuals[island.chunk] += Gauss_residual
 
         elif num_islands > 0:
 
