@@ -1742,7 +1742,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
             numpy.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
             helper2))
         pix_y_plus_errory_proj = moments_of_sources[:, 0, 2:4] + \
-                                 zeros_and_errory_proj
+            zeros_and_errory_proj
 
         end_ra2_end_dec2 = wcs.all_p2s(pix_y_plus_errory_proj)
 
