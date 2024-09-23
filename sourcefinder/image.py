@@ -67,8 +67,11 @@ STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 # i.e. without using sep. This is slower, but more accurate. Ultimately, the
 # switch for choosing either should be propagated through an argument of the 
 # ImageData class instantiation, but we will implement that later. For now,
-# we will set SEP as default.
+# we will not use SEP as default.
 SEP = False
+# Vectorized processing of source islands is much faster, but excludes Gaussian
+# fits, therefore slightly less accurate.
+VECTORIZED = False
 
 
 class ImageData(object):
@@ -1036,7 +1039,7 @@ class ImageData(object):
 
         results = containers.ExtractionResults()
 
-        if deblend_nthresh or force_beam:
+        if deblend_nthresh or force_beam or not VECTORIZED:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
