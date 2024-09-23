@@ -101,7 +101,7 @@ class TestFitFixedPositions(unittest.TestCase):
         self.assertAlmostEqual(results.dec.value, self.known_fit_results[1],
                                delta=0.01)
         self.assertAlmostEqual(results.peak.value, self.known_fit_results[2],
-                               delta=0.02)
+                               delta=0.01)
 
     def testLowFitThreshold(self):
         """
@@ -125,7 +125,7 @@ class TestFitFixedPositions(unittest.TestCase):
                                delta=0.01)
         self.assertAlmostEqual(low_thresh_results.peak.value,
                                self.known_fit_results[2],
-                               delta=0.02)
+                               delta=0.01)
 
     def testHighFitThreshold(self):
         """
@@ -297,25 +297,16 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         self.image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
 
-        # With background estimation from sep we find two more noise peaks than
-        # originally as opposed to one more (modified kappa, sigma clipper).
-        # We increased the detection threshold from 5 sigma to 6 sigma
-        # to find just the central peak.
-        results = self.image.extract(det=6, anl=3)
+        results = self.image.extract(det=5, anl=3)
         results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                    results]
-        self.assertEqual(len(results), 1)
-        r = results[0]
+        # Our modified kappa,sigma clipper gives a slightly lower noise
+        # which catches an extra noise peak at the 5 sigma level.
+        self.assertEqual(len(results), 2)
+        r = results[1]
         self.assertEqual(len(r), len(known_result))
         for i in range(len(r)):
-            # It turns out that in using sep deviations from the output of our
-            # original code or rather from the expected output (known_result)
-            # from these tests have become somewhat larger.
-            # This is also to be expected, since
-            # sep (=SExtractor) is less accurate than PySE, which was one of the
-            # main reasons to write PySE....
-            if i < 9:
-                self.assertAlmostEqual(r[i], known_result[i], places=0)
+            self.assertAlmostEqual(r[i], known_result[i], places=0)
 
     @requires_data(GRB120422A)
     def testForceSourceShape(self):
@@ -349,32 +340,22 @@ class TestSimpleImageSourceFind(unittest.TestCase):
                 os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
 
         ew_sys_err, ns_sys_err = 0.0, 0.0
-        fits_results = fits_image.extract(det=8, anl=3)
+        fits_results = fits_image.extract(det=5, anl=3)
         fits_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                         fits_results]
-        casa_results = casa_image.extract(det=8, anl=3)
+        casa_results = casa_image.extract(det=5, anl=3)
         casa_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                         casa_results]
-        # Using Background from sep just gives one extra noise peak as opposed
-        # to the modified kappa, sigma clipper that gave two extra noise peaks.
-        # Decided to increase the detection threshold such that we only compare
-        # the central source, other detections are just noise peaks.
-        self.assertEqual(len(fits_results), 1)
-        self.assertEqual(len(casa_results), 1)
+        # Our modified kappa,sigma clipper gives a slightly lower noise
+        # which catches two extra noise peaks at the 5 sigma level.
+        self.assertEqual(len(fits_results), 3)
+        self.assertEqual(len(casa_results), 3)
         fits_src = fits_results[0]
         casa_src = casa_results[0]
 
         self.assertEqual(len(fits_src), len(casa_src))
-        if fits_src[15]==True:
-            for idx, _ in enumerate(fits_src):
-                self.assertAlmostEqual(fits_src[idx], casa_src[idx], places=4)
-        else:
-            # It turns out that when using moments, the derived semi-major
-            # axis is only about half the value derived from a Gaussian fit
-            # and the discrepancy between the semi-major axes from the two
-            # images turns out to be slightly higher, for unknown reasons.
-            for idx, _ in enumerate(fits_src):
-                self.assertAlmostEqual(fits_src[idx], casa_src[idx], places=4)
+        for idx, _ in enumerate(fits_src):
+            self.assertAlmostEqual(fits_src[idx], casa_src[idx], places=5)
 
     @requires_data(GRB120422A)
     def testNoLabelledIslandsCase(self):
@@ -411,14 +392,13 @@ class TestMaskedSource(unittest.TestCase):
 
         self.image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
-        # When using sep.Background instead of the modified kappa, sigma clipper,
-        # the location of the GRB seems to be displaced
-        # by six (!) pixels. I cannot explain that. ALso I need to mask some more
-        # pixels to make sure it is not detected.
-        self.image.data[265:268, 256:263] = np.ma.masked
-        # When using sep.Background I had to increase the det=5 threshold to 6
-        # to avoid picking up a noise peak at the edge of the image.
-        results = self.image.extract(det=6, anl=3)
+        # FIXME: the line below was in a shadowed method with an identical name
+        # self.image.data[250:280, 250:280] = np.ma.masked
+        self.image.data[266:269, 263:266] = np.ma.masked
+        # Our modified kappa,sigma clipper gives a slightly lower noise
+        # which catches an extra noise peak at the 5 sigma level.
+        self.image.data[42:50, 375:386] = np.ma.masked
+        results = self.image.extract(det=5, anl=3)
         self.assertFalse(results)
 
 
@@ -464,8 +444,7 @@ class TestNegationImage(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs,
-                             back_size_x=128, back_size_y=128)
+        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
 
     @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
     def testReverseSE(self):
