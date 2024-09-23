@@ -33,7 +33,7 @@ class L15_12hConstObs(unittest.TestCase):
     # Single, constant 1 Jy source at centre of image.
     @requires_data(observed_fits)
     def setUp(self):
-        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(observed_fits,
                                                               beam=(0.2299,
@@ -60,7 +60,7 @@ class L15_12hConstObs(unittest.TestCase):
 class L15_12hConstCor(unittest.TestCase):
     # Cross shape of 5 sources, 2 degrees apart, at centre of image.
     def setUp(self):
-        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
                                                               beam=(0.2299,
@@ -105,7 +105,7 @@ class L15_12hConstMod(unittest.TestCase):
         # transient varying. In fact, due to a glitch in the simulation
         # process, it will appear smeared out & shouldn't be identified at
         # all.
-        # Beam here is derived from a Gauss fit to the central (unresolved)
+        # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(all_fits,
                                                               beam=(0.2299,
@@ -134,7 +134,7 @@ class L15_12hConstMod(unittest.TestCase):
 
 class FitToPointTestCase(unittest.TestCase):
     def setUp(self):
-        # FWHM of PSF taken from fit of unresolved source.
+        # FWHM of PSF taken from fit to unresolved source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
                                                               beam=(2. * 500.099 / 3600,
                                                                     2. * 319.482 / 3600,
