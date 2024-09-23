@@ -4,12 +4,27 @@
 # Do not include any shell scripts
 *.sh
 
+# Do not include any exports from the ipython shell.
+*.ipy
+
 # Do not include the pointer_files directory.
 *pointer_files*
 
 # Do not include FITS files
 **.fits
 **.FITS
+
+# Do not include .csv files
+*.csv
+
+# Do not include temp directory
+reserve/
+
+# Do not include dask worker space
+dask-worker-space/
+
+# Do not include pyproject.toml build requirements, should be in setup.py
+pyproject.toml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

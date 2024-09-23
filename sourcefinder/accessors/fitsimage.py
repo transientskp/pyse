@@ -64,7 +64,8 @@ class FitsImage(DataAccessor):
             data = data[plane].squeeze()
         n_dim = len(data.shape)
         if n_dim != 2:
-            logger.warning("Loaded datacube with %s dimensions, assuming Stokes I and taking plane 0" % n_dim)
+            logger.warning((f"Loaded datacube with {n_dim:d} dimensions, "
+                             "assuming Stokes I and taking plane 0."))
             data = data[0, :, :]
         data = data.transpose()
         return data

@@ -3,11 +3,12 @@
 """
 General purpose astronomical coordinate handling routines.
 """
-
+import numpy
 import datetime
 import logging
 import math
 import sys
+from numba import njit, guvectorize, float64
 
 import pytz
 from astropy import wcs as pywcs
@@ -350,6 +351,40 @@ def angsep(ra1, dec1, ra2, dec2):
 
     return 3600 * math.degrees(math.acos(temp))
 
+@njit
+def cmp_jitted(a, b):
+    return bool(a > b) - bool(a < b)
+
+@guvectorize([(float64[:], float64[:], float64)],
+             '(n), (n) -> ()', nopython=True)
+def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
+    """Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trig formula
+
+    Positional arguments:
+        ra_dec1 (ndarray)- RA and Dec of the first source, in decimal degrees
+        ra_dec2 (ndarray)- RA and Dec of the second source, in decimal degrees
+
+    Return value: None, because of the guvectorize decorator, but
+        angular_separation (float, arcseconds) is assigned a value.
+
+    """
+    ra1, dec1 = ra_dec1
+    ra2, dec2 = ra_dec2
+
+    b = (math.pi / 2) - math.radians(dec1)
+    c = (math.pi / 2) - math.radians(dec2)
+    temp = (math.cos(b) * math.cos(c)) + (
+            math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2)))
+
+    # Truncate the value of temp at +- 1: it makes no sense to do math.acos()
+    # of a value outside this range, but occasionally we might get one due to
+    # rounding errors.
+    if abs(temp) > 1.0:
+        temp = 1.0 * cmp_jitted(temp, 0)
+
+    angular_separation = 3600 * math.degrees(math.acos(temp))
+
 
 def alphasep(ra1, ra2, dec1, dec2):
     """Find the angular separation of two sources in RA, in arcseconds
@@ -665,10 +700,10 @@ class WCS:
 
     def p2s(self, pixpos):
         """
-        Pixel to Spatial coordinate conversion.
+        Pixel to spatial coordinate conversion.
 
         Args:
-            pixpos (tuple):  [x, y] pixel position
+            pixpos [list]:  [x, y] pixel position.
 
         Returns:
             tuple: ra (float) Right ascension corresponding to position [x, y]
@@ -694,3 +729,27 @@ class WCS:
         if math.isnan(x) or math.isnan(y):
             raise RuntimeError("Pixel position is not a number")
         return float(x), float(y)
+
+    def all_p2s(self, array_of_pixpos):
+        """
+        Vectorized pixel to spatial coordinate conversion, making use of
+        all_pix2world from astropy. This will save time when thousands of
+        sources are detected.
+
+        Args:
+            array_of_pixpos ((N, 2) array):  array of [x, y] pixel
+            positions.
+
+        Returns:
+            (N, 2) array: each row has an entry for Right ascension (float)
+                          and Declination (float)
+
+        """
+        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
+        if numpy.isnan(sky_coordinates).any():
+            raise RuntimeError("Spatial position is not a number")
+        # Mimic conditional from extract.Detection._physical_coordinates
+        if numpy.any(numpy.abs(abs(sky_coordinates[:, 1] > 90.0))):
+            raise ValueError("At least one object falls outside the sky")
+
+        return sky_coordinates

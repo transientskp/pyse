@@ -307,7 +307,7 @@ class NoisyGaussTest(unittest.TestCase):
 
         # Now we run the full error-profiling routine and check the chi-sq
         # calculations:
-        self.fit_w_errs, _ = source_profile_and_errors(
+        self.fit_w_errs, _, _ = source_profile_and_errors(
             data=self.mygauss,
             threshold=0.,
             noise=pixel_noise,

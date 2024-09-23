@@ -10,7 +10,6 @@ import scipy.integrate
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
-
 def generate_subthresholds(min_value, max_value, num_thresholds):
     """
     Generate a series of ``num_thresholds`` logarithmically spaced values
@@ -64,7 +63,6 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
         # uncertainty to infinity.
         error_radius = float('inf')
     return error_radius
-
 
 def circular_mask(xdim, ydim, radius):
     """
@@ -162,6 +160,13 @@ def fudge_max_pix(semimajor, semiminor, theta):
     position on the peak pixel and averaging over all possible
     corrections.  This overall correction makes use of the beamshape,
     so strictly speaking only accurate for unresolved sources.
+    After some investigation, it turns out that this method requires not only
+    unresolved sources, but also a circular beam shape. With the general
+    elliptical beam, the peak source pixel may be located more than half a
+    pixel away from the true peak. In that case the integral below will not
+    suffice as a correction. Calculating an overall correction for an ensemble
+    of sources will, in the case of an elliptical beam shape, become much
+    more involved.
     """
 
     # scipy.integrate.dblquad: Computes a double integral

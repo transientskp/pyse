@@ -21,6 +21,8 @@ dependencies = [
     "python-dateutil",
     "pytz",
     "scipy",
+    "numba",
+    "sep",
     "six",
 ]
 

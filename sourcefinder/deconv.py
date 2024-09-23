@@ -3,8 +3,9 @@ Gaussian deconvolution.
 """
 
 from math import sin, cos, atan, sqrt, pi
+from numba import njit
 
-
+@njit
 def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     """
     Deconvolve a Gaussian "beam" from a Gaussian component.
