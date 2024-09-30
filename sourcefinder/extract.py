@@ -574,7 +574,7 @@ class ParamSet(MutableMapping):
     def deconvolve_from_clean_beam(self, beam):
         """Deconvolve with the clean beam"""
 
-        # If the fitted axes are smaller than the clean beam
+        # If the fitted axes are larger than the clean beam
         # (=restoring beam) axes, the axes and position angle
         # can be deconvolved from it.
         fmaj = 2. * self['semimajor'].value
@@ -755,42 +755,29 @@ def source_profile_and_errors(data, threshold, noise,
     else:
         moments_threshold = threshold
 
-    try:
-        param.update(fitting.moments(data, fudge_max_pix_factor, beamsize, moments_threshold))
-        param.moments = True
-    except ValueError:
-        # If this happens, we have two choices:
-        # 1) Bomb out and tell the user to fit something sensible instead;
-        # 2) Make up our own estimate by assuming the source is unresolved.
-        #    No matter what caused the ValueError, we should always be able
-        #    to find the maximum pixel value and the barycenter position.
-        #    The other three Gaussian parameters we can copy from the clean
-        #    beam.
+    # We can always find the maximum pixel value and derive the barycenter
+    # position. The other three Gaussian parameters we can copy from the clean
+    # beam.
+    # Are we fitting a -ve or +ve Gaussian?
+    if data.mean() >= 0:
+        # The peak is always underestimated when you take the highest pixel.
+        peak = data.max() * fudge_max_pix_factor
+    else:
+        peak = data.min()
+    total = data.sum()
+    x, y = numpy.indices(data.shape)
+    xbar = float((x * data).sum() / total)
+    ybar = float((y * data).sum() / total)
 
-        # Are we fitting a -ve or +ve Gaussian?
-        if data.mean() >= 0:
-            # The peak is always underestimated when you take the highest pixel.
-            peak = data.max() * fudge_max_pix_factor
-        else:
-            peak = data.min()
-        total = data.sum()
-        x, y = numpy.indices(data.shape)
-        xbar = float((x * data).sum() / total)
-        ybar = float((y * data).sum() / total)
-
-        param.update({
-            "peak": peak,
-            "flux": peak,
-            "xbar": xbar,
-            "ybar": ybar,
-            "semimajor": beam[0],
-            "semiminor": beam[1],
-            "theta": beam[2]
-        })
-        logger.debug("Unable to estimate gaussian parameters."
-                     " Proceeding with defaults %s""",
-                     str(param))
-
+    param.update({
+        "peak": peak,
+        "flux": peak,
+        "xbar": xbar,
+        "ybar": ybar,
+        "semimajor": beam[0],
+        "semiminor": beam[1],
+        "theta": beam[2]
+    })
     # data_as_ones is constructed to help determine if the island has enough
     # width for Gauss fitting.
     try:
@@ -805,17 +792,30 @@ def source_profile_and_errors(data, threshold, noise,
     minimum_width = min(max_along_x, max_along_y)
 
     if minimum_width > 2:
-        # Now we can do Gauss fitting if the island or subisland has a
-        # thickness of more than 2 in both dimensions.
+        # If the island or subisland has thickness of more than 2 in both
+        # dimensions we can properly compute moments and fit a Gaussian with
+        # six free parameters.
+        try:
+            # We can compute moments and possibly try fitting if the island has a
+            # thickness of more than 2 in both dimensions.
+            param.update(fitting.moments(data, fudge_max_pix_factor, beamsize,
+                                         moments_threshold))
+            param.moments = True
+        except ValueError:
+            logger.warning('Moments computations failed, use defaults.')
         try:
             param.compute_bounds(data.shape)
             gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
                                                 bounds=param.bounds)
             param.update(gaussian_soln)
             param.gaussian = True
-            logger.debug('Gauss fitting was successful.')
+            logger.debug('Gaussian fitting was successful.')
         except ValueError:
-            logger.warning('Gauss fitting failed.')
+            logger.warning('Gaussian fitting failed.')
+    else:
+        logger.debug("Unable to estimate gaussian parameters from moments."
+                     " Proceeding with defaults %s""",
+                     str(param))
 
     if fixed and not param.gaussian:
         # moments can't handle fixed params
