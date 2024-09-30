@@ -436,6 +436,7 @@ class TestFailureModes(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             sfimage.extract(det=5, anl=3)
 
+
 class TestNegationImage(unittest.TestCase):
     """
     Check if we do not detect any sources from the negation of a Stokes I
