@@ -924,7 +924,7 @@ class ImageData(object):
                  int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
                  '(), (k) -> (k), (), ()')
     def extract_parms_image_slice(some_image, inds, labelled_data, label,
-                                        dummy, maxpos, maxi, npix):
+                                  dummy, maxpos, maxi, npix):
         """
         For an island, indicated by a group of pixels with the same label,
         find the highest pixel value and its position, first relative to the
