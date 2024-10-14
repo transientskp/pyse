@@ -353,9 +353,11 @@ def angsep(ra1, dec1, ra2, dec2):
 
     return 3600 * math.degrees(math.acos(temp))
 
+
 @njit
 def cmp_jitted(a, b):
     return bool(a > b) - bool(a < b)
+
 
 @guvectorize([(float64[:], float64[:], float64)],
              '(n), (n) -> ()', nopython=True)
