@@ -326,7 +326,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
         # In all cases where we hit a math domain error, we can use the clean
         # beam parameters to derive reasonable estimates for the Gaussian shape
         # parameters.
-        except Exception:
+        except Exception("ValueError in computing moments"):
             smaj = beam[0]
             smin = beam[1]
             theta = beam[2]
