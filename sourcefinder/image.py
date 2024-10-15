@@ -71,7 +71,7 @@ STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 SEP = False
 # Vectorized processing of source islands is much faster, but excludes Gaussian
 # fits, therefore slightly less accurate.
-VECTORIZED = False
+VECTORIZED = True
 
 
 class ImageData(object):
