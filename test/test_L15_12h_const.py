@@ -43,8 +43,8 @@ class L15_12hConstObs(unittest.TestCase):
         self.results = self.image.extract(det=10, anl=3.0)
 
     def tearDown(self):
-        del (self.results)
-        del (self.image)
+        del self.results
+        del self.image
         gc.collect()
 
     @requires_data(observed_fits)
@@ -70,8 +70,8 @@ class L15_12hConstCor(unittest.TestCase):
         self.results = self.image.extract(det=10.0, anl=3.0)
 
     def tearDown(self):
-        del (self.image)
-        del (self.results)
+        del self.image
+        del self.results
         gc.collect()
 
     @requires_data(corrected_fits)
