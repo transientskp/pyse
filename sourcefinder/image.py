@@ -921,10 +921,10 @@ class ImageData(object):
 
     @staticmethod
     @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
-                 int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
+                   int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
                  '(), (k) -> (k), (), ()')
-    def extract_parms_image_slice(some_image, inds, labelled_data, label,
-                                  dummy, maxpos, maxi, npix):
+    def extract_parms_image_slice(some_image, inds, labelled_data, label, dummy,
+                                  maxpos, maxi, npix):
         """
         For an island, indicated by a group of pixels with the same label,
         find the highest pixel value and its position, first relative to the
@@ -969,11 +969,11 @@ class ImageData(object):
 
         :param npix:  Integer indicating the number of pixels of the island.
 
-        :return:      No return values, because of the use of the guvectorize
-                      decorator: 'guvectorize() functions don’t return their
-                      result value: they take it as an array argument,
-                      which must be filled in by the function'. In this case
-                      maxpos, maxi and npix will be filled with values.
+        :return: No return values, because of the use of the guvectorize
+                 decorator: 'guvectorize() functions don’t return their
+                 result value: they take it as an array argument,
+                 which must be filled in by the function'. In this case
+                 maxpos, maxi and npix will be filled with values.
         """
 
         labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
