@@ -1304,7 +1304,8 @@ def insert_island_data(some_image, noise_map, inds, labelled_data, label,
                        npix, ratio, island, xpos, ypos, min_width, sig):
     """
     We want to copy the relevant island data into input arrays for
-    fitting.moments_enhanced.
+    fitting.moments_enhanced. Simultaneously calculate the minimum width of
+    each island and the signal-to-noise ratio of the detections.
 
     :param some_image: The 2D ndarray with all the pixel values, typically
                        self.data_bgsubbed.data.
@@ -1371,13 +1372,13 @@ def insert_island_data(some_image, noise_map, inds, labelled_data, label,
                  island over x and y and subsequently taking the minimum of
                  those two maximum widths.
 
-    :param sig: float32 indicating the signal-to-noise ratio of the detection.
+    :param sig: float32 indicating the significance of the detection.
                 Often this will be the ratio of the maximum pixel value within
                 the source island divided by the noise at that position. But
                 for extended sources, the noise can perhaps decrease away from
                 the position of the peak spectral brightness more steeply than
-                the source spectral brightness and the maximum ratio can be
-                found at a different position.
+                the source spectral brightness and the maximum signal-to-noise
+                ratio can be found at a different position.
 
     :return: No return values, because of the use of the guvectorize
              decorator: 'guvectorize() functions don’t return their
@@ -1667,7 +1668,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # parameters, i.e. by assuming the source is unresolved.
     minimum_widths = numpy.empty(num_islands, dtype=numpy.int32)
 
-    # sig is to be filled with the signal-to-noise ratios of the detections.
+    # sig is to be filled with the significances of each detection, i.e. the
+    # maximum signal-to-noise ratio across all island pixels, for each island.
     sig = numpy.empty(num_islands, dtype=numpy.float32)
 
     insert_island_data(data_bgsubbeddata.astype(numpy.float32, copy=False),
