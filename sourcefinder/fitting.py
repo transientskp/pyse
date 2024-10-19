@@ -110,8 +110,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
             else:
                 theta -= math.pi / 2.0
 
-    ## NB: a dict should give us a bit more flexibility about arguments;
-    ## however, all those here are ***REQUIRED***.
+    # NB: a dict should give us a bit more flexibility about arguments;
+    # however, all those here are ***REQUIRED***.
     return {
         "peak": peak,
         "flux": total,
@@ -123,19 +123,19 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], int32[:], int32[:], int32[:], int32, int32, float32,
+@guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32, int32, float32,
                float32, float32, float64, float64, float64[:], float64,
                float64[:], float64, float64, float32[:, :], float32[:, :])],
-              ('(n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), (m), ' +
+              ('(n), (n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), (m), ' +
                '(), (), (l, p) -> (l, p)'), nopython=True)
-def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
-                     threshold, noise, maxi, fudge_max_pix_factor,
-                     max_pix_variance_factor, beam, beamsize,
-                     correlation_lengths,
-                     clean_bias_error, frac_flux_cal_error, dummy,
-                     computed_moments):
+def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
+                     min_width, no_pixels, threshold, noise, maxi,
+                     fudge_max_pix_factor, max_pix_variance_factor, beam,
+                     beamsize, correlation_lengths, clean_bias_error,
+                     frac_flux_cal_error, dummy, computed_moments):
     """Calculate source properties using moments. Vectorized using the
-    guvectorize decorator.
+    guvectorize decorator. Also, calculate the signal-to-noise ratio of the
+    detections as well as its chi-squared and reduced chi-squared statistics.
 
     Use the first moment of the distribution is the barycenter of an
     ellipse. The second moments are used to estimate the rotation angle
@@ -146,11 +146,20 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
 
     Args:
 
-        island_data (numpy.ndarray): Selected from the actual 2D image data,
+        source_island (numpy.ndarray): Selected from the actual 2D image data,
                                      by taking pixels above the analysis
                                      threshold only, with its peak above the
                                      detection threshold. This selection
                                      results in a 1D ndarray (without a mask).
+                                     You can think of it as the source pixels,
+                                     but flattened.
+
+        noise_island (numpy.ndarray): Pixel values selected from the 2D rms
+                                     noise map, at the pixel positions of the
+                                     island that comprises a source, but, as
+                                     with source_island, flattened.
+                                     This selection results in a 1D ndarray
+                                     (without a mask).
 
         chunkpos (numpy.ndarray): Index array of length 2 denoting the position
                                   of the top left corner of the rectangular
@@ -230,7 +239,27 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
                                 three quantities. This constitutes a total of
                                 ten quantities and their corresponding errors.
 
+        # To be adjusted
+        ratio(numpy.ndarray): 1D array with the same length as island, xpos
+              and ypos, i.e. maxpix. It will contain, for every island
+              pixel, the ratio between the spectral brightness and the
+              local noise, i.e. the standard deviation of the background
+              pixels. Not intended as a return array, since we are only
+              interested in the maximum value of all the ratios across
+              all island pixels. That maximum value is the signal-to-noise
+              ratio of the detection (=sig).
+
+        # To be adjusted
+        sig(float32): Number indicating the significance of the detection.
+                Often this will be the ratio of the maximum pixel value within
+                the source island divided by the noise at that position. But
+                for extended sources, the noise can perhaps decrease away from
+                the position of the peak spectral brightness more steeply than
+                the source spectral brightness and the maximum signal-to-noise
+                ratio can be found at a different position.
+
     Returns:
+        # To be adjusted
         None (because of the guvectorize decorator), but computed_moments is
              filled with values.
 
@@ -243,26 +272,26 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
     # containing all islands is equal to the maximum number of pxiels over
     # all islands. This containing array was created by numpy.empty, so better
     # dump the redundant elements that have undetermined values.
-    island_data = island_data[:no_pixels]
+    source_island = source_island[:no_pixels]
     # Are we fitting a -ve or +ve Gaussian?
-    if island_data.mean() >= 0:
+    if source_island.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
         peak = maxi * fudge_max_pix_factor
     else:
-        peak = island_data.min()
+        peak = source_island.min()
 
     ratio = threshold / peak
-    total = island_data.sum()
+    total = source_island.sum()
     xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
 
     for index in range(no_pixels):
         i = posx[index]
         j = posy[index]
-        xbar += i * island_data[index]
-        ybar += j * island_data[index]
-        xxbar += i * i * island_data[index]
-        yybar += j * j * island_data[index]
-        xybar += i * j * island_data[index]
+        xbar += i * source_island[index]
+        ybar += j * source_island[index]
+        xxbar += i * i * source_island[index]
+        yybar += j * j * source_island[index]
+        xybar += i * j * source_island[index]
 
     xbar /= total
     ybar /= total
@@ -444,7 +473,7 @@ def moments_enhanced(island_data, chunkpos, posx, posy, min_width, no_pixels,
     # Now, figure out the error bars.
     if rmaj > 0:
         # In this case the deconvolved position angle is defined.
-        # For convenience we reset rpa to the interval [-90, 90].
+        # For convenience, we reset rpa to the interval [-90, 90].
         if rpa > 90:
             rpa = -numpy.mod(-rpa, 180.)
         theta_deconv = rpa

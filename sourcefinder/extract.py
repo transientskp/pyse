@@ -1300,12 +1300,14 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
                int32[:], float32[:], float32[:], int32[:], int32[:], int32[:],
                float32[:])], '(n, m), (n, m), (l), (n, m), (), (), (k) -> (k)' +
              ', (k), (k), (), ()')
-def insert_island_data(some_image, noise_map, inds, labelled_data, label,
-                       npix, ratio, island, xpos, ypos, min_width, sig):
+def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
+                             npix, source, noise, xpos, ypos, min_width, sig):
     """
-    We want to copy the relevant island data into input arrays for
+    We want to copy the relevant source and noise data into input arrays for
     fitting.moments_enhanced. Simultaneously calculate the minimum width of
-    each island and the signal-to-noise ratio of the detections.
+    each island; when determining source properties this is an important
+    integer, i.e. with sufficient width all six Gaussian parameters can be
+    calculated in a robust manner.
 
     :param some_image: The 2D ndarray with all the pixel values, typically
                        self.data_bgsubbed.data.
@@ -1334,20 +1336,18 @@ def insert_island_data(some_image, noise_map, inds, labelled_data, label,
 
     :param npix: Number of pixels comprising the island with label=label.
 
-    :param ratio: Empty float32 1D ndarray with the same length as island, xpos
-                  and ypos, i.e. maxpix. It will contain, for every island
-                  pixel, the ratio between the spectral brightness and the
-                  local noise, i.e. the standard deviation of the background
-                  pixels. Not intended as a return array, since we are only
-                  interested in the maximum value of all the ratios across
-                  all island pixels. That maximum value is the signal-to-noise
-                  ratio of the detection (=sig).
+    :param source: 1D ndarray of float32 pixel values of the island with
+                   label = label. Length = maxpix, the number of pixels in the
+                   largest possible island, indicating that there will be a
+                   number of unassigned values for the highest indices, for some
+                   islands.
 
-    :param island:  1D ndarray of float32 numbers of pixel values of the
-                    island with label = label. Length = maxpix, the number
-                    of pixels in the largest possible island, indicating
-                    that there will be a number of unassigned values for
-                    the highest indices, for some islands.
+    :param noise: 1D ndarray of float32 rms noise values - local estimates of
+                  the standard deviation of the background noise - of the
+                  island with label = label. Length = maxpix, the number of
+                  pixels in the largest possible island, indicating that there
+                  will be a number of unassigned values for the highest indices,
+                  for some islands.
 
     :param xpos: 1D ndarray of integers indicating the row indices of the
                  pixels of the island with label = label, relative to the
@@ -1372,21 +1372,11 @@ def insert_island_data(some_image, noise_map, inds, labelled_data, label,
                  island over x and y and subsequently taking the minimum of
                  those two maximum widths.
 
-    :param sig: float32 indicating the significance of the detection.
-                Often this will be the ratio of the maximum pixel value within
-                the source island divided by the noise at that position. But
-                for extended sources, the noise can perhaps decrease away from
-                the position of the peak spectral brightness more steeply than
-                the source spectral brightness and the maximum signal-to-noise
-                ratio can be found at a different position.
-
     :return: No return values, because of the use of the guvectorize
              decorator: 'guvectorize() functions don’t return their
              result value: they take it as an array argument,
              which must be filled in by the function'. In this case
-             island, xpos, ypos, min_width and sig will be filled with values.
-             Also ratio will be filled with values, but probably only its
-             maximum value (=sig) will be used for further processing.
+             source, noise, xpos, ypos and min_width will be filled with values.
     """
 
     image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
@@ -1404,10 +1394,8 @@ def insert_island_data(some_image, noise_map, inds, labelled_data, label,
 
     for i in range(npix[0]):
         index = pos[0][i], pos[1][i]
-        island[i] = image_chunk[index]
-        ratio[i] = image_chunk[index] / noise_chunk[index]
-        if i == 0 or ratio[i] > sig[0]:
-            sig[0] = ratio[i]
+        source[i] = image_chunk[index]
+        noise[i] = noise_chunk[index]
         xpos[i], ypos[i] = index
 
 
@@ -1625,34 +1613,26 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # Gauss fitting, so a coarser way of measuring sources.
 
     # Make 2D input data suitable for moments_enhanced with guvectorize
-    # decorator, Each row will contain the pixel values of a flattened
-    # island.
+    # decorator, Each row will contain the pixel values of a flattened source.
     # First, determine the correct dimensions for the input
     # The number of rows will be num_labels = number of islands
     # (sources).
     # The number of columns will be max_pixels = the maximum number
     # of pixels an island can have.
     # We will also be needing auxiliary arrays.
-    # One will be an index array, with an extra dimension
-    # (num_labels, max_pixels, 2).
-    # This will be a 3D array of integers, indicating the relative
-    # positions of the source pixel relative to a corner of the slice
-    # enclosing the island.
+    # Two of those will be index arrays, xpositions and ypositions.
+    # These arrays will have shape (num_labels, max_pixels).
+    # I.e. these are 2D arrays of integers, indicating the relative
+    # positions of the source pixel relative to the top left corner of the slice
+    # encompassing the island.
     # Later we will be needing another 2D array of floats with a number
     # of quantities related to sky position.
 
     max_pixels = npixs.max()
 
-    islands = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
-    ratios = numpy.empty_like(islands)
+    sources = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
+    noises = numpy.empty_like(sources)
 
-    # In order to convert to celestial coordinates, at a later stage, we
-    # need to keep a record of the positions of the upper left corners
-    # of the chunks. moments_enhanced starts by calculating xbar and
-    # ybar as if those upper left corners have indices [0, 0] in the
-    # image. We can add the indices of the chunks as arguments of
-    # moments_enhanced to correct for that.
-    chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
     # xpositions and ypositions are relative to the upper left corner of
     # the chunk.
     xpositions = numpy.empty((num_islands, max_pixels), dtype=numpy.int32)
@@ -1668,15 +1648,11 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # parameters, i.e. by assuming the source is unresolved.
     minimum_widths = numpy.empty(num_islands, dtype=numpy.int32)
 
-    # sig is to be filled with the significances of each detection, i.e. the
-    # maximum signal-to-noise ratio across all island pixels, for each island.
-    sig = numpy.empty(num_islands, dtype=numpy.float32)
-
-    insert_island_data(data_bgsubbeddata.astype(numpy.float32, copy=False),
-                       rmsdata.astype(numpy.float32, copy=False), indices,
-                       labelled_data, labels.astype(numpy.int32, copy=False),
-                       npixs, ratios, islands, xpositions, ypositions,
-                       minimum_widths, sig)
+    insert_sources_and_noise(
+        data_bgsubbeddata.astype(numpy.float32, copy=False),
+        rmsdata.astype(numpy.float32, copy=False), indices, labelled_data,
+        labels.astype(numpy.int32, copy=False), npixs, sources, noises,
+        xpositions, ypositions, minimum_widths)
 
     # Make sure we get a single precision array of floats, which
     # fitting.moments_enhanced expects.
@@ -1686,6 +1662,13 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     local_noise_levels = rmsdata[maxposs[:, 0], maxposs[:, 1]].astype(
                                  numpy.float32, copy=False)
 
+    # In order to convert to celestial coordinates, at a later stage, we
+    # need to keep a record of the positions of the upper left corners
+    # of the chunks. moments_enhanced starts by calculating xbar and
+    # ybar as if those upper left corners have indices [0, 0] in the
+    # image. We can add the indices of the chunks as arguments of
+    # moments_enhanced to correct for that.
+    chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
     chunk_positions[:, 0] = indices[:, 0]
     chunk_positions[:, 1] = indices[:, 2]
 
@@ -1698,13 +1681,17 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                                      dtype=numpy.float32)
     dummy = numpy.empty_like(moments_of_sources)
 
+    # sig is to be filled with the significances of each detection, i.e. the
+    # maximum signal-to-noise ratio across all island pixels, for each island.
+    sig = numpy.empty(num_islands, dtype=numpy.float32)
+
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
     # The output shape can apparently not be set as fixed numbers.
     # So we will add a dummy array with shape corresponding
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
-    fitting.moments_enhanced(islands, chunk_positions, xpositions,
+    fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs,
                              thresholds, local_noise_levels,
                              maxis, fudge_max_pix_factor,
