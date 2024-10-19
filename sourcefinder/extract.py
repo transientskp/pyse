@@ -1297,9 +1297,8 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
 
 
 @guvectorize([(float32[:, :], float32[:, :], int32[:], int32[:, :], int32[:],
-               int32[:], float32[:], float32[:], int32[:], int32[:], int32[:],
-               float32[:])], '(n, m), (n, m), (l), (n, m), (), (), (k) -> (k)' +
-             ', (k), (k), (), ()')
+               int32[:], float32[:], float32[:], int32[:], int32[:], int32[:],)],
+             '(n, m), (n, m), (l), (n, m), (), (), (k) -> (k), (k), (k), ()')
 def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
                              npix, source, noise, xpos, ypos, min_width):
     """
