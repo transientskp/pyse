@@ -1301,7 +1301,7 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
                float32[:])], '(n, m), (n, m), (l), (n, m), (), (), (k) -> (k)' +
              ', (k), (k), (), ()')
 def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
-                             npix, source, noise, xpos, ypos, min_width, sig):
+                             npix, source, noise, xpos, ypos, min_width):
     """
     We want to copy the relevant source and noise data into input arrays for
     fitting.moments_enhanced. Simultaneously calculate the minimum width of
