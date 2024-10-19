@@ -123,16 +123,18 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32, int32, float32,
-               float32, float32, float64, float64, float64[:], float64,
-               float64[:], float64, float64, float32[:, :], float32[:, :])],
-              ('(n), (n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), (m), ' +
-               '(), (), (l, p) -> (l, p)'), nopython=True)
+@guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32,
+               int32, float32, float32, float32, float64, float64, float64[:],
+               float64, float64[:], float64, float64, float32[:, :],
+               float32[:, :], float32[:])], ('(n), (n), (m), (n), (n), (), ' +
+             '(), (), (), (), (), (), (k), (), (m), (), (), (l, p) -> ' +
+                                             '(l, p), ()'), nopython=True)
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxi,
                      fudge_max_pix_factor, max_pix_variance_factor, beam,
                      beamsize, correlation_lengths, clean_bias_error,
-                     frac_flux_cal_error, dummy, computed_moments):
+                     frac_flux_cal_error, dummy, computed_moments,
+                     significance):
     """Calculate source properties using moments. Vectorized using the
     guvectorize decorator. Also, calculate the signal-to-noise ratio of the
     detections as well as its chi-squared and reduced chi-squared statistics.
@@ -249,19 +251,17 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
               all island pixels. That maximum value is the signal-to-noise
               ratio of the detection (=sig).
 
-        # To be adjusted
-        sig(float32): Number indicating the significance of the detection.
-                Often this will be the ratio of the maximum pixel value within
-                the source island divided by the noise at that position. But
-                for extended sources, the noise can perhaps decrease away from
-                the position of the peak spectral brightness more steeply than
-                the source spectral brightness and the maximum signal-to-noise
-                ratio can be found at a different position.
+        significance(float32): Number indicating the significance of the
+            detection. Often this will be the ratio of the maximum pixel value
+            within the source island divided by the noise at that position. But
+            for extended sources, the noise can perhaps decrease away from the
+            position of the peak spectral brightness more steeply than the
+            source spectral brightness and the maximum signal-to-noise ratio
+            can be found at a different position.
 
     Returns:
-        # To be adjusted
-        None (because of the guvectorize decorator), but computed_moments is
-             filled with values.
+        None (because of the guvectorize decorator), but computed_moments and
+              significance are filled with values.
 
     Raises:
         exceptions.ValueError: in case of NaN in input.
@@ -273,6 +273,10 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     # all islands. This containing array was created by numpy.empty, so better
     # dump the redundant elements that have undetermined values.
     source_island = source_island[:no_pixels]
+    noise_island = noise_island[:no_pixels]
+    # The significance of a source detection is determined in this way.
+    significance[0] = (source_island / noise_island).max()
+
     # Are we fitting a -ve or +ve Gaussian?
     if source_island.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.

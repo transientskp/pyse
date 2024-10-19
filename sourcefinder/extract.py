@@ -1696,9 +1696,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                              maxis, fudge_max_pix_factor,
                              max_pix_variance_factor,
                              numpy.array(beam),
-                             beamsize,
-                             numpy.array(correlation_lengths),
-                             0, 0, dummy, moments_of_sources)
+                             beamsize, numpy.array(correlation_lengths), 0, 0,
+                             dummy, moments_of_sources, sig)
 
     barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
     # Convert the barycentric positions to celestial_coordinates.
