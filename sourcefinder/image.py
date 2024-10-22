@@ -1224,7 +1224,7 @@ class ImageData(object):
             ):
                 if not check_point(*point):
                     logger.debug("Unphysical source at pixel %f, %f" % (
-                    det.x.value, det.y.value))
+                        det.x.value, det.y.value))
                     return False
             return True
         # Filter will return a list; ensure we return an ExtractionResults.
