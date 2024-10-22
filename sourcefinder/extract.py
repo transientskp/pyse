@@ -1683,6 +1683,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # sig is to be filled with the significances of each detection, i.e. the
     # maximum signal-to-noise ratio across all island pixels, for each island.
     sig = numpy.empty(num_islands, dtype=numpy.float32)
+    chisq = numpy.empty_like(sig)
+    reduced_chisq = numpy.empty_like(sig)
 
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
@@ -1691,13 +1693,12 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
     fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
-                             ypositions, minimum_widths, npixs,
-                             thresholds, local_noise_levels,
-                             maxis, fudge_max_pix_factor,
-                             max_pix_variance_factor,
-                             numpy.array(beam),
+                             ypositions, minimum_widths, npixs, thresholds,
+                             local_noise_levels, maxis, fudge_max_pix_factor,
+                             max_pix_variance_factor, numpy.array(beam),
                              beamsize, numpy.array(correlation_lengths), 0, 0,
-                             dummy, moments_of_sources, sig)
+                             dummy, moments_of_sources, sig, chisq,
+                             reduced_chisq)
 
     barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
     # Convert the barycentric positions to celestial_coordinates.
