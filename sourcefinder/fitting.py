@@ -4,7 +4,7 @@ Source fitting routines.
 
 import math
 
-import numpy
+import numpy as np
 import scipy.optimize
 from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
@@ -23,7 +23,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
     Args:
 
-        data (numpy.ndarray): Actual 2D image data
+        data (np.ndarray): Actual 2D image data
 
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
@@ -52,7 +52,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         peak = data.min()
     ratio = threshold / peak
     total = data.sum()
-    x, y = numpy.indices(data.shape)
+    x, y = np.indices(data.shape)
     xbar = float((x * data).sum() / total)
     ybar = float((y * data).sum() / total)
     xxbar = (x * x * data).sum() / total - xbar ** 2
@@ -69,8 +69,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     if len(data.nonzero()[0]) == 1:
         # This is the case when the island (or more likely subisland) has
         # a size of only one pixel.
-        semiminor = numpy.sqrt(beamsize / numpy.pi)
-        semimajor = numpy.sqrt(beamsize / numpy.pi)
+        semiminor = np.sqrt(beamsize / np.pi)
+        semimajor = np.sqrt(beamsize / np.pi)
     else:
         semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
         semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
@@ -88,10 +88,10 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
             # A semi-minor axis exactly zero gives all kinds of problems.
             # For instance wrt conversion to celestial coordinates.
             # This is a quick fix.
-            semiminor = beamsize / (numpy.pi * semimajor)
+            semiminor = beamsize / (np.pi * semimajor)
 
-    if (numpy.isnan(xbar) or numpy.isnan(ybar) or
-            numpy.isnan(semimajor) or numpy.isnan(semiminor)):
+    if (np.isnan(xbar) or np.isnan(ybar) or
+            np.isnan(semimajor) or np.isnan(semiminor)):
         raise ValueError("Unable to estimate Gauss shape")
 
     # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
@@ -103,7 +103,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
         if xxbar != yybar:
             theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
         else:
-            theta = numpy.sign(xybar) * math.pi / 4.0
+            theta = np.sign(xybar) * math.pi / 4.0
 
         if theta * xybar > 0.:
             if theta < 0.:
@@ -127,15 +127,15 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 @guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32,
                int32, float32, float32, float32, float64, float64, float64[:],
                float64, float64[:], float64, float64, float32[:, :],
-               float32[:, :], float32[:])], ('(n), (n), (m), (n), (n), (), ' +
-               '(), (), (), (), (), (), (k), (), (m), (), (), (l, p) -> ' +
-               '(l, p), ()'), nopython=True)
+               float32[:, :], float32[:], float32[:], float32[:])],
+             ('(n), (n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), ' +
+              ' (m), (), (), (l, p) -> (l, p), (), (), ()'), nopython=True)
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxi,
                      fudge_max_pix_factor, max_pix_variance_factor, beam,
                      beamsize, correlation_lengths, clean_bias_error,
                      frac_flux_cal_error, dummy, computed_moments,
-                     significance):
+                     significance, chisq, reduced_chisq):
     """Calculate source properties using moments. Vectorized using the
     guvectorize decorator. Also, calculate the signal-to-noise ratio of the
     detections as well as its chi-squared and reduced chi-squared statistics.
@@ -149,27 +149,27 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     Args:
 
-        source_island (numpy.ndarray): Selected from the actual 2D image data,
+        source_island (np.ndarray): Selected from the actual 2D image data,
             by taking pixels above the analysis threshold only, with its peak
             above the detection threshold. This selection results in a 1D
             ndarray (without a mask). You can think of it as the source pixels,
             but flattened.
 
-        noise_island (numpy.ndarray): Pixel values selected from the 2D rms
+        noise_island (np.ndarray): Pixel values selected from the 2D rms
              noise map, at the pixel positions of the island that comprises a
              source, but, as with source_island, flattened. This selection
              results in a 1D ndarray (without a mask).
 
-        chunkpos (numpy.ndarray): Index array of length 2 denoting the position
+        chunkpos (np.ndarray): Index array of length 2 denoting the position
             of the top left corner of the rectangular slice encompassing the
             island relative to the top left corner of the image, which has pixel
             coordinates (0, 0), i.e. we need chunkpos to return to absolute
             pixel coordinates.
 
-        posx (numpy.ndarray): Row indices of the pixels in island_data as taken
+        posx (np.ndarray): Row indices of the pixels in island_data as taken
             from the actual 2D images data (rectangular slice).
 
-        posy  (numpy.ndarray): Column indices of the pixels in island_data as
+        posy  (np.ndarray): Column indices of the pixels in island_data as
             taken from the actual 2D images data (rectangular slice).
 
         min_width (integer): The minimum width (in pixels) of the island. This
@@ -195,11 +195,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         max_pix_variance_factor (float): Take account of additional variance
             induced by the maximum pixel method, on top of the background noise.
 
-        beam(numpy.ndarray): array from three floats: semimaj, semimin, theta.
+        beam(np.ndarray): array from three floats: semimaj, semimin, theta.
 
         beamsize(float): The FWHM size of the clean beam
 
-        correlation_lengths(numpy.ndarray): array from two floats describing the
+        correlation_lengths(np.ndarray): array from two floats describing the
             distance along the semi-major and semi-minor axes of the clean
             beam beyond which noise is assumed uncorrelated. Some background:
             Aperture synthesis imaging yields noise that is partially
@@ -214,13 +214,13 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         frac_flux_cal_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
 
-        dummy (numpy.ndarray): Empty array with the same shape as
+        dummy (np.ndarray): Empty array with the same shape as
             computed_moments needed because of a flau in guvectorize: There
             is no other way to tell guvectorize what the shape of the output
             array will be. Therefore, we define an otherwise redundant input
             array with the same shape as the desired output array.
 
-        computed_moments(numpy.ndarray): a (10, 2) array of floats containing
+        computed_moments(np.ndarray): a (10, 2) array of floats containing
             the computed moments, i.e.peak flux density, total flux,
             x barycenter, y barycenter, semimajor axis, semiminor axis,
             position angle and the deconvolved counterparts of the latter
@@ -235,6 +235,14 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
             source spectral brightness and the maximum signal-to-noise ratio
             can be found at a different position.
 
+        chisq(float32): Chi-squared statistic representing an indication of
+            the goodness-of-fit, equivalent to chisq as calculated in
+            goodness_of_fit.
+
+        reduced_chisq(float32): Reduced chi-squared statistic representing an
+            indication of the goodness-of-fit, equivalent to reduced chisq as
+            calculated in goodness_of_fit.
+
     Returns:
         None (because of the guvectorize decorator), but computed_moments and
               significance are filled with values.
@@ -246,7 +254,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     # Not every island has the same size. The number of columns of the array
     # containing all islands is equal to the maximum number of pxiels over
-    # all islands. This containing array was created by numpy.empty, so better
+    # all islands. This containing array was created by np.empty, so better
     # dump the redundant elements that have undetermined values.
     source_island = source_island[:no_pixels]
     noise_island = noise_island[:no_pixels]
@@ -309,10 +317,10 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                 # A semi-minor axis exactly zero gives all kinds of problems.
                 # For instance wrt conversion to celestial coordinates.
                 # This is a quick fix.
-                smin = beamsize / (numpy.pi * smaj)
+                smin = beamsize / (np.pi * smaj)
 
-            if (numpy.isnan(xbar) or numpy.isnan(ybar) or
-                    numpy.isnan(smaj) or numpy.isnan(smin)):
+            if (np.isnan(xbar) or np.isnan(ybar) or
+                    np.isnan(smaj) or np.isnan(smin)):
                 raise ValueError("Unable to estimate Gauss shape")
 
             # Theta is not affected by the cut-off at the threshold (see Spreeuw 2010,
@@ -324,7 +332,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                 if xxbar != yybar:
                     theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
                 else:
-                    theta = numpy.sign(xybar) * math.pi / 4.0
+                    theta = np.sign(xybar) * math.pi / 4.0
 
                 if theta * xybar > 0.:
                     if theta < 0.:
@@ -347,9 +355,30 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         smin = beam[1]
         theta = beam[2]
 
-    #  Equivalent of param["flux"] = (numpy.pi * param["peak"] *
+    Gaussian_reconstruction = np.empty(no_pixels, dtype=np.float32)
+    Gaussian_residual = np.empty_like(Gaussian_reconstruction)
+
+    # Compute the residuals based on the derived Gaussian parameters.
+    for index in range(no_pixels):
+        Gaussian_reconstruction[index] = peak * np.exp(-np.log(2) * (
+            ((np.cos(theta) * (posx[index] - xbar)
+             + np.sin(theta) * (posy[index] - ybar)) / smin) ** 2 +
+            ((np.cos(theta) * (posy[index] - ybar)
+             - np.sin(theta) * (posx[index] - xbar)) / smaj) ** 2))
+
+        Gaussian_residual[index] = source_island[index] - \
+            Gaussian_reconstruction[index]
+
+    # Copy code from goodness_of_fit. Here we are working with unmasked data,
+    # i.e. the masks have already been applied.
+    gauss_resid_normed = Gaussian_residual / noise_island
+    chisq[0] = np.sum(gauss_resid_normed ** 2)
+    n_indep_pix = indep_pixels(no_pixels, correlation_lengths)
+    reduced_chisq[0] = chisq[0] / n_indep_pix
+
+    #  Equivalent of param["flux"] = (np.pi * param["peak"] *
     #  param["semimajor"] * param["semiminor"] / beamsize) from extract.py.
-    flux = numpy.pi * peak * smaj * smin / beamsize
+    flux = np.pi * peak * smaj * smin / beamsize
 
     # Update xbar and ybar with the position of the upper left corner of the
     # chunk.
@@ -372,12 +401,12 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     # This is eq. 2.81 from Spreeuw's thesis.
     rho_sq = ((16. * smaj * smin /
-               (numpy.log(2.) * theta_B * theta_b * noise ** 2))
+               (np.log(2.) * theta_B * theta_b * noise ** 2))
               * ((peak - threshold) /
-                 (numpy.log(peak) - numpy.log(threshold))) ** 2)
+                 (np.log(peak) - np.log(threshold))) ** 2)
 
-    rho = numpy.sqrt(rho_sq)
-    denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+    rho = np.sqrt(rho_sq)
+    denom = np.sqrt(2. * np.log(2.)) * rho
 
     # Again, like above for the Condon formulae, we set the
     # positional variances to twice the theoretical values.
@@ -387,22 +416,22 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     # When these errors are converted to RA and Dec,
     # calibration uncertainties will have to be added,
     # like in formulae 27 of the NVSS paper.
-    errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
-                        + (error_par_minor * numpy.cos(theta)) ** 2)
-    errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
-                        + (error_par_minor * numpy.sin(theta)) ** 2)
+    errorx = np.sqrt((error_par_major * np.sin(theta)) ** 2
+                        + (error_par_minor * np.cos(theta)) ** 2)
+    errory = np.sqrt((error_par_major * np.cos(theta)) ** 2
+                        + (error_par_minor * np.sin(theta)) ** 2)
 
     # Note that we report errors in HWHM axes instead of FWHM axes
     # so the errors are half the errors of formula 29 of the NVSS paper.
-    errorsmaj = numpy.sqrt(2) * smaj / rho
-    errorsmin = numpy.sqrt(2) * smin / rho
+    errorsmaj = np.sqrt(2) * smaj / rho
+    errorsmin = np.sqrt(2) * smin / rho
 
     if smaj > smin:
         errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
     else:
-        errortheta = numpy.pi
-    if errortheta > numpy.pi:
-        errortheta = numpy.pi
+        errortheta = np.pi
+    if errortheta > np.pi:
+        errortheta = np.pi
 
     # The peak from "moments" is just the value of the maximum pixel
     # times a correction, fudge_max_pix, for the fact that the
@@ -423,12 +452,12 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                    clean_bias_error ** 2 + noise ** 2 +
                    max_pix_variance_factor * peak ** 2)
-    errorpeak = numpy.sqrt(errorpeaksq)
+    errorpeak = np.sqrt(errorpeaksq)
 
     help1 = (errorsmaj / smaj) ** 2
     help2 = (errorsmin / smin) ** 2
     help3 = theta_B * theta_b / (4. * smaj * smin)
-    errorflux = flux * numpy.sqrt(
+    errorflux = flux * np.sqrt(
         errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
     """Deconvolve from the clean beam"""
@@ -440,11 +469,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     fmajerror = 2. * errorsmaj
     fmin = 2. * smin
     fminerror = 2. * errorsmin
-    fpa = numpy.degrees(theta)
-    fpaerror = numpy.degrees(errortheta)
+    fpa = np.degrees(theta)
+    fpaerror = np.degrees(errortheta)
     cmaj = 2. * beam[0]
     cmin = 2. * beam[1]
-    cpa = numpy.degrees(beam[2])
+    cpa = np.degrees(beam[2])
 
     rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
     # This parameter gives the number of components that could not be
@@ -455,7 +484,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         # In this case the deconvolved position angle is defined.
         # For convenience, we reset rpa to the interval [-90, 90].
         if rpa > 90:
-            rpa = -numpy.mod(-rpa, 180.)
+            rpa = -np.mod(-rpa, 180.)
         theta_deconv = rpa
 
         # In the general case, where the restoring beam is elliptic,
@@ -468,30 +497,30 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
             fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
         if ierr1 < 2:
             if rpa1 > 90:
-                rpa1 = -numpy.mod(-rpa1, 180.)
-            rpaerror1 = numpy.abs(rpa1 - rpa)
+                rpa1 = -np.mod(-rpa1, 180.)
+            rpaerror1 = np.abs(rpa1 - rpa)
             # An angle error can never be more than 90 degrees.
             if rpaerror1 > 90.:
-                rpaerror1 = numpy.mod(-rpaerror1, 180.)
+                rpaerror1 = np.mod(-rpaerror1, 180.)
         else:
-            rpaerror1 = numpy.nan
+            rpaerror1 = np.nan
         rmaj2, rmin2, rpa2, ierr2 = deconv(
             fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
         if ierr2 < 2:
             if rpa2 > 90:
-                rpa2 = -numpy.mod(-rpa2, 180.)
-            rpaerror2 = numpy.abs(rpa2 - rpa)
+                rpa2 = -np.mod(-rpa2, 180.)
+            rpaerror2 = np.abs(rpa2 - rpa)
             # An angle error can never be more than 90 degrees.
             if rpaerror2 > 90.:
-                rpaerror2 = numpy.mod(-rpaerror2, 180.)
+                rpaerror2 = np.mod(-rpaerror2, 180.)
         else:
-            rpaerror2 = numpy.nan
-        if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
-            theta_deconv_error = numpy.nansum(
-                numpy.array([rpaerror1, rpaerror2]))
+            rpaerror2 = np.nan
+        if np.isnan(rpaerror1) or np.isnan(rpaerror2):
+            theta_deconv_error = np.nansum(
+                np.array([rpaerror1, rpaerror2]))
         else:
-            theta_deconv_error = numpy.mean(
-                numpy.array([rpaerror1, rpaerror2]))
+            theta_deconv_error = np.mean(
+                np.array([rpaerror1, rpaerror2]))
         semimaj_deconv = rmaj / 2.
         rmaj3, rmin3, rpa3, ierr3 = deconv(
             fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa)
@@ -502,18 +531,18 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
             rmaj4, rmin4, rpa4, ierr4 = deconv(
                 fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
             if rmaj4 > 0:
-                semimaj_deconv_error = numpy.mean(numpy.array(
-                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
+                semimaj_deconv_error = np.mean(np.array(
+                    [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)]))
             else:
-                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+                semimaj_deconv_error = np.abs(rmaj3 - rmaj)
         else:
             rmin4, rmaj4, rpa4, ierr4 = deconv(
                 fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
             if rmaj4 > 0:
-                semimaj_deconv_error = numpy.mean(numpy.array(
-                    [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)]))
+                semimaj_deconv_error = np.mean(np.array(
+                    [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)]))
             else:
-                semimaj_deconv_error = numpy.abs(rmaj3 - rmaj)
+                semimaj_deconv_error = np.abs(rmaj3 - rmaj)
         if rmin > 0:
             semimin_deconv = rmin / 2.
             if fmin + fminerror < fmaj:
@@ -528,25 +557,25 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
             rmaj6, rmin6, rpa6, ierr6 = deconv(
                 fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
             if rmin6 > 0:
-                semimin_deconv_error = numpy.mean(numpy.array(
-                    [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)]))
+                semimin_deconv_error = np.mean(np.array(
+                    [np.abs(rmin6 - rmin), np.abs(rmin5 - rmin)]))
             else:
-                semimin_deconv_error = numpy.abs(rmin5 - rmin)
+                semimin_deconv_error = np.abs(rmin5 - rmin)
         else:
-            semimin_deconv = numpy.nan
-            semimin_deconv_error = numpy.nan
+            semimin_deconv = np.nan
+            semimin_deconv_error = np.nan
     else:
-        semimaj_deconv = numpy.nan
-        semimaj_deconv_error = numpy.nan
-        semimin_deconv = numpy.nan
-        semimin_deconv_error = numpy.nan
-        theta_deconv = numpy.nan
-        theta_deconv_error = numpy.nan
+        semimaj_deconv = np.nan
+        semimaj_deconv_error = np.nan
+        semimin_deconv = np.nan
+        semimin_deconv_error = np.nan
+        theta_deconv = np.nan
+        theta_deconv_error = np.nan
 
-    computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
+    computed_moments[0, :] = np.array([peak, flux, xbar, ybar, smaj,
                                           smin, theta, semimaj_deconv,
                                           semimin_deconv, theta_deconv])
-    computed_moments[1, :] = numpy.array([errorpeak, errorflux, errorx,
+    computed_moments[1, :] = np.array([errorpeak, errorflux, errorx,
                                           errory, errorsmaj, errorsmin,
                                           errortheta, semimaj_deconv_error,
                                           semimin_deconv_error,
@@ -557,7 +586,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     """Calculate source positional values by fitting a 2D Gaussian
 
     :Args:
-        pixels (numpy.ma.MaskedArray): Pixel values (with bad pixels masked)
+        pixels (np.ma.MaskedArray): Pixel values (with bad pixels masked)
 
         params (dict): initial fit parameters (possibly estimated
             using the moments() function, above)
@@ -614,7 +643,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         """Error function to be used in chi-squared fitting
 
         Args:
-            params(numpy.ndarray): fitting parameters
+            params(np.ndarray): fitting parameters
 
         Returns:
             1d-array of difference between estimated Gaussian function
@@ -636,8 +665,8 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         # The .compressed() below is essential so the Gaussian fit will not
         # take account of the masked values (=below threshold) at the edges
         # and corners of pixels (=(masked) array, so rectangular).
-        pixel_resids = numpy.ma.MaskedArray(
-            data=numpy.fromfunction(g, pixels.shape) - pixels,
+        pixel_resids = np.ma.MaskedArray(
+            data=np.fromfunction(g, pixels.shape) - pixels,
             mask=pixels.mask)
 
         return pixel_resids.compressed()
@@ -646,7 +675,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         """The Jacobian of an anisotropic 2D Gaussian at the pixel positions.
 
         Args:
-            params(numpy.ndarray): fitting parameters
+            params(np.ndarray): fitting parameters
 
         Returns:
              2d-array with values of the partial derivatives of the
@@ -676,11 +705,11 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         # correspond to fixed parameters, must be in sync with initial.
         jac_filtered = wipe_out_fixed(jac)
 
-        jac_values = [numpy.ma.MaskedArray(
-            data=numpy.fromfunction(jac_filtered[key], pixels.shape),
+        jac_values = [np.ma.MaskedArray(
+            data=np.fromfunction(jac_filtered[key], pixels.shape),
             mask=pixels.mask).compressed() for key in jac_filtered]
 
-        return numpy.array(jac_values).T
+        return np.array(jac_values).T
 
     # maxfev=0, the default, corresponds to 200*(N+1) (NB, not 100*(N+1) as
     # the scipy docs state!) function evaluations, where N is the number of
@@ -710,7 +739,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         applied_bounds = scipy.optimize.Bounds(lb=lb, ub=ub,
                                                keep_feasible=keep_feasible)
     else:
-        applied_bounds = (-numpy.inf, numpy.inf)
+        applied_bounds = (-np.inf, np.inf)
 
     Fitting_results = scipy.optimize.least_squares(
         residuals, initial, jac=jacobian_values,
@@ -726,8 +755,8 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
 
     # soln contains only the variable parameters; we need to merge the
     # contents of fixed into the soln list.
-    # leastsq() returns either a numpy.float64 (if fitting a single value) or
-    # a numpy.ndarray (if fitting multiple values); we need to turn that into
+    # leastsq() returns either a np.float64 (if fitting a single value) or
+    # a np.ndarray (if fitting multiple values); we need to turn that into
     # a list for the merger.
     try:
         # If a ndarray (or other iterable)
@@ -744,7 +773,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         # the rest of our codebase.
         results['semimajor'], results['semiminor'] = results['semiminor'], \
             results['semimajor']
-        results['theta'] += numpy.pi / 2
+        results['theta'] += np.pi / 2
 
     # Negative axes are a valid fit, since they are squared in the definition
     # of the Gaussian.
@@ -786,7 +815,7 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
     hence under-estimate the chi-squared values.
 
     Args:
-        masked_residuals(numpy.ma.MaskedArray): The pixel-residuals from the fit
+        masked_residuals(np.ma.MaskedArray): The pixel-residuals from the fit
         noise (float): An estimate of the noise level. Could also be set to
             a masked numpy array matching the data, for per-pixel noise
             estimates.
@@ -805,8 +834,8 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
 
     """
     gauss_resid_normed = (masked_residuals / noise).compressed()
-    chisq = numpy.sum(gauss_resid_normed * gauss_resid_normed)
-    n_fitted_pix = len(masked_residuals.compressed().ravel())
+    chisq = np.sum(gauss_resid_normed * gauss_resid_normed)
+    n_fitted_pix = len(masked_residuals.compressed())
     n_indep_pix = indep_pixels(n_fitted_pix, correlation_lengths)
     reduced_chisq = chisq / n_indep_pix
     return chisq, reduced_chisq
