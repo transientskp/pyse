@@ -30,9 +30,10 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
         beamsize(float): The FWHM size of the clean beam
 
-        threshold(float): source parameters like the semimajor and semiminor axes
-                          derived from moments can be underestimated if one does not take
-                          account of the threshold that was used to segment the source islands.
+        threshold(float): source parameters like the semimajor and semiminor
+                          axes derived from moments can be underestimated if
+                          one does not take account of the threshold that was
+                          used to segment the source islands.
 
     Returns:
         dict: peak, total, x barycenter, y barycenter, semimajor
@@ -127,8 +128,8 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
                int32, float32, float32, float32, float64, float64, float64[:],
                float64, float64[:], float64, float64, float32[:, :],
                float32[:, :], float32[:])], ('(n), (n), (m), (n), (n), (), ' +
-             '(), (), (), (), (), (), (k), (), (m), (), (), (l, p) -> ' +
-                                             '(l, p), ()'), nopython=True)
+               '(), (), (), (), (), (), (k), (), (m), (), (), (l, p) -> ' +
+               '(l, p), ()'), nopython=True)
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxi,
                      fudge_max_pix_factor, max_pix_variance_factor, beam,
@@ -149,50 +150,42 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     Args:
 
         source_island (numpy.ndarray): Selected from the actual 2D image data,
-                                     by taking pixels above the analysis
-                                     threshold only, with its peak above the
-                                     detection threshold. This selection
-                                     results in a 1D ndarray (without a mask).
-                                     You can think of it as the source pixels,
-                                     but flattened.
+            by taking pixels above the analysis threshold only, with its peak
+            above the detection threshold. This selection results in a 1D
+            ndarray (without a mask). You can think of it as the source pixels,
+            but flattened.
 
         noise_island (numpy.ndarray): Pixel values selected from the 2D rms
-                                     noise map, at the pixel positions of the
-                                     island that comprises a source, but, as
-                                     with source_island, flattened.
-                                     This selection results in a 1D ndarray
-                                     (without a mask).
+             noise map, at the pixel positions of the island that comprises a
+             source, but, as with source_island, flattened. This selection
+             results in a 1D ndarray (without a mask).
 
         chunkpos (numpy.ndarray): Index array of length 2 denoting the position
-                                  of the top left corner of the rectangular
-                                  slice encompassing the island relative to the
-                                  top left corner of the image, which has pixel
-                                  coordinates (0, 0), i.e. we need chunkpos
-                                  to return to absolute pixel coordinates.
+            of the top left corner of the rectangular slice encompassing the
+            island relative to the top left corner of the image, which has pixel
+            coordinates (0, 0), i.e. we need chunkpos to return to absolute
+            pixel coordinates.
 
         posx (numpy.ndarray): Row indices of the pixels in island_data as taken
-                              from the actual 2D images data
-                              (rectangular slice).
+            from the actual 2D images data (rectangular slice).
 
         posy  (numpy.ndarray): Column indices of the pixels in island_data as
-                               taken from the actual 2D images data (rectangular
-                                slice).
+            taken from the actual 2D images data (rectangular slice).
 
         min_width (integer): The minimum width (in pixels) of the island. This
-                             was derived by calculating the maximum width of the
-                             island over x and y and then taking the minimum of
-                             those two numbers.
+            was derived by calculating the maximum width of the island over x
+            and y and then taking the minimum of those two numbers.
 
         no_pixels (integer): The number of pixels that constitute the island.
 
         threshold(float): source parameters like the semimajor and semiminor
-                          axes derived from moments can be underestimated if
-                          one does not take account of the threshold that
-                          was used to segment the source islands.
+            axes derived from moments can be underestimated if one does not
+            take account of the threshold that was used to segment the source
+            islands.
 
         noise(float): local noise, i.e. the standard deviation of the
-                      background pixel values, at the position of the
-                      peak pixel value of the island.
+            background pixel values, at the position of the peak pixel value
+            of the island.
 
         maxi(float): peak pixel value from island.
 
@@ -200,24 +193,20 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                                      by taking the maximum pixel value.
 
         max_pix_variance_factor (float): Take account of additional variance
-                                        induced by the maximum pixel method,
-                                        on top of the background noise.
+            induced by the maximum pixel method, on top of the background noise.
 
         beam(numpy.ndarray): array from three floats: semimaj, semimin, theta.
 
         beamsize(float): The FWHM size of the clean beam
 
         correlation_lengths(numpy.ndarray): array from two floats describing the
-                                    distance along the semi-major and semi-minor
-                                    axes of the clean beam beyond which noise is
-                                    assumed uncorrelated. Some background:
-                                    Aperture synthesis imaging yields noise that
-                                    is partially correlated over the entire
-                                    image. This has a considerable effect on
-                                    error estimates. We approximate this by
-                                    considering all noise within the
-                                    correlation length completely correlated
-                                    and beyond that completely uncorrelated.
+            distance along the semi-major and semi-minor axes of the clean
+            beam beyond which noise is assumed uncorrelated. Some background:
+            Aperture synthesis imaging yields noise that is partially
+            correlated over the entire image. This has a considerable effect on
+            error estimates. We approximate this by considering all noise
+            within the correlation length completely correlated and beyond
+            that completely uncorrelated.
 
         clean_bias_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
@@ -226,30 +215,17 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                           Condon (PASP 109, 166 (1997)) formulae
 
         dummy (numpy.ndarray): Empty array with the same shape as
-                               computed_moments needed because of a flau
-                               in guvectorize: There is no other way to tell
-                               guvectorize what the shape of the output array
-                               will be. Therefore, we define an otherwise
-                               redundant input array with the same shape as
-                               the desired output array.
+            computed_moments needed because of a flau in guvectorize: There
+            is no other way to tell guvectorize what the shape of the output
+            array will be. Therefore, we define an otherwise redundant input
+            array with the same shape as the desired output array.
 
         computed_moments(numpy.ndarray): a (10, 2) array of floats containing
-                                the computed moments, i.e.peak flux density,
-                                total flux, x barycenter, y barycenter,
-                                semimajor axis, semiminor axis, position angle
-                                and the deconvolved counterparts of the latter
-                                three quantities. This constitutes a total of
-                                ten quantities and their corresponding errors.
-
-        # To be adjusted
-        ratio(numpy.ndarray): 1D array with the same length as island, xpos
-              and ypos, i.e. maxpix. It will contain, for every island
-              pixel, the ratio between the spectral brightness and the
-              local noise, i.e. the standard deviation of the background
-              pixels. Not intended as a return array, since we are only
-              interested in the maximum value of all the ratios across
-              all island pixels. That maximum value is the signal-to-noise
-              ratio of the detection (=sig).
+            the computed moments, i.e.peak flux density, total flux,
+            x barycenter, y barycenter, semimajor axis, semiminor axis,
+            position angle and the deconvolved counterparts of the latter
+            three quantities. This constitutes a total of ten quantities and
+            their corresponding errors.
 
         significance(float32): Number indicating the significance of the
             detection. Often this will be the ratio of the maximum pixel value
@@ -565,7 +541,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         semimin_deconv = numpy.nan
         semimin_deconv_error = numpy.nan
         theta_deconv = numpy.nan
-        theta_deconv_error= numpy.nan
+        theta_deconv_error = numpy.nan
 
     computed_moments[0, :] = numpy.array([peak, flux, xbar, ybar, smaj,
                                           smin, theta, semimaj_deconv,
@@ -619,7 +595,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     def wipe_out_fixed(some_dict):
         wiped_out = map(lambda key: (key, some_dict[key]),
                         filter(lambda key: key not in fixed.keys(),
-                        iter(FIT_PARAMS)))
+                               iter(FIT_PARAMS)))
         return dict(wiped_out)
 
     # Collect necessary values from parameter dict; only those which aren't
@@ -767,7 +743,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         # Swapped axis order is a perfectly valid fit, but inconvenient for
         # the rest of our codebase.
         results['semimajor'], results['semiminor'] = results['semiminor'], \
-                                                     results['semimajor']
+            results['semimajor']
         results['theta'] += numpy.pi / 2
 
     # Negative axes are a valid fit, since they are squared in the definition
