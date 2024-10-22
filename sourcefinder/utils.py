@@ -138,7 +138,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
     + theta_b = 2.0 * semiminor
     """
 
-    return (2.0 * semimajor, 2.0 * semiminor)
+    return 2.0 * semimajor, 2.0 * semiminor
 
 
 def calculate_beamsize(semimajor, semiminor):
