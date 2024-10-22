@@ -417,9 +417,9 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     # calibration uncertainties will have to be added,
     # like in formulae 27 of the NVSS paper.
     errorx = np.sqrt((error_par_major * np.sin(theta)) ** 2
-                        + (error_par_minor * np.cos(theta)) ** 2)
+                     + (error_par_minor * np.cos(theta)) ** 2)
     errory = np.sqrt((error_par_major * np.cos(theta)) ** 2
-                        + (error_par_minor * np.sin(theta)) ** 2)
+                     + (error_par_minor * np.sin(theta)) ** 2)
 
     # Note that we report errors in HWHM axes instead of FWHM axes
     # so the errors are half the errors of formula 29 of the NVSS paper.
@@ -573,13 +573,13 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         theta_deconv_error = np.nan
 
     computed_moments[0, :] = np.array([peak, flux, xbar, ybar, smaj,
-                                          smin, theta, semimaj_deconv,
-                                          semimin_deconv, theta_deconv])
+                                       smin, theta, semimaj_deconv,
+                                       semimin_deconv, theta_deconv])
     computed_moments[1, :] = np.array([errorpeak, errorflux, errorx,
-                                          errory, errorsmaj, errorsmin,
-                                          errortheta, semimaj_deconv_error,
-                                          semimin_deconv_error,
-                                          theta_deconv_error])
+                                       errory, errorsmaj, errorsmin,
+                                       errortheta, semimaj_deconv_error,
+                                       semimin_deconv_error,
+                                       theta_deconv_error])
 
 
 def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
@@ -820,14 +820,14 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
             a masked numpy array matching the data, for per-pixel noise
             estimates.
 
-        correlation_lengths(tuple): Tuple of two floats describing the distance along the semimajor
-                                    and semiminor axes of the clean beam beyond which noise
-                                    is assumed uncorrelated. Some background: Aperture synthesis imaging
-                                    yields noise that is partially correlated
-                                    over the entire image. This has a considerable effect on error
-                                    estimates. We approximate this by considering all noise within the
-                                    correlation length completely correlated and beyond that completely
-                                    uncorrelated.
+        correlation_lengths(tuple): Tuple of two floats describing the distance
+            along the semimajor and semiminor axes of the clean beam beyond
+            which noise is assumed uncorrelated. Some background: Aperture
+            synthesis imaging yields noise that is partially correlated
+            over the entire image. This has a considerable effect on error
+            estimates. We approximate this by considering all noise within the
+            correlation length completely correlated and beyond that completely
+            uncorrelated.
 
     Returns:
         tuple: chisq, reduced_chisq
