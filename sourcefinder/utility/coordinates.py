@@ -697,6 +697,7 @@ class WCS:
     def __getattr__(self, attrname):
         if attrname in self.WCS_ATTRS:
             return getattr(self.wcs.wcs, attrname)
+        raise AttributeError(f"{type(self)!r} object has no attribute {attrname!r}")
 
     def p2s(self, pixpos):
         """
