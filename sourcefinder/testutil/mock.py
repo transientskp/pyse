@@ -69,7 +69,7 @@ class SyntheticImage(DataAccessor):
         Generate a synthetic image for use in tests
 
         Args:
-            wcs (tkp.utility.coordinates.WCS): WCS for the image.
+            wcs (sourcefinder.utility.coordinates.WCS): WCS for the image.
             data (array_like): Data for the image. Default is a 512x512 array of
                 zeroes.
             beam (tuple): Beamsemi-major axis (in pixels), semi-minor axis (pixels)
