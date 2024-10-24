@@ -359,7 +359,7 @@ class ParamSet(MutableMapping):
             # cases where the axes are aligned with the coordinate axes,
             # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
             # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
-            # margin needs to be applied. 1.05 was chosen here.
+            # margin needs to be applied.
             # keep_feasibly is True here to accommodate for a fitting process
             # where the margin is exceeded.
             self.bounds["theta"] = (-numpy.pi/2, numpy.pi, True)
@@ -1685,6 +1685,9 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     sig = numpy.empty(num_islands, dtype=numpy.float32)
     chisq = numpy.empty_like(sig)
     reduced_chisq = numpy.empty_like(sig)
+
+    Gaussian_islands = numpy.zeros_like(data_bgsubbeddata)
+    Gaussian_residuals = numpy.zeros_like(Gaussian_islands)
 
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
