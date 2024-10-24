@@ -56,10 +56,6 @@ class LofarHdf5Image(DataAccessor):
         pipeline_version = source.attrs['PIPELINE_VERSION']
         notes = source.attrs['NOTES']
 
-    def get_header(self):
-        # Preserved for API compatibility.
-        return self.header
-
     def _read_data(self, source):
         self.data = numpy.squeeze(source["map"])
 
