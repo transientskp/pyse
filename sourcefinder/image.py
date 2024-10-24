@@ -1178,7 +1178,7 @@ class ImageData(object):
                 chunk = slices[label - 1]
 
                 param = extract.ParamSet()
-                param.sig = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
+                param["sig"] = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
 
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
                 param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
