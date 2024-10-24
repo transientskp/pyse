@@ -52,12 +52,6 @@ class ObjectContainer(list):
         """
         raise NotImplementedError
 
-    def __iadd__(self, y):
-        """
-        Not implemented.
-        """
-        raise NotImplementedError
-
     def __imul__(self, y):
         """
         Not implemented.
