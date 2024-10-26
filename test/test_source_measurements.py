@@ -44,6 +44,15 @@ class SourceParameters(unittest.TestCase):
         img = image.ImageData(fitsfile.data, fitsfile.beam,
                               fitsfile.wcs)
 
+        background_grid = img.grids
+        mean_bg = background_grid["bg"]
+        std_bg =  background_grid["rms"]
+        np.savez_compressed(os.path.join(DATAPATH + "/kappa_sigma_clipping/",
+                            "mean_grid_from_default_PySE.npz"),
+                            data=mean_bg.data, mask=mean_bg.mask)
+        np.savez_compressed(os.path.join(DATAPATH + "/kappa_sigma_clipping/",
+                            "std_grid_from_default_PySE.npz"), data=std_bg.data,
+                            mask=std_bg.mask)
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background
         # level and noise map.  In this way we make sure that any
