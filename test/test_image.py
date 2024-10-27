@@ -481,3 +481,30 @@ class TestNegationImage(unittest.TestCase):
         self.assertTrue(len(extraction_results) == 0,
                         msg=("Extracting sources from the negation of a Stokes"
                              " I image should yield only noise peaks."))
+
+
+# The TestBackgroundCharacteristics class has been generated using
+# ChatGPT 4.0. All AI-output has been verified for correctness,
+# accuracy and completeness, adapted where needed, and approved by the author.
+class TestBackgroundCharacteristics(unittest.TestCase):
+    def setUp(self):
+        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
+                                                            'deconvolved.fits'))
+        self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
+                                     fitsfile.wcs)
+
+    @requires_data(os.path.join(DATAPATH, "rms_grid_from_default_PySE.npy"))
+    def test_sigma_clip_rms_grid(self):
+        rms_grid = self.img.grids["rms"]
+
+        # Load ground truth data for RMS
+        self.rms_ground_truth_grid = np.load(os.path.join(DATAPATH,
+                                             "rms_grid_from_default_PySE.npy"))
+
+        # Check the shapes are the same
+        self.assertEqual(rms_grid.shape, self.rms_ground_truth_grid.shape,
+                         "Shapes of rms grids do not match")
+
+        # Compare the arrays
+        np.testing.assert_allclose(rms_grid, self.rms_ground_truth_grid,
+                                   rtol=1e-5, atol=1e-8)
