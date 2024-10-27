@@ -7,6 +7,8 @@ import itertools
 import logging
 
 import numpy as np
+from numba import guvectorize, float32, int32
+
 import time
 
 from sourcefinder import extract
@@ -21,12 +23,14 @@ from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
 import sep
+import os
+from pathlib import Path
+DATAPATH = str((Path(__file__).parent.parent / "test/data").absolute())
 
 try:
     import ndimage
 except ImportError:
     from scipy import ndimage
-from numba import guvectorize, float32, int32
 
 
 def timeit(method):
@@ -137,6 +141,17 @@ class ImageData(object):
     @cached_property
     def grids(self):
         """Gridded RMS and background data for interpolating"""
+        background_grid = self.__grids()
+        mean_bg = background_grid["bg"]
+        std_bg =  background_grid["rms"]
+        numpy.savez_compressed(os.path.join(DATAPATH + "/kappa_sigma_clipping/",
+                                            ("mean_grid_image_206-215-t0002" +
+                                             ".fits_radius_1000.npz")),
+                               data=mean_bg.data, mask=mean_bg.mask)
+        numpy.savez_compressed(os.path.join(DATAPATH + "/kappa_sigma_clipping/",
+                                            ("std_grid_image_206-215-t0002" +
+                                             ".fits_radius_1000.npz")),
+                               data=std_bg.data, mask=std_bg.mask)
         return self.__grids()
 
     @cached_property
