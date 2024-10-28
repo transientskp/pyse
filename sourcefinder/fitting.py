@@ -127,14 +127,17 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 @guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32,
                int32, float32, float32, float32, float64, float64, float64[:],
                float64, float64[:], float64, float64, float32[:, :],
-               float32[:, :], float32[:], float32[:], float32[:])],
+               float32[:, :], float32[:, :], float32[:, :], float32[:],
+               float32[:], float32[:])],
              ('(n), (n), (m), (n), (n), (), (), (), (), (), (), (), (k), (), ' +
-              ' (m), (), (), (l, p) -> (l, p), (), (), ()'), nopython=True)
+              ' (m), (), (), (q, r), (q, r), (l, p) -> (l, p), (), (), ()'),
+             nopython=True)
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxi,
                      fudge_max_pix_factor, max_pix_variance_factor, beam,
                      beamsize, correlation_lengths, clean_bias_error,
-                     frac_flux_cal_error, dummy, computed_moments,
+                     frac_flux_cal_error, Gaussian_islands_map,
+                     Gaussian_residuals_map, dummy, computed_moments,
                      significance, chisq, reduced_chisq):
     """Calculate source properties using moments. Vectorized using the
     guvectorize decorator. Also, calculate the signal-to-noise ratio of the
@@ -213,6 +216,21 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
         frac_flux_cal_error: Extra source of error copied from the
                           Condon (PASP 109, 166 (1997)) formulae
+
+        Gaussian_islands_map (np.ndarray): Initially a 2D np.float32 ndarray
+            with only zeroes with the same shape as the astronomical image that
+            we are processing, i.e. the same shape as data_bgsubbed from the
+            ImageData class instantiation. The Gaussian islands computed in this
+            function are inserted (i.e. added) to this array, but only at pixel
+            positions of islands, i.e. only at pixel values above the analysis
+            threshold, zero outside the islands.
+
+        Gaussian_residuals_map (np.ndarray): Initially a 2D np.float32 ndarray
+            with only zeroes with the same shape as Gaussian_islands_map.
+            Gaussian_islands_map is subtracted from ImageData.data_bgsubbed.data
+            to arrive at the residuals, but only at pixel positions of islands,
+            i.e. only at pixel values above the analysis threshold, zero outside
+            the islands.
 
         dummy (np.ndarray): Empty array with the same shape as
             computed_moments needed because of a flau in guvectorize: There
@@ -355,19 +373,26 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         smin = beam[1]
         theta = beam[2]
 
-    Gaussian_reconstruction = np.empty(no_pixels, dtype=np.float32)
-    Gaussian_residual = np.empty_like(Gaussian_reconstruction)
+    # Reconstruct the Gaussian profile we just derived at the pixel positions
+    # of the island. Initialise a flat array to hold these values.
+    Gaussian_island = np.empty(no_pixels, dtype=np.float32)
+    # Likewise for the Gaussian residuals.
+    Gaussian_residual = np.empty_like(Gaussian_island)
 
     # Compute the residuals based on the derived Gaussian parameters.
     for index in range(no_pixels):
-        Gaussian_reconstruction[index] = peak * np.exp(-np.log(2) * (
+        Gaussian_island[index] = peak * np.exp(-np.log(2) * (
             ((np.cos(theta) * (posx[index] - xbar)
              + np.sin(theta) * (posy[index] - ybar)) / smin) ** 2 +
             ((np.cos(theta) * (posy[index] - ybar)
              - np.sin(theta) * (posx[index] - xbar)) / smaj) ** 2))
 
+        map_position = (posx[index] + chunkpos[0], posy[index] + chunkpos[1])
+        Gaussian_islands_map[map_position] = Gaussian_island[index]
+
         Gaussian_residual[index] = source_island[index] - \
-            Gaussian_reconstruction[index]
+            Gaussian_island[index]
+        Gaussian_residuals_map[map_position] = Gaussian_residual[index]
 
     # Copy code from goodness_of_fit. Here we are working with unmasked data,
     # i.e. the masks have already been applied.
