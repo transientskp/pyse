@@ -17,11 +17,11 @@ lofarcasatable = os.path.join(DATAPATH, ('casatable/L55596_000TO009_' +
                                          'skymodellsc_wmax6000_noise_mult10' +
                                          '_cell40_npix512_wplanes215.img' +
                                          '.restored.corr'))
-casatable = os.path.join(DATAPATH, 'casa.table')
-fitsfile = os.path.join(DATAPATH, 'lofar.fits')
-hdf5file = os.path.join(DATAPATH, 'lofar.h5')
+casatable = os.path.join(DATAPATH, 'accessors/casa.table')
+fitsfile = os.path.join(DATAPATH, 'accessors/lofar.fits')
+hdf5file = os.path.join(DATAPATH, 'accessors/lofar.h5')
 antennafile = os.path.join(DATAPATH, 'lofar/CS001-AntennaArrays.conf')
-amicasatable = os.path.join(DATAPATH, 'ami-la.image')
+amicasatable = os.path.join(DATAPATH, 'accessors/ami-la.image')
 
 
 class TestAutodetect(unittest.TestCase):
