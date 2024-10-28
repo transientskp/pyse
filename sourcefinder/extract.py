@@ -1592,6 +1592,34 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                           be that most sources are unresolved, so the
                           deconvolved source shape parameters will be nans.
 
+        Gaussian_islands_map (np.ndarray): A 2D np.float32 ndarray
+            with the same shape as data_bgsubbed from the ImageData class
+            instantiation. The derived Gaussian parameters have been used to
+            reconstruct Gaussian profiles at the pixel positions of the islands
+            and zero outside those islands.
+
+        Gaussian_residuals_map (np.ndarray): Similar to Gaussian_islands_map,
+        but as residuals, i.e. the Gaussian islands have been subtracted from
+        the image data at the pixel positions of the islands - and zero outside
+        the islands.
+
+        sig(ndarray): np.float32 numbers indicating the significances of the
+            detections. Often this will be the ratio of the peak spectral
+            brightness of the source island divided by the noise at the position
+            of that peak.  But for extended sources, the noise can perhaps
+            decrease away from the position of the peak spectral brightness more
+            steeply than the source spectral brightness and the maximum
+            signal-to-noise ratio can be found at a different position.
+
+        chisq(ndarray): np.float32 numbers representing chi-squared statistics
+            reflecting an indication of the goodness-of-fit, equivalent to chisq
+            as calculated in fitting.goodness_of_fit.
+
+        reduced_chisq(ndarray): np.float32 numbers representing reduced
+            chi-squared statistics reflecting an indication of the
+            goodness-of-fit, equivalent to reduced_chisq as calculated in
+            fitting.goodness_of_fit.
+
     """
     # This is the conditional route to the fastest algorithm for source
     # measurements, with no forced_beam and deblending options and no
