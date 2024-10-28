@@ -9,7 +9,7 @@ from sourcefinder.utility.coordinates import angsep
 from .conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, 'aartfaac.table')
+casatable = os.path.join(DATAPATH, 'accessors/aartfaac.table')
 
 
 class TestAartfaacCasaImage(unittest.TestCase):
