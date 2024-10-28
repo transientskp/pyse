@@ -9,7 +9,8 @@ from sourcefinder.utility.coordinates import angsep
 from .conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, 'kat7.image')
+casatable = os.path.join(DATAPATH, 'accessors/kat7.image')
+
 
 class TestKat7CasaImage(unittest.TestCase):
     @classmethod
