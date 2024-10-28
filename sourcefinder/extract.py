@@ -1440,7 +1440,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     :param maxis: 1D float32 ndarray of length num_islands with the peak pixel
                   values corresponding to the maxposs positions.
 
-    :param data_bgsubbeddata: 2D ndarray of float32 or float64, representing the
+    :param data_bgsubbeddata: 2D ndarray of float32, representing the
                               image. These are the data of
                               ImageData.data_bgsubbed, i.e.
                               ImageData.data_bgsubbed.data, without the mask,
@@ -1551,20 +1551,6 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                               module and returned to the calling module.
                               However, their return is only useful if the user
                               requires a residual map.
-
-             x_positions: a (num_islands, max_pixels) ndarray of integers
-                          denoting the row indices of the island relative to
-                          the upper left corner of the island. They are used in
-                          this module and returned to the calling module.
-                          However, their return is only useful if the user
-                          requires a residual map.
-
-             y_positions: a (num_islands, max_pixels) ndarray of integers
-                          denoting the column indices of the island relative to
-                          the upper left corner of the island. They are used in
-                          this module and returned to the calling module.
-                          However, their return is only useful if the user
-                          requires a residual map.
 
              ra_errors, dec_errors: Both are 1D float64 ndarrays corresponding
                                     to the two columns in sky_barycenters.
@@ -1700,8 +1686,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                              local_noise_levels, maxis, fudge_max_pix_factor,
                              max_pix_variance_factor, numpy.array(beam),
                              beamsize, numpy.array(correlation_lengths), 0, 0,
-                             dummy, moments_of_sources, sig, chisq,
-                             reduced_chisq)
+                             Gaussian_islands, Gaussian_residuals, dummy,
+                             moments_of_sources, sig, chisq, reduced_chisq)
 
     barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
     # Convert the barycentric positions to celestial_coordinates.
@@ -1839,93 +1825,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
 
     errsmin_asec = scaling_smin * moments_of_sources[:, 1, 5]
 
-    return (moments_of_sources, sky_barycenters, xpositions,
-            ypositions, ra_errors, dec_errors, error_radii, smaj_asec,
-            errsmaj_asec, smin_asec, errsmin_asec, theta_celes_values,
-            theta_celes_errors, theta_dc_celes_values, theta_dc_celes_errors)
-
-
-@guvectorize([(int32, int32, int32[:], int32[:], int32, float32[:],
-             float32[:, :])], '(), (), (n), (n), (), (k), (l, p)',
-             nopython=True)
-def calculate_Gaussian_islands(chunkposx, chunkposy, posx, posy, no_pixels,
-                               gaussian_parms, islands_map):
-    """Based on the derived Gaussian parameters, most likely through moments,
-    reconstruct every island and add it to islands_map. Initially, this map
-    will contain only zeroes. Note that the islands are reconstructed
-    only where the island pixel value exceeded the local analysis threshold
-    since this is how not only no_pixels, but also posx and posy - as positions
-    relative to chunkposx and chunkposy - have been determined. The islands
-    constructed in this manner can be used to derive a residual map.
-
-    Args:
-        chunkposx (numpy.ndarray): Row index of the top left corner of the
-                                   rectangular slice encompassing the island
-                                   relative to the top left corner of the image,
-                                   which has pixel coordinates (0, 0), i.e. we
-                                   need chunkposx to return to absolute pixel
-                                   coordinates.
-
-        chunkposy (numpy.ndarray): Column index of the top left corner of the
-                                   rectangular slice encompassing the island
-                                   relative to the top left corner of the image,
-                                   which has pixel coordinates (0, 0), i.e. we
-                                   need chunkposy to return to absolute pixel
-                                   coordinates.
-
-        posx (numpy.ndarray): Row indices of the pixels in island_data as taken
-                              from the actual 2D images data (rectangular slice).
-
-        posy (numpy.ndarray): Column indices of the pixels in island_data as
-                              taken from the actual 2D images data (rectangular
-                              slice).
-
-        no_pixels (integer): The number of pixels that constitute the island.
-
-        gaussian_parms (numpy.ndarray): an array of 6 floats containing
-                                the derived Gaussian profile parameters of the
-                                island, i.e. peak flux density, x barycenter,
-                                y barycenter, semimajor axis, semiminor axis
-                                and position angle. This derivation can be
-                                either through moments calculation or through
-                                fitting, in both cases one can calculate
-                                residuals.
-
-        islands_map (numpy.ndarray): Initially a 2D array with only zeroes with
-                                     the same shape as the astronomical image
-                                     that we are processing, i.e. the same shape
-                                     as data_bgsubbed from the ImageData class
-                                     instantiation. The Gaussian islands
-                                     computed here are inserted (i.e. added)
-                                     to this map.
-
-    Returns:
-        None (because of the guvectorize decorator), but islands_map - initially
-        all zeroes - has reconstructed sources based on the Gaussian parameters
-        derived from e.g. moments computations. These values are filled in where
-        the source pixel values are above the local analysis threshold. At other
-        pixel positions they remain zero.
-
-    """
-    peak = gaussian_parms[0]
-    # xbar and ybar are relative to the upper left corner of the image, but for
-    # this calculation we need the barycenter position relative to the upper
-    # corner of the slice object encompassing the island, since also posx and
-    # posy are defined in that manner.
-    xbar = gaussian_parms[1] - chunkposx
-    ybar = gaussian_parms[2] - chunkposy
-    smaj = gaussian_parms[3]
-    smin = gaussian_parms[4]
-    theta = gaussian_parms[5]
-
-    # Compute the residuals based on the derived Gaussian parameters.
-    for index in range(no_pixels):
-        # Calculate the position in " absolute" pixel coordinates, i.e.
-        # relative to the upper left corner of the image, with row and column
-        # index = 0.
-        map_position = (posx[index] + chunkposx, posy[index] + chunkposy)
-        islands_map[map_position] = peak * numpy.exp(-numpy.log(2) * (
-                ((numpy.cos(theta) * (posx[index] - xbar)
-                 + numpy.sin(theta) * (posy[index] - ybar)) / smin) ** 2 +
-                ((numpy.cos(theta) * (posy[index] - ybar)
-                 - numpy.sin(theta) * (posx[index] - xbar)) / smaj) ** 2))
+    return (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
+            error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
+            theta_celes_values, theta_celes_errors, theta_dc_celes_values,
+            theta_dc_celes_errors, Gaussian_islands, Gaussian_residuals,
+            sig, chisq, reduced_chisq)
