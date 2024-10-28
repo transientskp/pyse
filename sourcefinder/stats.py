@@ -13,6 +13,7 @@ from numba import njit
 
 
 def find_true_std(sigma, clip_limit, clipped_std):
+    # Solves the transcendental equation 2.25 from Spreeuw's thesis.
     help1 = clip_limit / (sigma * numpy.sqrt(2))
     help2 = numpy.sqrt(2 * numpy.pi) * erf(help1)
     return (sigma ** 2 * (help2 - 2 * numpy.sqrt(2) * help1 *
@@ -56,6 +57,7 @@ def sigma_clip(data, kappa=2.0, max_iter=100,
     # <http://www.scipy.org/scipy/numpy/wiki/MaskedArray>.
     # MaskedArray.compressed() returns a 1-D array of non-masked data.
     if isinstance(data, MaskedArray):
+        distributed.print("Masked Array! \n")
         data = data.compressed()
     centre = centref(data)
     n = numpy.size(data)
