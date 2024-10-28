@@ -13,7 +13,6 @@ from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
-from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
 import dask.array as da
 from scipy.interpolate import interp1d
@@ -278,12 +277,12 @@ class ImageData(object):
         rms_grid = mode_and_rms.imag
 
         rms_grid = numpy.ma.array(
-            rms_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+            rms_grid, mask=numpy.where(rms_grid == 0, 1, 0), dtype=numpy.float32)
         # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
         # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
         # we determine it.
         mode_grid = numpy.ma.array(
-            mode_grid, mask=numpy.where(rms_grid == 0, 1, 0))
+            mode_grid, mask=numpy.where(rms_grid == 0, 1, 0), dtype=numpy.float32)
 
         return { 'bg': mode_grid, 'rms': rms_grid,}
 
@@ -376,7 +375,7 @@ class ImageData(object):
         yratio = float(my_ydim) / self.back_size_y
 
         my_map = numpy.ma.MaskedArray(numpy.zeros(self.data.shape),
-                                      mask=self.data.mask)
+                                      mask=self.data.mask, dtype=numpy.float32)
 
         # Remove the MaskedArrayFutureWarning warning and keep old numpy < 1.11
         # behavior
@@ -393,11 +392,15 @@ class ImageData(object):
         # with "ValueError: x and y arrays must have at least 2 entries". So in that case
         # map_coordinates should be used.
 
-        if INTERPOLATE_ORDER==1 and grid.shape[0]>1 and grid.shape[1]>1:
-            x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0], endpoint=True)
-            y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1], endpoint=True)
-            x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim, endpoint=True)
-            y_sought = numpy.linspace(-0.5, -0.5 + yratio, my_ydim, endpoint=True)
+        if INTERPOLATE_ORDER == 1 and grid.shape[0]>1 and grid.shape[1]>1:
+            x_initial = numpy.linspace(0., grid.shape[0]-1, grid.shape[0],
+                                       endpoint=True, dtype=numpy.float32)
+            y_initial = numpy.linspace(0., grid.shape[1]-1, grid.shape[1],
+                                       endpoint=True, dtype=numpy.float32)
+            x_sought = numpy.linspace(-0.5, -0.5 + xratio, my_xdim,
+                                      endpoint=True, dtype=numpy.float32)
+            y_sought = numpy.linspace(-0.5, -0.5 + yratio, my_ydim,
+                                      endpoint=True, dtype=numpy.float32)
 
             primary_interpolation = interp1d(y_initial, grid, kind='slinear', assume_sorted=True,
                                              axis=1, copy=False, bounds_error=False,
@@ -442,6 +445,7 @@ class ImageData(object):
     #                                                                         #
     ###########################################################################
 
+    @timeit
     def extract(self, det, anl, noisemap=None, bgmap=None, labelled_data=None,
                 labels=None, deblend_nthresh=0, force_beam=False):
 
@@ -989,7 +993,6 @@ class ImageData(object):
         maxpos[1] += inds[2]
         npix[0] = int32(segmented_island.sum())
 
-    @timeit
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None, labels=[],
