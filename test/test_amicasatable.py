@@ -9,7 +9,8 @@ from sourcefinder.utility.coordinates import angsep
 from .conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, 'ami-la.image')
+casatable = os.path.join(DATAPATH, 'accessors/ami-la.image')
+
 
 class TestAmiLaCasaImage(unittest.TestCase):
     @classmethod
