@@ -13,12 +13,16 @@ from sourcefinder.testutil.decorators import requires_data
 from .conftest import DATAPATH
 
 
-lofarcasatable = os.path.join(DATAPATH, 'casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr')
-casatable = os.path.join(DATAPATH, 'aartfaac.table')
+lofarcasatable = os.path.join(DATAPATH, ('casatable/L55596_000TO009_' +
+                                         'skymodellsc_wmax6000_noise_mult10' +
+                                         '_cell40_npix512_wplanes215.img' +
+                                         '.restored.corr'))
+casatable = os.path.join(DATAPATH, 'casa.table')
 fitsfile = os.path.join(DATAPATH, 'lofar.fits')
 hdf5file = os.path.join(DATAPATH, 'lofar.h5')
 antennafile = os.path.join(DATAPATH, 'lofar/CS001-AntennaArrays.conf')
 amicasatable = os.path.join(DATAPATH, 'ami-la.image')
+
 
 class TestAutodetect(unittest.TestCase):
     @requires_data(lofarcasatable)
@@ -35,16 +39,15 @@ class TestAutodetect(unittest.TestCase):
         self.assertTrue(iscasa(casatable))
         self.assertFalse(islofarhdf5(casatable))
         self.assertFalse(isfits(casatable))
-        pytest.xfail(reason="FIXME: don't know why this should fail")
         self.assertEqual(detect(casatable), None)
 
     @requires_data(hdf5file)
     def test_ishdf5(self):
         # TODO: disable this for now, since casacore can't parse LOFAR hdf5
-        #self.assertTrue(islofarhdf5(hdf5file))
+        # self.assertTrue(islofarhdf5(hdf5file))
         self.assertFalse(isfits(hdf5file))
         self.assertFalse(iscasa(hdf5file))
-        #self.assertEqual(detect(hdf5file), LofarHdf5Image)
+        # self.assertEqual(detect(hdf5file), LofarHdf5Image)
 
     @requires_data(fitsfile)
     def test_isfits(self):
