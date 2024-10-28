@@ -264,7 +264,7 @@ class ImageData(object):
         useful_chunk = ndimage.find_objects(numpy.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
         y_dim = self.data[useful_chunk[0]].data.shape[1]
-        useful_data = da.from_array(self.data[useful_chunk[0]].data, chunks=(self.back_size_x, y_dim))
+        useful_data = da.from_array(self.data[useful_chunk[0]], chunks=(self.back_size_x, y_dim))
 
         mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_row_of_subimages,
                                               y_dim,  self.back_size_y,
