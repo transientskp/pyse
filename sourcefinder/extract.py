@@ -13,8 +13,8 @@ from . import utils
 import logging
 from collections.abc import MutableMapping
 from numba import guvectorize, float64, float32, int32
-import numpy
-numpy.seterr(divide="raise", invalid="raise")
+import numpy as np
+np.seterr(divide="raise", invalid="raise")
 
 try:
     import ndimage
@@ -66,8 +66,8 @@ class Island(object):
 
         # NB we have set all unused data to -(lots) before passing it to
         # Island().
-        mask = numpy.where(data > -BIGNUM / 10.0, 0, 1)
-        self.data = numpy.ma.array(data, mask=mask)
+        mask = np.where(data > -BIGNUM / 10.0, 0, 1)
+        self.data = np.ma.array(data, mask=mask)
         self.rms = rms
         self.chunk = chunk
         self.analysis_threshold = analysis_threshold
@@ -75,7 +75,7 @@ class Island(object):
         self.beam = beam
         self.max_pos = ndimage.maximum_position(self.data.filled(fill_value=0))
         self.position = (self.chunk[0].start, self.chunk[1].start)
-        if not isinstance(rms_orig, numpy.ndarray):
+        if not isinstance(rms_orig, np.ndarray):
             self.rms_orig = self.rms
         else:
             self.rms_orig = rms_orig
@@ -85,7 +85,7 @@ class Island(object):
             self.flux_orig = self.data.sum()
         else:
             self.flux_orig = flux_orig
-        if isinstance(subthrrange, numpy.ndarray):
+        if isinstance(subthrrange, np.ndarray):
             self.subthrrange = subthrrange
         else:
             self.subthrrange = utils.generate_subthresholds(
@@ -117,7 +117,7 @@ class Island(object):
                 # level is above the highest pixel value...
                 # Return the current island.
                 break
-            clipped_data = numpy.where(
+            clipped_data = np.where(
                 self.data.filled(fill_value=0) >= level, 1, 0)
             labels, number = ndimage.label(clipped_data, self.structuring_element)
 
@@ -127,7 +127,7 @@ class Island(object):
                 label = 0
                 for chunk in ndimage.find_objects(labels):
                     label += 1
-                    newdata = numpy.where(
+                    newdata = np.where(
                         labels == label,
                         self.data.filled(fill_value=-BIGNUM), -BIGNUM
                     )
@@ -140,7 +140,7 @@ class Island(object):
                     # analysis_threshold=1.
                     island = Island(
                         newdata[chunk],
-                        (numpy.ones(self.data[chunk].shape) * level),
+                        (np.ones(self.data[chunk].shape) * level),
                         (
                             slice(self.chunk[0].start + chunk[0].start,
                                   self.chunk[0].start + chunk[0].stop),
@@ -165,8 +165,8 @@ class Island(object):
                 # Sufficient means: the flux of the branch above the
                 # subthreshold (=level) must exceed some user given fraction
                 # of the composite object, i.e., the original island.
-                subislands = [isl for isl in subislands if (isl.data - numpy.ma.array(
-                    numpy.ones(isl.data.shape) * level,
+                subislands = [isl for isl in subislands if (isl.data - np.ma.array(
+                    np.ones(isl.data.shape) * level,
                     mask=isl.data.mask)).sum() > self.deblend_mincont *
                               self.flux_orig]
                 # Discard subislands below detection threshold
@@ -355,14 +355,14 @@ class ParamSet(MutableMapping):
             self.bounds["xbar"] = (0., data_shape[0], False)
             self.bounds["ybar"] = (0., data_shape[1], False)
             # The upper bound for theta is a bit odd, one would expect
-            # numpy.pi/2 here, but that will yield imperfect fits in
+            # np.pi/2 here, but that will yield imperfect fits in
             # cases where the axes are aligned with the coordinate axes,
             # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
             # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
             # margin needs to be applied.
             # keep_feasibly is True here to accommodate for a fitting process
             # where the margin is exceeded.
-            self.bounds["theta"] = (-numpy.pi/2, numpy.pi, True)
+            self.bounds["theta"] = (-np.pi/2, np.pi, True)
 
         return self
 
@@ -414,12 +414,12 @@ class ParamSet(MutableMapping):
                    (1. + (theta_b / (2. * smin)) ** 2) ** self.alpha_min3 *
                    (peak / noise) ** 2)
 
-        rho1 = numpy.sqrt(rho_sq1)
-        rho2 = numpy.sqrt(rho_sq2)
-        rho3 = numpy.sqrt(rho_sq3)
+        rho1 = np.sqrt(rho_sq1)
+        rho2 = np.sqrt(rho_sq2)
+        rho3 = np.sqrt(rho_sq3)
 
-        denom1 = numpy.sqrt(2. * numpy.log(2.)) * rho1
-        denom2 = numpy.sqrt(2. * numpy.log(2.)) * rho2
+        denom1 = np.sqrt(2. * np.log(2.)) * rho1
+        denom2 = np.sqrt(2. * np.log(2.)) * rho2
 
         # Here you get the errors parallel to the fitted semi-major and
         # semi-minor axes as taken from the NVSS paper (Condon et al. 1998,
@@ -433,22 +433,22 @@ class ParamSet(MutableMapping):
         # When these errors are converted to RA and Dec,
         # calibration uncertainties will have to be added,
         # like in formulae 27 of the NVSS paper.
-        errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2 +
-                            (error_par_minor * numpy.cos(theta)) ** 2)
-        errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2 +
-                            (error_par_minor * numpy.sin(theta)) ** 2)
+        errorx = np.sqrt((error_par_major * np.sin(theta)) ** 2 +
+                            (error_par_minor * np.cos(theta)) ** 2)
+        errory = np.sqrt((error_par_major * np.cos(theta)) ** 2 +
+                            (error_par_minor * np.sin(theta)) ** 2)
 
         # Note that we report errors in HWHM axes instead of FWHM axes
         # so the errors are half the errors of formula 29 of the NVSS paper.
-        errorsmaj = numpy.sqrt(2) * smaj / rho1
-        errorsmin = numpy.sqrt(2) * smin / rho2
+        errorsmaj = np.sqrt(2) * smaj / rho1
+        errorsmin = np.sqrt(2) * smin / rho2
 
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho2
         else:
-            errortheta = numpy.pi
-        if errortheta > numpy.pi:
-            errortheta = numpy.pi
+            errortheta = np.pi
+        if errortheta > np.pi:
+            errortheta = np.pi
 
         peak += -noise ** 2 / peak + self.clean_bias
 
@@ -456,12 +456,12 @@ class ParamSet(MutableMapping):
                        self.clean_bias_error ** 2 +
                        2. * peak ** 2 / rho_sq3)
 
-        errorpeak = numpy.sqrt(errorpeaksq)
+        errorpeak = np.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
         help2 = (errorsmin / smin) ** 2
         help3 = theta_B * theta_b / (4. * smaj * smin)
-        errorflux = numpy.abs(flux) * numpy.sqrt(
+        errorflux = np.abs(flux) * np.sqrt(
             errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
         self['peak'] = Uncertain(peak, errorpeak)
@@ -502,12 +502,12 @@ class ParamSet(MutableMapping):
 
         # This is eq. 2.81 from Spreeuw's thesis.
         rho_sq = ((16. * smaj * smin /
-                   (numpy.log(2.) * theta_B * theta_b * noise ** 2))
+                   (np.log(2.) * theta_B * theta_b * noise ** 2))
                   * ((peak - threshold) /
-                     (numpy.log(peak) - numpy.log(threshold))) ** 2)
+                     (np.log(peak) - np.log(threshold))) ** 2)
 
-        rho = numpy.sqrt(rho_sq)
-        denom = numpy.sqrt(2. * numpy.log(2.)) * rho
+        rho = np.sqrt(rho_sq)
+        denom = np.sqrt(2. * np.log(2.)) * rho
 
         # Again, like above for the Condon formulae, we set the
         # positional variances to twice the theoretical values.
@@ -517,22 +517,22 @@ class ParamSet(MutableMapping):
         # When these errors are converted to RA and Dec,
         # calibration uncertainties will have to be added,
         # like in formulae 27 of the NVSS paper.
-        errorx = numpy.sqrt((error_par_major * numpy.sin(theta)) ** 2
-                            + (error_par_minor * numpy.cos(theta)) ** 2)
-        errory = numpy.sqrt((error_par_major * numpy.cos(theta)) ** 2
-                            + (error_par_minor * numpy.sin(theta)) ** 2)
+        errorx = np.sqrt((error_par_major * np.sin(theta)) ** 2
+                            + (error_par_minor * np.cos(theta)) ** 2)
+        errory = np.sqrt((error_par_major * np.cos(theta)) ** 2
+                            + (error_par_minor * np.sin(theta)) ** 2)
 
         # Note that we report errors in HWHM axes instead of FWHM axes
         # so the errors are half the errors of formula 29 of the NVSS paper.
-        errorsmaj = numpy.sqrt(2) * smaj / rho
-        errorsmin = numpy.sqrt(2) * smin / rho
+        errorsmaj = np.sqrt(2) * smaj / rho
+        errorsmin = np.sqrt(2) * smin / rho
 
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj ** 2 - smin ** 2)) / rho
         else:
-            errortheta = numpy.pi
-        if errortheta > numpy.pi:
-            errortheta = numpy.pi
+            errortheta = np.pi
+        if errortheta > np.pi:
+            errortheta = np.pi
 
         # The peak from "moments" is just the value of the maximum pixel
         # times a correction, fudge_max_pix, for the fact that the
@@ -553,12 +553,12 @@ class ParamSet(MutableMapping):
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                        clean_bias_error ** 2 + noise ** 2 +
                        max_pix_variance_factor * peak ** 2)
-        errorpeak = numpy.sqrt(errorpeaksq)
+        errorpeak = np.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
         help2 = (errorsmin / smin) ** 2
         help3 = theta_B * theta_b / (4. * smaj * smin)
-        errorflux = flux * numpy.sqrt(
+        errorflux = flux * np.sqrt(
             errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
         self['peak'].error = errorpeak
@@ -581,11 +581,11 @@ class ParamSet(MutableMapping):
         fmajerror = 2. * self['semimajor'].error
         fmin = 2. * self['semiminor'].value
         fminerror = 2. * self['semiminor'].error
-        fpa = numpy.degrees(self['theta'].value)
-        fpaerror = numpy.degrees(self['theta'].error)
+        fpa = np.degrees(self['theta'].value)
+        fpaerror = np.degrees(self['theta'].error)
         cmaj = 2. * beam[0]
         cmin = 2. * beam[1]
-        cpa = numpy.degrees(beam[2])
+        cpa = np.degrees(beam[2])
 
         rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
         # This parameter gives the number of components that could not be
@@ -596,7 +596,7 @@ class ParamSet(MutableMapping):
             # In this case the deconvolved position angle is defined.
             # For convenience we reset rpa to the interval [-90, 90].
             if rpa > 90:
-                rpa = -numpy.mod(-rpa, 180.)
+                rpa = -np.mod(-rpa, 180.)
             self['theta_deconv'].value = rpa
 
             # In the general case, where the restoring beam is elliptic,
@@ -609,29 +609,29 @@ class ParamSet(MutableMapping):
                 fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa)
             if ierr1 < 2:
                 if rpa1 > 90:
-                    rpa1 = -numpy.mod(-rpa1, 180.)
-                rpaerror1 = numpy.abs(rpa1 - rpa)
+                    rpa1 = -np.mod(-rpa1, 180.)
+                rpaerror1 = np.abs(rpa1 - rpa)
                 # An angle error can never be more than 90 degrees.
                 if rpaerror1 > 90.:
-                    rpaerror1 = numpy.mod(-rpaerror1, 180.)
+                    rpaerror1 = np.mod(-rpaerror1, 180.)
             else:
-                rpaerror1 = numpy.nan
+                rpaerror1 = np.nan
             rmaj2, rmin2, rpa2, ierr2 = deconv(
                 fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa)
             if ierr2 < 2:
                 if rpa2 > 90:
-                    rpa2 = -numpy.mod(-rpa2, 180.)
-                rpaerror2 = numpy.abs(rpa2 - rpa)
+                    rpa2 = -np.mod(-rpa2, 180.)
+                rpaerror2 = np.abs(rpa2 - rpa)
                 # An angle error can never be more than 90 degrees.
                 if rpaerror2 > 90.:
-                    rpaerror2 = numpy.mod(-rpaerror2, 180.)
+                    rpaerror2 = np.mod(-rpaerror2, 180.)
             else:
-                rpaerror2 = numpy.nan
-            if numpy.isnan(rpaerror1) or numpy.isnan(rpaerror2):
-                self['theta_deconv'].error = numpy.nansum(
+                rpaerror2 = np.nan
+            if np.isnan(rpaerror1) or np.isnan(rpaerror2):
+                self['theta_deconv'].error = np.nansum(
                     [rpaerror1, rpaerror2])
             else:
-                self['theta_deconv'].error = numpy.mean(
+                self['theta_deconv'].error = np.mean(
                     [rpaerror1, rpaerror2])
             self['semimaj_deconv'].value = rmaj / 2.
             rmaj3, rmin3, rpa3, ierr3 = deconv(
@@ -643,18 +643,18 @@ class ParamSet(MutableMapping):
                 rmaj4, rmin4, rpa4, ierr4 = deconv(
                     fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa)
                 if rmaj4 > 0:
-                    self['semimaj_deconv'].error = numpy.mean(
-                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+                    self['semimaj_deconv'].error = np.mean(
+                        [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)])
                 else:
-                    self['semimaj_deconv'].error = numpy.abs(rmaj3 - rmaj)
+                    self['semimaj_deconv'].error = np.abs(rmaj3 - rmaj)
             else:
                 rmin4, rmaj4, rpa4, ierr4 = deconv(
                     fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa)
                 if rmaj4 > 0:
-                    self['semimaj_deconv'].error = numpy.mean(
-                        [numpy.abs(rmaj3 - rmaj), numpy.abs(rmaj - rmaj4)])
+                    self['semimaj_deconv'].error = np.mean(
+                        [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)])
                 else:
-                    self['semimaj_deconv'].error = numpy.abs(rmaj3 - rmaj)
+                    self['semimaj_deconv'].error = np.abs(rmaj3 - rmaj)
             if rmin > 0:
                 self['semimin_deconv'].value = rmin / 2.
                 if fmin + fminerror < fmaj:
@@ -669,17 +669,17 @@ class ParamSet(MutableMapping):
                 rmaj6, rmin6, rpa6, ierr6 = deconv(
                     fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa)
                 if rmin6 > 0:
-                    self['semimin_deconv'].error = numpy.mean(
-                        [numpy.abs(rmin6 - rmin), numpy.abs(rmin5 - rmin)])
+                    self['semimin_deconv'].error = np.mean(
+                        [np.abs(rmin6 - rmin), np.abs(rmin5 - rmin)])
                 else:
-                    self['semimin_deconv'].error = numpy.abs(rmin5 - rmin)
+                    self['semimin_deconv'].error = np.abs(rmin5 - rmin)
             else:
                 self['semimin_deconv'] = Uncertain(
-                    numpy.nan, numpy.nan)
+                    np.nan, np.nan)
         else:
-            self['semimaj_deconv'] = Uncertain(numpy.nan, numpy.nan)
-            self['semimin_deconv'] = Uncertain(numpy.nan, numpy.nan)
-            self['theta_deconv'] = Uncertain(numpy.nan, numpy.nan)
+            self['semimaj_deconv'] = Uncertain(np.nan, np.nan)
+            self['semimin_deconv'] = Uncertain(np.nan, np.nan)
+            self['theta_deconv'] = Uncertain(np.nan, np.nan)
 
         return self
 
@@ -700,7 +700,7 @@ def source_profile_and_errors(data, threshold, noise,
 
     Args:
 
-        data (numpy.ndarray): array of pixel values, can be a masked
+        data (np.ndarray): array of pixel values, can be a masked
             array, which is necessary for proper Gauss fitting,
             because the pixels below the threshold in the corners and
             along the edges should not be included in the fitting
@@ -765,7 +765,7 @@ def source_profile_and_errors(data, threshold, noise,
     else:
         peak = data.min()
     total = data.sum()
-    x, y = numpy.indices(data.shape)
+    x, y = np.indices(data.shape)
     xbar = float((x * data).sum() / total)
     ybar = float((y * data).sum() / total)
 
@@ -782,13 +782,13 @@ def source_profile_and_errors(data, threshold, noise,
     # width for Gauss fitting.
     try:
         if data.mask.shape == data.data.shape:
-            data_as_ones = numpy.where(~data.mask == 1, 1, 0)
+            data_as_ones = np.where(~data.mask == 1, 1, 0)
         else:
-            data_as_ones = numpy.where(data.data > moments_threshold, 1, 0)
+            data_as_ones = np.where(data.data > moments_threshold, 1, 0)
     except AttributeError:
-        data_as_ones = numpy.where(data > moments_threshold, 1, 0)
-    max_along_x = numpy.sum(data_as_ones, axis=0).max()
-    max_along_y = numpy.sum(data_as_ones, axis=1).max()
+        data_as_ones = np.where(data > moments_threshold, 1, 0)
+    max_along_x = np.sum(data_as_ones, axis=0).max()
+    max_along_y = np.sum(data_as_ones, axis=1).max()
     minimum_width = min(max_along_x, max_along_y)
 
     if minimum_width > 2:
@@ -821,7 +821,7 @@ def source_profile_and_errors(data, threshold, noise,
         # moments can't handle fixed params
         raise ValueError("fit failed with given fixed parameters")
 
-    param["flux"] = (numpy.pi * param["peak"] * param["semimajor"] *
+    param["flux"] = (np.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
     param.calculate_errors(noise, max_pix_variance_factor, correlation_lengths, threshold)
     param.deconvolve_from_clean_beam(beam)
@@ -838,13 +838,13 @@ def source_profile_and_errors(data, threshold, noise,
 
     try:
         gauss_island_masked = \
-            numpy.ma.array(gaussian(*gauss_arg)(*numpy.indices(data.shape)),
+            np.ma.array(gaussian(*gauss_arg)(*np.indices(data.shape)),
                            mask=data.mask)
         gauss_resid_masked = data - gauss_island_masked
         gauss_island_filled = gauss_island_masked.filled(fill_value=0.)
         gauss_resid_filled = gauss_resid_masked.filled(fill_value=0.)
     except AttributeError:
-        gauss_island_masked = gaussian(*gauss_arg)(*numpy.indices(data.shape))
+        gauss_island_masked = gaussian(*gauss_arg)(*np.indices(data.shape))
         gauss_resid_masked = data - gauss_island_masked
         gauss_island_filled = gauss_island_masked
         gauss_resid_filled = gauss_resid_masked
@@ -956,28 +956,28 @@ class Detection(object):
         # First, the RA & dec.
         self.ra, self.dec = [Uncertain(x) for x in self.imagedata.wcs.p2s(
             [self.x.value, self.y.value])]
-        if numpy.isnan(self.dec.value) or abs(self.dec) > 90.0:
+        if np.isnan(self.dec.value) or abs(self.dec) > 90.0:
             raise ValueError("object falls outside the sky")
 
         # First, determine local north.
-        help1 = numpy.cos(numpy.radians(self.ra.value))
-        help2 = numpy.sin(numpy.radians(self.ra.value))
-        help3 = numpy.cos(numpy.radians(self.dec.value))
-        help4 = numpy.sin(numpy.radians(self.dec.value))
-        center_position = numpy.array([help3 * help1, help3 * help2, help4])
+        help1 = np.cos(np.radians(self.ra.value))
+        help2 = np.sin(np.radians(self.ra.value))
+        help3 = np.cos(np.radians(self.dec.value))
+        help4 = np.sin(np.radians(self.dec.value))
+        center_position = np.array([help3 * help1, help3 * help2, help4])
 
         # The length of this vector is chosen such that it touches
         # the tangent plane at center position.
         # The cross product of the local north vector and the local east
         # vector will always be aligned with the center_position vector.
         if center_position[2] != 0:
-            local_north_position = numpy.array(
+            local_north_position = np.array(
                 [0., 0., 1. / center_position[2]])
         else:
             # If we are right on the equator (ie dec=0) the division above
             # will blow up: as a workaround, we use something Really Big
             # instead.
-            local_north_position = numpy.array([0., 0., 99e99])
+            local_north_position = np.array([0., 0., 99e99])
         # Next, determine the orientation of the y-axis wrt local north
         # by incrementing y by a small amount and converting that
         # to celestial coordinates. That small increment is conveniently
@@ -985,53 +985,53 @@ class Detection(object):
 
         endy_ra, endy_dec = self.imagedata.wcs.p2s(
             [self.x.value, self.y.value + 1.])
-        help5 = numpy.cos(numpy.radians(endy_ra))
-        help6 = numpy.sin(numpy.radians(endy_ra))
-        help7 = numpy.cos(numpy.radians(endy_dec))
-        help8 = numpy.sin(numpy.radians(endy_dec))
-        endy_position = numpy.array([help7 * help5, help7 * help6, help8])
+        help5 = np.cos(np.radians(endy_ra))
+        help6 = np.sin(np.radians(endy_ra))
+        help7 = np.cos(np.radians(endy_dec))
+        help8 = np.sin(np.radians(endy_dec))
+        endy_position = np.array([help7 * help5, help7 * help6, help8])
 
         # Extend the length of endy_position to make it touch the plane
         # tangent at center_position.
-        endy_position /= numpy.dot(center_position, endy_position)
+        endy_position /= np.dot(center_position, endy_position)
 
         diff1 = endy_position - center_position
         diff2 = local_north_position - center_position
 
-        cross_prod = numpy.cross(diff2, diff1)
+        cross_prod = np.cross(diff2, diff1)
 
-        length_cross_sq = numpy.dot(cross_prod, cross_prod)
+        length_cross_sq = np.dot(cross_prod, cross_prod)
 
-        normalization = numpy.dot(diff1, diff1) * numpy.dot(diff2, diff2)
+        normalization = np.dot(diff1, diff1) * np.dot(diff2, diff2)
 
         # The length of the cross product equals the product of the lengths of
         # the vectors times the sine of their angle.
         # This is the angle between the y-axis and local north,
         # measured eastwards.
-        # yoffset_angle = numpy.degrees(
-        #    numpy.arcsin(numpy.sqrt(length_cross_sq/normalization)))
+        # yoffset_angle = np.degrees(
+        #    np.arcsin(np.sqrt(length_cross_sq/normalization)))
         # The formula above is commented out because the angle computed
         # in this way will always be 0<=yoffset_angle<=90.
         # We'll use the dotproduct instead.
-        yoffs_rad = (numpy.arccos(numpy.dot(diff1, diff2) /
-                                  numpy.sqrt(normalization)))
+        yoffs_rad = (np.arccos(np.dot(diff1, diff2) /
+                                  np.sqrt(normalization)))
 
         # The multiplication with -sign_cor makes sure that the angle
         # is measured eastwards (increasing RA), not westwards.
-        sign_cor = (numpy.dot(cross_prod, center_position) /
-                    numpy.sqrt(length_cross_sq))
+        sign_cor = (np.dot(cross_prod, center_position) /
+                    np.sqrt(length_cross_sq))
         yoffs_rad *= -sign_cor
-        yoffset_angle = numpy.degrees(yoffs_rad)
+        yoffset_angle = np.degrees(yoffs_rad)
 
         # Now that we have the BPA, we can also compute the position errors
         # properly, by projecting the errors in pixel coordinates (x and y)
         # on local north and local east.
-        errorx_proj = numpy.sqrt(
-            (self.x.error * numpy.cos(yoffs_rad)) ** 2 +
-            (self.y.error * numpy.sin(yoffs_rad)) ** 2)
-        errory_proj = numpy.sqrt(
-            (self.x.error * numpy.sin(yoffs_rad)) ** 2 +
-            (self.y.error * numpy.cos(yoffs_rad)) ** 2)
+        errorx_proj = np.sqrt(
+            (self.x.error * np.cos(yoffs_rad)) ** 2 +
+            (self.y.error * np.sin(yoffs_rad)) ** 2)
+        errory_proj = np.sqrt(
+            (self.x.error * np.sin(yoffs_rad)) ** 2 +
+            (self.y.error * np.cos(yoffs_rad)) ** 2)
 
         # Now we have to sort out which combination of errorx_proj and
         # errory_proj gives the largest errors in RA and Dec.
@@ -1042,11 +1042,11 @@ class Detection(object):
                 [self.x.value, self.y.value + errory_proj])
             # Here we include the position calibration errors
             self.ra.error = self.eps_ra + max(
-                numpy.fabs(self.ra.value - end_ra1),
-                numpy.fabs(self.ra.value - end_ra2))
+                np.fabs(self.ra.value - end_ra1),
+                np.fabs(self.ra.value - end_ra2))
             self.dec.error = self.eps_dec + max(
-                numpy.fabs(self.dec.value - end_dec1),
-                numpy.fabs(self.dec.value - end_dec2))
+                np.fabs(self.dec.value - end_dec1),
+                np.fabs(self.dec.value - end_dec2))
         except RuntimeError:
             # We get a runtime error from wcs.p2s if the errors place the
             # limits outside the image.
@@ -1072,33 +1072,33 @@ class Detection(object):
         # from the positive y-axis towards positive x
         # and both of these directions are equal (clockwise).
         self.theta_celes = Uncertain(
-            (numpy.degrees(self.theta.value) + yoffset_angle) % 180,
-            numpy.degrees(self.theta.error))
-        if not numpy.isnan(self.theta_dc.value):
+            (np.degrees(self.theta.value) + yoffset_angle) % 180,
+            np.degrees(self.theta.error))
+        if not np.isnan(self.theta_dc.value):
             self.theta_dc_celes = Uncertain(
                 (self.theta_dc.value + yoffset_angle) % 180,
-                numpy.degrees(self.theta_dc.error))
+                np.degrees(self.theta_dc.error))
         else:
-            self.theta_dc_celes = Uncertain(numpy.nan, numpy.nan)
+            self.theta_dc_celes = Uncertain(np.nan, np.nan)
 
         # Next, the axes.
-        # Note that the signs of numpy.sin and numpy.cos in the
+        # Note that the signs of np.sin and np.cos in the
         # four expressions below are arbitrary.
-        self.end_smaj_x = (self.x.value - numpy.sin(self.theta.value) *
+        self.end_smaj_x = (self.x.value - np.sin(self.theta.value) *
                            self.smaj.value)
-        self.start_smaj_x = (self.x.value + numpy.sin(self.theta.value) *
+        self.start_smaj_x = (self.x.value + np.sin(self.theta.value) *
                              self.smaj.value)
-        self.end_smaj_y = (self.y.value + numpy.cos(self.theta.value) *
+        self.end_smaj_y = (self.y.value + np.cos(self.theta.value) *
                            self.smaj.value)
-        self.start_smaj_y = (self.y.value - numpy.cos(self.theta.value) *
+        self.start_smaj_y = (self.y.value - np.cos(self.theta.value) *
                              self.smaj.value)
-        self.end_smin_x = (self.x.value + numpy.cos(self.theta.value) *
+        self.end_smin_x = (self.x.value + np.cos(self.theta.value) *
                            self.smin.value)
-        self.start_smin_x = (self.x.value - numpy.cos(self.theta.value) *
+        self.start_smin_x = (self.x.value - np.cos(self.theta.value) *
                              self.smin.value)
-        self.end_smin_y = (self.y.value + numpy.sin(self.theta.value) *
+        self.end_smin_y = (self.y.value + np.sin(self.theta.value) *
                            self.smin.value)
-        self.start_smin_y = (self.y.value - numpy.sin(self.theta.value) *
+        self.start_smin_y = (self.y.value - np.sin(self.theta.value) *
                              self.smin.value)
 
         def pixel_to_spatial(x, y):
@@ -1106,7 +1106,7 @@ class Detection(object):
                 return self.imagedata.wcs.p2s([x, y])
             except RuntimeError:
                 logger.debug("pixel_to_spatial failed at %f, %f" % (x, y))
-                return numpy.nan, numpy.nan
+                return np.nan, np.nan
 
         end_smaj_ra, end_smaj_dec = pixel_to_spatial(self.end_smaj_x,
                                                      self.end_smaj_y)
@@ -1182,118 +1182,123 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
     extract.Detection._physical_coordinates.
 
     Args:
-        ra_dec (numpy.ndarray): array of floats of length 2, containing the
+        ra_dec (np.ndarray): array of floats of length 2, containing the
             right ascension (degrees) and the declination
             (degrees) corresponding to [xbar, ybar] of the source.
 
-        endy_ra_dec (numpy.ndarray): array of floats of length 2, containing
+        endy_ra_dec (np.ndarray): array of floats of length 2, containing
             the right ascension (degrees) and the declination
             (degrees) corresponding to [xbar, ybar + 1] of the source.
 
-        xbar_ybar_error (numpy.ndarray): array of floats of length 2,
+        xbar_ybar_error (np.ndarray): array of floats of length 2,
             with the errors on the barycentric positions, in both dimensions.
 
-        xbar_ybar_smaj_smin_theta (numpy.ndarray): array of floats of length 5,
+        xbar_ybar_smaj_smin_theta (np.ndarray): array of floats of length 5,
             with the barycentric positions, the semi-major and semi-minor axes
             and the position angles.
 
+        dummy (np.ndarray): Same shape as return_values, to accommodate for a
+            missing feature in the guvectorize decorator, i.e. this is a trick
+            to pass on information about the shape of the output array.
+
     Returns:
-        None (because of the guvectorize decorator), but return_values is
-        filled with xerror_proj, yerror_proj, yoffset_angle, end_smaj_x,
-        start_smaj_x, end_smaj_y,  start_smaj_y, end_smin_x, start_smin_x,
-        end_smin_y and start_smin_y.
+        return_values (np.ndarray): Strictly speaking nothing is returned,
+        because of the guvectorize decorator, but return_values is filled with
+        xerror_proj, yerror_proj, yoffset_angle, end_smaj_x, start_smaj_x,
+        end_smaj_y,  start_smaj_y, end_smin_x, start_smin_x, end_smin_y and
+        start_smin_y.
     """
 
     ra, dec = ra_dec
-    if numpy.isnan(dec) or abs(dec) > 90.0:
+    if np.isnan(dec) or abs(dec) > 90.0:
         raise ValueError("object falls outside the sky")
 
     # First, determine local north.
-    help1 = numpy.cos(numpy.radians(ra))
-    help2 = numpy.sin(numpy.radians(ra))
-    help3 = numpy.cos(numpy.radians(dec))
-    help4 = numpy.sin(numpy.radians(dec))
-    center_position = numpy.array([help3 * help1, help3 * help2, help4])
+    help1 = np.cos(np.radians(ra))
+    help2 = np.sin(np.radians(ra))
+    help3 = np.cos(np.radians(dec))
+    help4 = np.sin(np.radians(dec))
+    center_position = np.array([help3 * help1, help3 * help2, help4])
 
     # The length of this vector is chosen such that it touches
     # the tangent plane at center position.
     # The cross product of the local north vector and the local east
     # vector will always be aligned with the center_position vector.
     if center_position[2] != 0:
-        local_north_position = numpy.array(
+        local_north_position = np.array(
             [0., 0., 1. / center_position[2]])
     else:
         # If we are right on the equator (ie dec=0) the division above
         # will blow up: as a workaround, we use something Really Big
         # instead.
-        local_north_position = numpy.array([0., 0., 99e99])
+        local_north_position = np.array([0., 0., 99e99])
 
     endy_ra, endy_dec = endy_ra_dec
-    help5 = numpy.cos(numpy.radians(endy_ra))
-    help6 = numpy.sin(numpy.radians(endy_ra))
-    help7 = numpy.cos(numpy.radians(endy_dec))
-    help8 = numpy.sin(numpy.radians(endy_dec))
-    endy_position = numpy.array([help7 * help5, help7 * help6, help8])
+    help5 = np.cos(np.radians(endy_ra))
+    help6 = np.sin(np.radians(endy_ra))
+    help7 = np.cos(np.radians(endy_dec))
+    help8 = np.sin(np.radians(endy_dec))
+    endy_position = np.array([help7 * help5, help7 * help6, help8])
 
     # Extend the length of endy_position to make it touch the plane
     # tangent at center_position.
-    endy_position /= numpy.dot(center_position, endy_position)
+    endy_position /= np.dot(center_position, endy_position)
 
     diff1 = endy_position - center_position
     diff2 = local_north_position - center_position
 
-    cross_prod = numpy.cross(diff2, diff1)
+    cross_prod = np.cross(diff2, diff1)
 
-    length_cross_sq = numpy.dot(cross_prod, cross_prod)
+    length_cross_sq = np.dot(cross_prod, cross_prod)
 
-    normalization = numpy.dot(diff1, diff1) * numpy.dot(diff2, diff2)
+    normalization = np.dot(diff1, diff1) * np.dot(diff2, diff2)
 
     # The length of the cross product equals the product of the lengths of
     # the vectors times the sine of their angle.
     # This is the angle between the y-axis and local north,
     # measured eastwards.
-    # yoffset_angle = numpy.degrees(
-    #    numpy.arcsin(numpy.sqrt(length_cross_sq/normalization)))
+    # yoffset_angle = np.degrees(
+    #    np.arcsin(np.sqrt(length_cross_sq/normalization)))
     # The formula above is commented out because the angle computed
     # in this way will always be 0<=yoffset_angle<=90.
     # We'll use the dotproduct instead.
-    yoffs_rad = (numpy.arccos(numpy.dot(diff1, diff2) /
-                              numpy.sqrt(normalization)))
+    yoffs_rad = (np.arccos(np.dot(diff1, diff2) /
+                              np.sqrt(normalization)))
 
     # The multiplication with -sign_cor makes sure that the angle
     # is measured eastwards (increasing RA), not westwards.
-    sign_cor = (numpy.dot(cross_prod, center_position) /
-                numpy.sqrt(length_cross_sq))
+    sign_cor = (np.dot(cross_prod, center_position) /
+                np.sqrt(length_cross_sq))
     yoffs_rad *= -sign_cor
-    yoffset_angle = numpy.degrees(yoffs_rad)
+    yoffset_angle = np.degrees(yoffs_rad)
 
     # Now that we have the BPA, we can also compute the position errors
     # properly, by projecting the errors in pixel coordinates (x and y)
     # on local north and local east.
     xbar_error, ybar_error = xbar_ybar_error
-    errorx_proj = numpy.sqrt(
-        (xbar_error * numpy.cos(yoffs_rad)) ** 2 +
-        (ybar_error * numpy.sin(yoffs_rad)) ** 2)
-    errory_proj = numpy.sqrt(
-        (xbar_error * numpy.sin(yoffs_rad)) ** 2 +
-        (ybar_error * numpy.cos(yoffs_rad)) ** 2)
+    errorx_proj = np.sqrt(
+        (xbar_error * np.cos(yoffs_rad)) ** 2 +
+        (ybar_error * np.sin(yoffs_rad)) ** 2)
+    errory_proj = np.sqrt(
+        (xbar_error * np.sin(yoffs_rad)) ** 2 +
+        (ybar_error * np.cos(yoffs_rad)) ** 2)
 
     # Next, the axes.
-    # Note that the signs of numpy.sin and numpy.cos in the
+    # Note that the signs of np.sin and np.cos in the
     # four expressions below are arbitrary.
     xbar, ybar, smaj, smin, theta = xbar_ybar_smaj_smin_theta
-    end_smaj_x = xbar - numpy.sin(theta) * smaj
-    start_smaj_x = xbar + numpy.sin(theta) * smaj
-    end_smaj_y = ybar + numpy.cos(theta) * smaj
-    start_smaj_y = ybar - numpy.cos(theta) * smaj
-    end_smin_x = xbar + numpy.cos(theta) * smin
-    start_smin_x = xbar - numpy.cos(theta) * smin
-    end_smin_y = ybar + numpy.sin(theta) * smin
-    start_smin_y = ybar - numpy.sin(theta) * smin
+    end_smaj_x = xbar - np.sin(theta) * smaj
+    start_smaj_x = xbar + np.sin(theta) * smaj
+    end_smaj_y = ybar + np.cos(theta) * smaj
+    start_smaj_y = ybar - np.cos(theta) * smaj
+    end_smin_x = xbar + np.cos(theta) * smin
+    start_smin_x = xbar - np.cos(theta) * smin
+    end_smin_y = ybar + np.sin(theta) * smin
+    start_smin_y = ybar - np.sin(theta) * smin
 
-    return_values[:] = numpy.array([errorx_proj, errory_proj, yoffset_angle,
-                                    end_smaj_x, start_smaj_x, end_smaj_y, start_smaj_y,
-                                    end_smin_x, start_smin_x, end_smin_y, start_smin_y])
+    return_values[:] = np.array([errorx_proj, errory_proj, yoffset_angle,
+                                 end_smaj_x, start_smaj_x, end_smaj_y, start_smaj_y,
+                                 end_smin_x, start_smin_x, end_smin_y, start_smin_y])
 
 
 @guvectorize([(float32[:, :], float32[:, :], int32[:], int32[:, :], int32[:],
@@ -1382,10 +1387,10 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
     labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
     noise_chunk = noise_map[inds[0]:inds[1], inds[2]:inds[3]]
 
-    segmented_island = numpy.where(labelled_data_chunk == label[0], 1, 0)
+    segmented_island = np.where(labelled_data_chunk == label[0], 1, 0)
 
-    max_along_x = numpy.sum(segmented_island, axis=0).max()
-    max_along_y = numpy.sum(segmented_island, axis=1).max()
+    max_along_x = np.sum(segmented_island, axis=0).max()
+    max_along_y = np.sum(segmented_island, axis=1).max()
     min_width[0] = min(max_along_x, max_along_y)
 
     # pos = "positions", i.e. the row and column indices of the island pixels.
@@ -1484,7 +1489,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                    labelled_data corresponding to islands in
                    data_bgsubbeddata that have peak values above the local
                    detection threshold. Thus, it is a subset of
-                   numpy.unique(labelled_data) because the
+                   np.unique(labelled_data) because the
                    'insignificant' islands have been filtered out, i.e.
                    the islands above the analysis threshold with peak
                    values below the (local) detection threshold. Also,
@@ -1645,13 +1650,13 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
 
     max_pixels = npixs.max()
 
-    sources = numpy.empty((num_islands, max_pixels), dtype=numpy.float32)
-    noises = numpy.empty_like(sources)
+    sources = np.empty((num_islands, max_pixels), dtype=np.float32)
+    noises = np.empty_like(sources)
 
     # xpositions and ypositions are relative to the upper left corner of
     # the chunk.
-    xpositions = numpy.empty((num_islands, max_pixels), dtype=numpy.int32)
-    ypositions = numpy.empty((num_islands, max_pixels), dtype=numpy.int32)
+    xpositions = np.empty((num_islands, max_pixels), dtype=np.int32)
+    ypositions = np.empty((num_islands, max_pixels), dtype=np.int32)
 
     # It makes sense to calculate the minimum width of each island of pixels
     # upfront such that we are not trying to estimate any Gaussian parameters,
@@ -1661,21 +1666,21 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # other four Gaussian parameters, i.e. the flux density, the axes and the
     # position angle will have to be derived with the help of the clean beam
     # parameters, i.e. by assuming the source is unresolved.
-    minimum_widths = numpy.empty(num_islands, dtype=numpy.int32)
+    minimum_widths = np.empty(num_islands, dtype=np.int32)
 
     insert_sources_and_noise(
-        data_bgsubbeddata.astype(numpy.float32, copy=False),
-        rmsdata.astype(numpy.float32, copy=False), indices, labelled_data,
-        labels.astype(numpy.int32, copy=False), npixs, sources, noises,
+        data_bgsubbeddata.astype(np.float32, copy=False),
+        rmsdata.astype(np.float32, copy=False), indices, labelled_data,
+        labels.astype(np.int32, copy=False), npixs, sources, noises,
         xpositions, ypositions, minimum_widths)
 
     # Make sure we get a single precision array of floats, which
     # fitting.moments_enhanced expects.
     thresholds = analysisthresholddata[maxposs[:, 0], maxposs[:, 1]].astype(
-                                      numpy.float32, copy=False)
+                                      np.float32, copy=False)
 
     local_noise_levels = rmsdata[maxposs[:, 0], maxposs[:, 1]].astype(
-                                 numpy.float32, copy=False)
+                                 np.float32, copy=False)
 
     # In order to convert to celestial coordinates, at a later stage, we
     # need to keep a record of the positions of the upper left corners
@@ -1683,7 +1688,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # ybar as if those upper left corners have indices [0, 0] in the
     # image. We can add the indices of the chunks as arguments of
     # moments_enhanced to correct for that.
-    chunk_positions = numpy.empty((num_islands, 2), dtype=numpy.int32)
+    chunk_positions = np.empty((num_islands, 2), dtype=np.int32)
     chunk_positions[:, 0] = indices[:, 0]
     chunk_positions[:, 1] = indices[:, 2]
 
@@ -1692,18 +1697,18 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
     # gaussian position angle and the deconvolved equivalents of the latter
     # three quantities.
-    moments_of_sources = numpy.empty((num_islands, 2, 10),
-                                     dtype=numpy.float32)
-    dummy = numpy.empty_like(moments_of_sources)
+    moments_of_sources = np.empty((num_islands, 2, 10),
+                                     dtype=np.float32)
+    dummy = np.empty_like(moments_of_sources)
 
     # sig is to be filled with the significances of each detection, i.e. the
     # maximum signal-to-noise ratio across all island pixels, for each island.
-    sig = numpy.empty(num_islands, dtype=numpy.float32)
-    chisq = numpy.empty_like(sig)
-    reduced_chisq = numpy.empty_like(sig)
+    sig = np.empty(num_islands, dtype=np.float32)
+    chisq = np.empty_like(sig)
+    reduced_chisq = np.empty_like(sig)
 
-    Gaussian_islands = numpy.zeros_like(data_bgsubbeddata)
-    Gaussian_residuals = numpy.zeros_like(Gaussian_islands)
+    Gaussian_islands = np.zeros_like(data_bgsubbeddata)
+    Gaussian_residuals = np.zeros_like(Gaussian_islands)
 
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
@@ -1714,8 +1719,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxis, fudge_max_pix_factor,
-                             max_pix_variance_factor, numpy.array(beam),
-                             beamsize, numpy.array(correlation_lengths), 0, 0,
+                             max_pix_variance_factor, np.array(beam),
+                             beamsize, np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)
 
@@ -1731,11 +1736,11 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     endy_sky_coordinates = wcs.all_p2s(endy_barycentric_positions)
 
     input_for_second_part = \
-        numpy.empty((num_islands, 11), dtype=numpy.float32)
+        np.empty((num_islands, 11), dtype=np.float32)
     # Unfortunately, the use of the guvectorize decorator again
     # requires a dummy input with the same shape as the output,
     # such that Numba can infer the shape of the output array.
-    dummy = numpy.empty_like(input_for_second_part)
+    dummy = np.empty_like(input_for_second_part)
 
     first_part_of_celestial_coordinates(sky_barycenters,
                                         endy_sky_coordinates,
@@ -1748,7 +1753,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # Simply derive the angle between the celestial positions
     # corresponding to [xbar, ybar] and [xbar + errorx,
     # ybar + errory], that should suffice.
-    error_radii = numpy.empty(num_islands, dtype=numpy.float64)
+    error_radii = np.empty(num_islands, dtype=np.float64)
     try:
         # Compute sky positions corresponding to [x_bar + x_error,
         #                                         y_bar + y_error]
@@ -1775,8 +1780,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         # input_for_second_part and append a column with zeros
         # in order to perform the addition.
         helper1 = input_for_second_part[:, :1]
-        errorx_proj_and_zeros = numpy.hstack((helper1,
-                                              numpy.zeros((helper1.shape[0], 1),
+        errorx_proj_and_zeros = np.hstack((helper1,
+                                              np.zeros((helper1.shape[0], 1),
                                                           dtype=helper1.dtype)))
         pix_x_plus_errorx_proj = (moments_of_sources[:, 0, 2:4] +
                                   errorx_proj_and_zeros)
@@ -1787,8 +1792,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         # input_for_second_part and prepend a column with zeros
         # in order to perform the addition.
         helper2 = input_for_second_part[:, 1:2]
-        zeros_and_errory_proj = numpy.hstack((
-            numpy.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
+        zeros_and_errory_proj = np.hstack((
+            np.zeros((helper2.shape[0], 1), dtype=helper2.dtype),
             helper2))
         pix_y_plus_errory_proj = moments_of_sources[:, 0, 2:4] + \
             zeros_and_errory_proj
@@ -1796,33 +1801,33 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         end_ra2_end_dec2 = wcs.all_p2s(pix_y_plus_errory_proj)
 
         # Here we include the position calibration errors
-        ra_errors = eps_ra + numpy.maximum(
-            numpy.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
-            numpy.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]))
+        ra_errors = eps_ra + np.maximum(
+            np.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
+            np.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]))
 
-        dec_errors = eps_dec + numpy.maximum(
-            numpy.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
-            numpy.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]))
+        dec_errors = eps_dec + np.maximum(
+            np.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
+            np.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]))
     except RuntimeError:
         # We get a runtime error from wcs.all_p2s if the errors place the
         # limits outside the image.
         # In which case we set the RA / DEC uncertainties to infinity.
         # The downside of this vectorized approach is that the position
         # errors for all the sources will be set to infinity.
-        ra_errors = numpy.empty(num_islands).fill(numpy.inf)
-        dec_errors = numpy.empty(num_islands).fill(numpy.inf)
+        ra_errors = np.empty(num_islands).fill(np.inf)
+        dec_errors = np.empty(num_islands).fill(np.inf)
 
-    theta_celes_values = (numpy.degrees(moments_of_sources[:, 0, 6:7]) +
+    theta_celes_values = (np.degrees(moments_of_sources[:, 0, 6:7]) +
                           input_for_second_part[:, 2:3]) % 180
 
-    theta_celes_errors = numpy.degrees(moments_of_sources[:, 1, 6:7])
+    theta_celes_errors = np.degrees(moments_of_sources[:, 1, 6:7])
 
     # This should also work for any nan value of theta_dc.
     theta_dc_celes_values = \
-        (numpy.degrees(moments_of_sources[:, 0, 9:10]) +
+        (np.degrees(moments_of_sources[:, 0, 9:10]) +
          input_for_second_part[:, 2:3]) % 180
 
-    theta_dc_celes_errors = numpy.degrees(moments_of_sources[:, 1, 9:10])
+    theta_dc_celes_errors = np.degrees(moments_of_sources[:, 1, 9:10])
 
     try:
         end_smaj_ra_dec = wcs.all_p2s(input_for_second_part[:, [3, 5]])
@@ -1835,11 +1840,11 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         # be set to nans.
         logger.debug("pixel_to_spatial failed")
         end_smaj_ra_dec = \
-            numpy.empty((num_islands, 2)).fill(numpy.nan)
+            np.empty((num_islands, 2)).fill(np.nan)
         end_smin_ra_dec = \
-            numpy.empty((num_islands, 2)).fill(numpy.nan)
+            np.empty((num_islands, 2)).fill(np.nan)
 
-    smaj_asec = numpy.empty(num_islands, dtype=numpy.float64)
+    smaj_asec = np.empty(num_islands, dtype=np.float64)
     coordinates.angsep_vectorized(sky_barycenters, end_smaj_ra_dec,
                                   smaj_asec)
 
@@ -1847,7 +1852,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
 
     errsmaj_asec = scaling_smaj * moments_of_sources[:, 1, 4]
 
-    smin_asec = numpy.empty(num_islands, dtype=numpy.float64)
+    smin_asec = np.empty(num_islands, dtype=np.float64)
     coordinates.angsep_vectorized(sky_barycenters, end_smin_ra_dec,
                                   smin_asec)
 
