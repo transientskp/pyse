@@ -19,8 +19,7 @@ class PyfitsFitsImage(unittest.TestCase):
     def setUp(self):
         self.hudelist = fitsopen(FITS_FILE)
 
-    @staticmethod
-    def test_tkp_open():
+    def test_tkp_open(self):
         accessor = tkpopen(FITS_FILE)
 
     def test_fits_blob_accessor(self):
