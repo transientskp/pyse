@@ -42,9 +42,9 @@ class ObjectContainer(list):
             logger.debug("Best distance is now %f", distance)
             logger.debug("From object %s", str(target))
         if not distance:
-            return (target, distance)
+            return target, distance
         else:
-            return (target, distance ** 0.5)
+            return target, distance ** 0.5
 
     def __setslice__(self, section, items):
         """

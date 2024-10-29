@@ -197,7 +197,7 @@ def altaz(mjds, ra, dec, lat=CORE_LAT):
     # convert radians to degrees
     hrz_altitude, hrz_azimuth = [math.degrees(value) for value in (alt, az)]
     # choose hemisphere
-    if (math.sin(ha) > 0):
+    if math.sin(ha) > 0:
         hrz_azimuth = 360 - hrz_azimuth
 
     return hrz_altitude, hrz_azimuth
@@ -257,7 +257,7 @@ def dectodms(decdegs):
                 decm = -decm
         else:
             decd = -decd
-    return (decd, decm, decs)
+    return decd, decm, decs
 
 
 def propagate_sign(val1, val2, val3):
@@ -322,8 +322,10 @@ def dmstodec(decd, decm, decs):
         raise ValueError("coordinates out of range")
     return dec
 
+
 def cmp(a, b):
     return bool(a > b) - bool(a < b)
+
 
 def angsep(ra1, dec1, ra2, dec2):
     """Find the angular separation of two sources, in arcseconds,
@@ -351,9 +353,11 @@ def angsep(ra1, dec1, ra2, dec2):
 
     return 3600 * math.degrees(math.acos(temp))
 
+
 @njit
 def cmp_jitted(a, b):
     return bool(a > b) - bool(a < b)
+
 
 @guvectorize([(float64[:], float64[:], float64)],
              '(n), (n) -> ()', nopython=True)

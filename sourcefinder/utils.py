@@ -10,6 +10,7 @@ import scipy.integrate
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
+
 def generate_subthresholds(min_value, max_value, num_thresholds):
     """
     Generate a series of ``num_thresholds`` logarithmically spaced values
@@ -64,6 +65,7 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
         error_radius = float('inf')
     return error_radius
 
+
 def circular_mask(xdim, ydim, radius):
     """
     Returns a numpy array of shape (xdim, ydim). All points with radius of
@@ -104,15 +106,15 @@ def generate_result_maps(data, sourcelist):
             src.theta.value
         )(
             numpy.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
-            lower_bound_y:upper_bound_y],
+                                              lower_bound_y:upper_bound_y],
             numpy.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
-            lower_bound_y:upper_bound_y]
+                                              lower_bound_y:upper_bound_y]
         )
 
         gaussian_map[lower_bound_x:upper_bound_x,
-        lower_bound_y:upper_bound_y] += local_gaussian
+                     lower_bound_y:upper_bound_y] += local_gaussian
         residual_map[lower_bound_x:upper_bound_x,
-        lower_bound_y:upper_bound_y] -= local_gaussian
+                     lower_bound_y:upper_bound_y] -= local_gaussian
 
     return gaussian_map, residual_map
 
@@ -136,7 +138,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
     + theta_b = 2.0 * semiminor
     """
 
-    return (2.0 * semimajor, 2.0 * semiminor)
+    return 2.0 * semimajor, 2.0 * semiminor
 
 
 def calculate_beamsize(semimajor, semiminor):
