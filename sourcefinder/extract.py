@@ -1596,12 +1596,14 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
             with the same shape as data_bgsubbed from the ImageData class
             instantiation. The derived Gaussian parameters have been used to
             reconstruct Gaussian profiles at the pixel positions of the islands
-            and zero outside those islands.
+            and zero outside those islands. This array can be saved e.g. as a
+            FITS image for inspection of the source processing.
 
         Gaussian_residuals_map (np.ndarray): Similar to Gaussian_islands_map,
         but as residuals, i.e. the Gaussian islands have been subtracted from
         the image data at the pixel positions of the islands - and zero outside
-        the islands.
+        the islands. This array can be saved e.g. as a FITS image for
+        inspection of the source processing.
 
         sig(ndarray): np.float32 numbers indicating the significances of the
             detections. Often this will be the ratio of the peak spectral
