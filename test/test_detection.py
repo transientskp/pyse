@@ -13,10 +13,7 @@ from sourcefinder.testutil.decorators import requires_data
 from .conftest import DATAPATH
 
 
-lofarcasatable = os.path.join(DATAPATH, ('casatable/L55596_000TO009_' +
-                                         'skymodellsc_wmax6000_noise_mult10' +
-                                         '_cell40_npix512_wplanes215.img' +
-                                         '.restored.corr'))
+lofarcasatable = os.path.join(DATAPATH, "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr")
 casatable = os.path.join(DATAPATH, 'accessors/casa.table')
 fitsfile = os.path.join(DATAPATH, 'accessors/lofar.fits')
 hdf5file = os.path.join(DATAPATH, 'accessors/lofar.h5')

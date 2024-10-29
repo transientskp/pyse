@@ -13,9 +13,7 @@ from sourcefinder.accessors.lofarcasaimage import LofarCasaImage
 from .conftest import DATAPATH
 
 AARTFAAC_FITS = path.join(DATAPATH, 'accessors/aartfaac.fits')
-CASA_TABLE = path.join(DATAPATH, ('casatable/L55596_000TO009_skymodellsc_' +
-                                  'wmax6000_noise_mult10_cell40_npix512_' 
-                                  'wplanes215.img.restored.corr'))
+CASA_TABLE = path.join(DATAPATH, "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr")
 AARTFAAC_TABLE = path.join(DATAPATH, 'accessors/aartfaac.table')
 
 

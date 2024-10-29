@@ -10,9 +10,7 @@ from sourcefinder.utility.coordinates import angsep
 from .conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, ('casatable/L55596_000TO009_skymodellsc_' +
-                                    'wmax6000_noise_mult10_cell40_npix512_' +
-                                    'wplanes215.img.restored.corr'))
+casatable = os.path.join(DATAPATH, "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr")
 
 
 @requires_data(casatable)
