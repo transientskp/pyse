@@ -70,7 +70,7 @@ STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 SEP = False
 # Vectorized processing of source islands is much faster, but excludes Gaussian
 # fits, therefore slightly less accurate.
-VECTORIZED = True
+VECTORIZED = False
 
 
 class ImageData(object):
@@ -193,7 +193,7 @@ class ImageData(object):
     @cached_property
     def data_bgsubbed(self):
         """Background subtracted masked image data"""
-        return self.data - self.backmap
+        return (self.data - self.backmap).astype(numpy.float32, copy=False)
 
     @property
     def xdim(self):
@@ -1137,10 +1137,11 @@ class ImageData(object):
 
         elif num_islands > 0:
 
-            (moments_of_sources, sky_barycenters, xpositions, ypositions,
-             ra_errors, dec_errors, error_radii, smaj_asec, errsmaj_asec,
-             smin_asec, errsmin_asec, theta_celes_values, theta_celes_errors,
-             theta_dc_celes_values, theta_dc_celes_errors) = \
+            (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
+             error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
+             theta_celes_values, theta_celes_errors, theta_dc_celes_values,
+             theta_dc_celes_errors, Gaussian_islands, Gaussian_residuals,
+             sig, chisq, reduced_chisq) = \
                 extract.source_measurements_pixels_and_celestial_vectorised(
                     num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
                     self.rmsmap.data, analysisthresholdmap.data, indices,
@@ -1148,34 +1149,11 @@ class ImageData(object):
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
                     self.correlation_lengths, eps_ra, eps_dec)
 
-            if self.islands or self.residuals:
-                self.Gaussian_islands = numpy.zeros_like(self.data.data)
+            if self.islands:
+                self.Gaussian_islands = Gaussian_islands
 
-                # Select the relevant elements of moments_sources, include the
-                # peak spectral brightness, but exclude the flux density.
-                relevant_moments = (
-                    numpy.take(moments_of_sources[:, 0, :],
-                               [0, 2, 3, 4, 5, 6], axis=1))
-
-                extract.calculate_Gaussian_islands(indices[:, 0],
-                                                   indices[:, 2],
-                                                   xpositions, ypositions,
-                                                   npixs,
-                                                   relevant_moments,
-                                                   self.Gaussian_islands)
-
-                if self.residuals:
-                    # It only makes sense to compute residuals where we have
-                    # reconstructed Gaussian islands, i.e. above the analysis
-                    # threshold.
-                    # Some parts of self.data_bgsubbed may be masked, but no
-                    # sources will have been detected in those masked patches
-                    # of the sky, so no need to apply that mask here.
-                    self.Gaussian_residuals = \
-                        numpy.where(self.Gaussian_islands != 0,
-                                    self.data_bgsubbed.data -
-                                    self.Gaussian_islands,
-                                    0).astype(numpy.float32)
+            if self.residuals:
+                self.Gaussian_residuals = Gaussian_residuals
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
