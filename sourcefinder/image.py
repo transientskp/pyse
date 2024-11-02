@@ -270,19 +270,19 @@ class ImageData(object):
                                               dtype=np.complex64,
                                               chunks=(1, 1)).compute()
 
-        # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
-        # output multiple arrays. One can however output to a complex array and take real and imaginary
-        # parts afterward. Not a very clean solution, I admit.
+        # See also similar comment below. This solution was chosen because
+        # map_blocks does not seem to be able to output multiple arrays. One can
+        # however output to a complex array and take real and imaginary parts
+        # afterward. Not a very clean solution, I admit.
         mode_grid = mode_and_rms.real
         rms_grid = mode_and_rms.imag
 
-        rms_grid = np.ma.array(
-            rms_grid, mask=np.where(rms_grid == 0, 1, 0), dtype=np.float32)
-        # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
-        # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
-        # we determine it.
-        mode_grid = np.ma.array(
-            mode_grid, mask=np.where(rms_grid == 0, 1, 0), dtype=np.float32)
+        # Fill in the zeroes with nearest neighbours.
+        # In this way we do not have to make a MaskedArray, which
+        # scipy.interpolate.interp1d cannot handle adequately.
+        # utils.nearest_nonzero modifies in-place.
+        utils.nearest_nonzero(mode_grid)
+        utils.nearest_nonzero(rms_grid)
 
         return {'bg': mode_grid, 'rms': rms_grid}
 
