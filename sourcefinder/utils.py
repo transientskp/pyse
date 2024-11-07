@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 import scipy.integrate
-from scipy.ndimage import generic_filter
+from scipy.ndimage import distance_transform_edt
 
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
@@ -257,62 +257,32 @@ def flatten(nested_list):
 # “The nearest_nonzero function has been generated using ChatGPT 4.0.
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
-def nearest_nonzero(some_arr):
+def nearest_nonzero(test_array):
     """
-    Replace zeros in a 2D array with the nearest non-zero neighbor value.
-
-    This function iteratively fills zero values in a 2D Numpy array by
-    replacing each zero with the nearest non-zero neighbor in its local
-    3x3 neighborhood. It continues this process until no zeros remain,
-    propagating non-zero values efficiently. This method is optimized for
-    binary arrays with evenly distributed zeros and ones, where
-    neighborhood-based filling converges quickly.
+    Replace zeros in test_array with the nearest non-zero values based on
+    distance.
 
     Parameters
     ----------
-    some_arr : np.ndarray
-        A 2D Numpy array of integers or floats containing zero and non-zero
-        values. The function modifies this array in place, filling all zeros
-        with their nearest non-zero neighbor values.
+    test_array : np.ndarray
+        A 2D array where zeros will be replaced by the nearest non-zero values.
 
     Returns
     -------
     np.ndarray
-        The modified array where all initial zero values are replaced by the
-        nearest non-zero neighbors. The array is updated in place but also
-        returned for convenience.
-
-    Notes
-    -----
-    - This function is particularly efficient on binary arrays or arrays
-      where zeros and non-zero values are evenly distributed.
-    - For very large arrays or arrays with isolated zero regions, other
-      methods (e.g., KDTree-based search) may be worth considering.
-
-    Example
-    -------
-    >>> arr = np.array([
-    ...     [0, 2, 0, 4],
-    ...     [1, 0, 0, 0],
-    ...     [0, 0, 3, 0],
-    ...     [0, 0, 0, 5]
-    ... ])
-    >>> nearest_nonzero(some_arr)
-    array([[2, 2, 3, 4],
-           [1, 2, 3, 4],
-           [1, 3, 3, 5],
-           [3, 3, 5, 5]])
+        A copy of test_array with zeros replaced by nearest non-zero values.
     """
-    def fill_zero(values):
-        center = values[len(values) // 2]
-        if center != 0:
-            return center
-        nonzero_neighbors = values[values != 0]
-        return nonzero_neighbors[0] if len(nonzero_neighbors) > 0 else 0
+    # Create a mask for non-zero values
+    non_zero_mask = test_array != 0
 
-    mask = some_arr == 0
-    while np.any(mask):
-        some_arr[mask] = generic_filter(some_arr, fill_zero, size=3)[mask]
-        mask = some_arr == 0
+    # Calculate the distance transform and nearest non-zero indices
+    distances, nearest_indices = distance_transform_edt(~non_zero_mask,
+                                                        return_indices=True)
 
-    return some_arr
+    # Use nearest indices to fill in zero positions with the nearest non-zero
+    # values
+    nearest_values = test_array[nearest_indices[0], nearest_indices[1]]
+    result = test_array.copy()
+    result[~non_zero_mask] = nearest_values[~non_zero_mask]
+    
+    return result
