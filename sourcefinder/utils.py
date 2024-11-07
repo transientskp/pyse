@@ -4,8 +4,9 @@ This module contain utilities for the source finding routines
 
 import math
 
-import numpy
+import numpy as np
 import scipy.integrate
+from scipy.ndimage import distance_transform_edt
 
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
@@ -21,11 +22,11 @@ def generate_subthresholds(min_value, max_value, num_thresholds):
     # greater than the difference between max and min.
     # We subtract 1 from this to get the range between 0 and (max-min).
     # We add min to that to get the range between min and max.
-    subthrrange = numpy.logspace(
+    subthrrange = np.logspace(
         0.0,
-        numpy.log(max_value + 1 - min_value),
+        np.log(max_value + 1 - min_value),
         num=num_thresholds + 1,  # first value == min_value
-        base=numpy.e,
+        base=np.e,
         endpoint=False  # do not include max_value
     )[1:]
     subthrrange += (min_value - 1)
@@ -60,7 +61,7 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
             )
     except RuntimeError:
         # We get a runtime error from wcs.p2s if the errors place the
-        # limits outside of the image, in which case we set the angular
+        # limits outside the image, in which case we set the angular
         # uncertainty to infinity.
         error_radius = float('inf')
     return error_radius
@@ -72,7 +73,7 @@ def circular_mask(xdim, ydim, radius):
     the centre are set to 0; outside that region, they are set to 1.
     """
     centre_x, centre_y = (xdim - 1) / 2.0, (ydim - 1) / 2.0
-    x, y = numpy.ogrid[-centre_x:xdim - centre_x, -centre_y:ydim - centre_y]
+    x, y = np.ogrid[-centre_x:xdim - centre_x, -centre_y:ydim - centre_y]
     return x * x + y * y >= radius * radius
 
 
@@ -83,8 +84,8 @@ def generate_result_maps(data, sourcelist):
     showing the sources themselves and the other the residual after the
     sources have been removed from the input data.
     """
-    residual_map = numpy.array(data)  # array constructor copies by default
-    gaussian_map = numpy.zeros(residual_map.shape)
+    residual_map = np.array(data)  # array constructor copies by default
+    gaussian_map = np.zeros(residual_map.shape)
     for src in sourcelist:
         # Include everything with 6 times the std deviation along the major
         # axis. Should be very very close to 100% of the flux.
@@ -105,9 +106,9 @@ def generate_result_maps(data, sourcelist):
             src.smin.value,
             src.theta.value
         )(
-            numpy.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
+            np.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
                                               lower_bound_y:upper_bound_y],
-            numpy.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
+            np.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
                                               lower_bound_y:upper_bound_y]
         )
 
@@ -144,7 +145,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
 def calculate_beamsize(semimajor, semiminor):
     """Calculate the beamsize based on the semi major and minor axes"""
 
-    return numpy.pi * semimajor * semiminor
+    return np.pi * semimajor * semiminor
 
 
 def fudge_max_pix(semimajor, semiminor, theta):
@@ -176,14 +177,14 @@ def fudge_max_pix(semimajor, semiminor, theta):
     #   Return the double (definite) integral of f1(y,x) from x=a..b
     #   and y=f2(x)..f3(x).
 
-    log20 = numpy.log(2.0)
-    cos_theta = numpy.cos(theta)
-    sin_theta = numpy.sin(theta)
+    log20 = np.log(2.0)
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
 
     def landscape(y, x):
         up = math.pow(((cos_theta * x + sin_theta * y) / semiminor), 2)
         down = math.pow(((cos_theta * y - sin_theta * x) / semimajor), 2)
-        return numpy.exp(log20 * (up + down))
+        return np.exp(log20 * (up + down))
 
     (correction, abserr) = scipy.integrate.dblquad(landscape, -0.5, 0.5,
                                                    lambda ymin: -0.5,
@@ -214,19 +215,16 @@ def maximum_pixel_method_variance(semimajor, semiminor, theta):
     #   Return the double (definite) integral of f1(y,x) from x=a..b
     #   and y=f2(x)..f3(x).
 
-    log20 = numpy.log(2.0)
-    cos_theta = numpy.cos(theta)
-    sin_theta = numpy.sin(theta)
+    log20 = np.log(2.0)
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
 
     def landscape(y, x):
-        return numpy.exp(2.0 * log20 *
-                         (
-                         math.pow(((cos_theta * x + sin_theta * y) / semiminor),
+        return np.exp(2.0 * log20 * (
+                      math.pow(((cos_theta * x + sin_theta * y) / semiminor),
                                   2) +
-                         math.pow(((cos_theta * y - sin_theta * x) / semimajor),
-                                  2)
-                         )
-                         )
+                      math.pow(((cos_theta * y - sin_theta * x) / semimajor),
+                                  2)))
 
     (result, abserr) = scipy.integrate.dblquad(landscape, -0.5, 0.5,
                                                lambda ymin: -0.5,
@@ -249,8 +247,42 @@ def flatten(nested_list):
         flattened = list(flatten(nested)).
     """
     for elem in nested_list:
-        if isinstance(elem, (tuple, list, numpy.ndarray)):
+        if isinstance(elem, (tuple, list, np.ndarray)):
             for i in flatten(elem):
                 yield i
         else:
             yield elem
+
+
+# “The nearest_nonzero function has been generated using ChatGPT 4.0.
+# Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
+def nearest_nonzero(test_array):
+    """
+    Replace zeros in test_array with the nearest non-zero values based on
+    distance.
+
+    Parameters
+    ----------
+    test_array : np.ndarray
+        A 2D array where zeros will be replaced by the nearest non-zero values.
+
+    Returns
+    -------
+    np.ndarray
+        A copy of test_array with zeros replaced by nearest non-zero values.
+    """
+    # Create a mask for non-zero values
+    non_zero_mask = test_array != 0
+
+    # Calculate the distance transform and nearest non-zero indices
+    distances, nearest_indices = distance_transform_edt(~non_zero_mask,
+                                                        return_indices=True)
+
+    # Use nearest indices to fill in zero positions with the nearest non-zero
+    # values
+    nearest_values = test_array[nearest_indices[0], nearest_indices[1]]
+    result = test_array.copy()
+    result[~non_zero_mask] = nearest_values[~non_zero_mask]
+    
+    return result

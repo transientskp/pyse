@@ -263,28 +263,26 @@ class ImageData(object):
         useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
         y_dim = self.data[useful_chunk[0]].data.shape[1]
-        useful_data = da.from_array(self.data[useful_chunk[0]], chunks=(self.back_size_x, y_dim))
+        useful_data = da.from_array(self.data[useful_chunk[0]],
+                                    chunks=(self.back_size_x, y_dim))
 
-        mode_and_rms = useful_data.map_blocks(ImageData.compute_mode_and_rms_of_row_of_subimages,
-                                              y_dim,  self.back_size_y,
-                                              dtype=np.complex64,
-                                              chunks=(1, 1)).compute()
+        mode_and_rms = useful_data.map_blocks(
+            ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim,
+            self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
 
-        # See also similar comment below. This solution was chosen because map_blocks does not seem to be able to
-        # output multiple arrays. One can however output to a complex array and take real and imaginary
-        # parts afterward. Not a very clean solution, I admit.
-        mode_grid = mode_and_rms.real
-        rms_grid = mode_and_rms.imag
+        # See also similar comment below. This solution was chosen because
+        # map_blocks does not seem to be able to output multiple arrays. One can
+        # however output to a complex array and take real and imaginary parts
+        # afterward. Not a very clean solution, I admit.
 
-        rms_grid = np.ma.array(
-            rms_grid, mask=np.where(rms_grid == 0, 1, 0), dtype=np.float32)
-        # A rms of zero is not physical, since any instrument has system noise, so I use that as criterion
-        # to mask values. A zero background mode is physically possible, but also highly unlikely, given the way
-        # we determine it.
-        mode_grid = np.ma.array(
-            mode_grid, mask=np.where(rms_grid == 0, 1, 0), dtype=np.float32)
+        # Fill in the zeroes with nearest neighbours.
+        # In this way we do not have to make a MaskedArray, which
+        # scipy.interpolate.interp1d cannot handle adequately.
+        # utils.nearest_nonzero modifies in-place.
+        mode_grid = utils.nearest_nonzero(mode_and_rms.real)
+        rms_grid = utils.nearest_nonzero(mode_and_rms.imag)
 
-        return { 'bg': mode_grid, 'rms': rms_grid,}
+        return {'bg': mode_grid, 'rms': rms_grid}
 
     @staticmethod
     def compute_mode_and_rms_of_row_of_subimages(row_of_subimages, y_dim, back_size_y):
@@ -296,7 +294,7 @@ class ImageData(object):
 
         for starty in range(0, y_dim, back_size_y):
             chunk = row_of_subimages[:, starty:starty+back_size_y]
-            if not chunk.any():
+            if np.ma.is_masked(chunk) or not chunk.any():
                 # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
                 # so I'll set these values to zero instead and use these zeroes to create the mask.
                 rms = 0
@@ -320,12 +318,12 @@ class ImageData(object):
                     if np.fabs(mean - median) / sigma >= 0.3:
                         sigmaclip_logger.debug(
                             'bg skewed, %f clipping iterations', num_clip_its)
-                        mode=median
+                        mode = median
                     else:
                         sigmaclip_logger.debug(
                             'bg not skewed, %f clipping iterations',
                             num_clip_its)
-                        mode=2.5 * median - 1.5 * mean
+                        mode = 2.5 * median - 1.5 * mean
             row_of_complex_values = np.append(row_of_complex_values,  np.array(mode + 1j*rms))[None]
         # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
         # but presently that module does not seem to provide for that. But I can, however, output to a
@@ -375,7 +373,7 @@ class ImageData(object):
         yratio = float(my_ydim) / self.back_size_y
 
         my_map = np.ma.MaskedArray(np.zeros(self.data.shape),
-                                      mask=self.data.mask, dtype=np.float32)
+                                   mask=self.data.mask, dtype=np.float32)
 
         # Remove the MaskedArrayFutureWarning warning and keep old numpy < 1.11
         # behavior
@@ -392,7 +390,7 @@ class ImageData(object):
         # with "ValueError: x and y arrays must have at least 2 entries". So in that case
         # map_coordinates should be used.
 
-        if INTERPOLATE_ORDER == 1 and grid.shape[0]>1 and grid.shape[1]>1:
+        if INTERPOLATE_ORDER == 1 and grid.shape[0] > 1 and grid.shape[1] > 1:
             x_initial = np.linspace(0., grid.shape[0]-1, grid.shape[0],
                                     endpoint=True, dtype=np.float32)
             y_initial = np.linspace(0., grid.shape[1]-1, grid.shape[1],
@@ -1157,10 +1155,10 @@ class ImageData(object):
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
-
+            
                 param = extract.ParamSet()
                 param["sig"] = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
-
+            
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
                 param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
                 param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
@@ -1171,7 +1169,7 @@ class ImageData(object):
                 param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
                 param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
                 param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
-
+            
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
