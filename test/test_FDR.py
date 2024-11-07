@@ -32,7 +32,7 @@ validity of the FDR algorithm refers to large ensembles.  This means that in
 indivual maps the fraction of falsely detected pixels can exceed the
 threshold (alpha).  For these unit tests, we'll be bold and use the number
 of detected sources in the presence of correlated noise in a single map
-(TEST_DECONV.FITS).
+(deconvolved.fits).
 """
 
 import os
