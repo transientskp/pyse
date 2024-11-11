@@ -333,8 +333,8 @@ class ParamSet(MutableMapping):
             # products other than Stokes I.
             if self.bounds["peak"][0] > self.bounds["peak"][1]:
                 true_upper = self.bounds["peak"][0]
-                self.bounds["peak"][0] = self.bounds["peak"][1]
-                self.bounds["peak"][1] = true_upper
+                true_lower = self.bounds["peak"][1]
+                self.bounds["peak"] = (true_lower, true_upper, False)
 
             if hasattr(self["semimajor"], "value"):
                 self.bounds["semimajor"] = (0.5 * self["semimajor"].value,

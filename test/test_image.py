@@ -65,14 +65,13 @@ class TestFitFixedPositions(unittest.TestCase):
     """Test various fitting cases where the pixel position is predetermined"""
 
     @requires_data(
-        os.path.join(DATAPATH, 'NCP_sample_image_1.fits'))
+        os.path.join(DATAPATH, 'NCP_sample_image_1.fits'),
+        os.path.join(DATAPATH,
+                     'GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits'))
     def setUp(self):
         """
-        NB the required image has been committed to the tkp/data subversion repository.
-
-        (See tkp/data/unittests/tkp_lib for a full copy of all the unittest data).
-
-        Source positions / background positions were simply picked out by eye in DS9
+        Source positions / background positions were simply picked out by
+        eye in DS9
         """
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
@@ -84,11 +83,20 @@ class TestFitFixedPositions(unittest.TestCase):
         self.bright_src_posn = (35.76726, 86.305771)  # RA, DEC
         self.background_posn = (6.33731, 82.70002)  # RA, DEC
 
-        # #NB Peak of forced gaussian fit is simply plucked from a previous run;
+        # NB Peak of forced gaussian fit is simply plucked from a previous run;
         # so merely ensures *consistent*, rather than *correct*, results.
         self.known_fit_results = (self.bright_src_posn[0],  # RA,
                                   self.bright_src_posn[1],  # Dec
                                   13.457697411730384)  # Peak
+
+        # Python script for cropping the original file has been refined using
+        # ChatGPT 4.0. All AI-output has been verified for correctness, accuracy
+        # and completeness, adapted where needed, and approved.
+        self.cropped_image = accessors.sourcefinder_image_from_accessor(
+            accessors.open(
+                os.path.join(DATAPATH,
+                             ('GRB201006A_final_2min_srcs-t0002-image-pb'
+                              '_cutout.fits'))), back_size_x=64, back_size_y=64)
 
     def testSourceAtGivenPosition(self):
         posn = self.bright_src_posn
@@ -103,6 +111,17 @@ class TestFitFixedPositions(unittest.TestCase):
         self.assertAlmostEqual(results.peak.value, self.known_fit_results[2],
                                delta=0.01)
 
+    def testSourceAtGivenPosition_negative_spectral_brightness(self):
+        """Here fixed-position fitting faces an extra challenge: the
+        spectral brightness (from moments) at the given position is negative.
+        Since Gaussian fitting uses bounds to avoid runaway solutions and
+        the bounds are determined from moments analysis, we can end up with a
+        lower bound higher than an upper bound which could results in a failed
+        fit. A cropped image helps to meet GH's disk quota."""
+        sample_coord = [[61.42263448, 63.33334492]]
+        results = self.cropped_image.fit_fixed_positions(sample_coord, 32.4687)
+        self.assertAlmostEqual(results[0].peak.value, -0.00364, delta=1e-5)
+
     def testLowFitThreshold(self):
         """
         Low fit threshold is equivalent to zero threshold
@@ -113,8 +132,9 @@ class TestFitFixedPositions(unittest.TestCase):
         posn = self.bright_src_posn
         img = self.image
         low_thresh_results = self.image.fit_fixed_positions(positions=[posn],
-                                                            boxsize=BOX_IN_BEAMPIX * max(
-                                                                img.beam[0],
+                                                            boxsize=
+                                                            BOX_IN_BEAMPIX *
+                                                            max(img.beam[0],
                                                                 img.beam[1]),
                                                             threshold=-1e20)[0]
         self.assertAlmostEqual(low_thresh_results.ra.value,
