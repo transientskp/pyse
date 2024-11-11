@@ -83,12 +83,15 @@ class TestFitFixedPositions(unittest.TestCase):
         self.bright_src_posn = (35.76726, 86.305771)  # RA, DEC
         self.background_posn = (6.33731, 82.70002)  # RA, DEC
 
-        # #NB Peak of forced gaussian fit is simply plucked from a previous run;
+        # NB Peak of forced gaussian fit is simply plucked from a previous run;
         # so merely ensures *consistent*, rather than *correct*, results.
         self.known_fit_results = (self.bright_src_posn[0],  # RA,
                                   self.bright_src_posn[1],  # Dec
                                   13.457697411730384)  # Peak
 
+        # Python script for cropping the original file has been refined using
+        # ChatGPT 4.0. All AI-output has been verified for correctness, accuracy
+        # and completeness, adapted where needed, and approved.
         self.cropped_image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
                 os.path.join(DATAPATH,
