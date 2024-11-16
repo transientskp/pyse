@@ -3,7 +3,7 @@ Generic utility routines for number handling and calculating (specific)
 variances used by the TKP sourcefinder.
 """
 
-import numpy
+import numpy as np
 from numpy.ma import MaskedArray
 from scipy.special import erf
 from scipy.optimize import fsolve
@@ -14,21 +14,21 @@ from numba import njit
 
 def find_true_std(sigma, clip_limit, clipped_std):
     # Solves the transcendental equation 2.25 from Spreeuw's thesis.
-    help1 = clip_limit / (sigma * numpy.sqrt(2))
-    help2 = numpy.sqrt(2 * numpy.pi) * erf(help1)
-    return (sigma ** 2 * (help2 - 2 * numpy.sqrt(2) * help1 *
-            numpy.exp(-help1 ** 2)) - clipped_std ** 2 * help2)
+    help1 = clip_limit / (sigma * np.sqrt(2))
+    help2 = np.sqrt(2 * np.pi) * erf(help1)
+    return (sigma ** 2 * (help2 - 2 * np.sqrt(2) * help1 *
+            np.exp(-help1 ** 2)) - clipped_std ** 2 * help2)
 
 
 @njit
 def indep_pixels(n, correlation_lengths):
     corlengthlong, corlengthshort = correlation_lengths
-    correlated_area = 0.25 * numpy.pi * corlengthlong * corlengthshort
+    correlated_area = 0.25 * np.pi * corlengthlong * corlengthshort
     return n / correlated_area
 
 
 def sigma_clip(data, kappa=2.0, max_iter=100,
-               centref=numpy.median, distf=numpy.var, my_iterations=0, limit=None):
+               centref=np.median, distf=np.var, my_iterations=0, limit=None):
     """Iterative clipping
 
     By default, this performs clipping of the standard deviation about the
@@ -57,17 +57,16 @@ def sigma_clip(data, kappa=2.0, max_iter=100,
     # <http://www.scipy.org/scipy/numpy/wiki/MaskedArray>.
     # MaskedArray.compressed() returns a 1-D array of non-masked data.
     if isinstance(data, MaskedArray):
-        distributed.print("Masked Array! \n")
         data = data.compressed()
     centre = centref(data)
-    n = numpy.size(data)
+    n = np.size(data)
     if n < 1:
         # This chunk is too small for processing; return an empty array.
-        return numpy.array([]), 0, 0, 0
+        return np.array([]), 0, 0, 0
 
     clipped_var = distf(data)
 
-    std = numpy.sqrt(clipped_var)
+    std = np.sqrt(clipped_var)
 
     if limit is not None:
         std_corr_for_clipping_bias = fsolve(find_true_std, std,
