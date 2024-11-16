@@ -7,6 +7,7 @@ import itertools
 import logging
 
 import numpy as np
+import os
 from numba import guvectorize, float32, int32
 
 import time
@@ -16,6 +17,7 @@ from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
+from test.conftest import DATAPATH
 import dask.array as da
 from scipy.interpolate import interp1d
 import psutil
