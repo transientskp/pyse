@@ -168,7 +168,8 @@ class ImageData(object):
     @cached_property
     @timeit
     def rmsmap(self):
-        """RMS map"""
+        """root-mean-squares map, i.e. the standard deviation of the local
+        background noise, interpolated across the image."""
         if not hasattr(self, "_user_noisemap"):
             if SEP:
                 return np.ma.array(self.background.rms(), mask=self.data.mask)
