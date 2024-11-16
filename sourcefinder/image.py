@@ -7,7 +7,6 @@ import itertools
 import logging
 
 import numpy as np
-import os
 from numba import guvectorize, float32, int32
 
 import time
@@ -17,7 +16,6 @@ from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
-from test.conftest import DATAPATH
 import dask.array as da
 from scipy.interpolate import interp1d
 import psutil
@@ -153,7 +151,7 @@ class ImageData(object):
     @cached_property
     @timeit
     def backmap(self):
-        """Background map"""
+        """Mean background map"""
         if not hasattr(self, "_user_backmap"):
             if SEP:
                 return np.ma.array(self.background.back(), mask=self.data.mask)
