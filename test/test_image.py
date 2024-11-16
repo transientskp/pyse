@@ -503,28 +503,28 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         mean_grid = grid["bg"]
 
         # Load ground truth data for background means.
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                                   "mean_grid_deconvolved.fits.npy"))
-              as mean_ground_truth_grid):
+        mean_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                           "mean_grid_deconvolved.fits.npy")))
 
-            # Check the shapes are the same
-            self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
-                             "Shapes of mean grids do not match")
+        # Check the shapes are the same
+        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
+                         "Shapes of mean grids do not match")
 
-            self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
 
         std_grid = grid["rms"]
 
         # Load ground truth data for background standard deviations (rms).
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                                   "std_grid_deconvolved.fits.npy"))
-              as std_ground_truth_grid):
+        std_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                           "std_grid_deconvolved.fits.npy")))
 
-            # Check the shapes are the same
-            self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
-                             "Shapes of rms grids do not match")
+        # Check the shapes are the same
+        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
+                         "Shapes of rms grids do not match")
 
-            self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
+        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
 
 
 # The TestBackgroundCharacteristicsComplex class has been generated using
@@ -550,25 +550,25 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
         mean_grid = grid["bg"]
 
         # Load ground truth data for background means.
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "mean_grid_image_206-215-t0002.fits_radius_1000.npy"))
-              as mean_ground_truth_grid):
+        mean_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                    "mean_grid_image_206-215-t0002.fits_radius_1000.npy")))
 
-            # Check the shapes are the same
-            self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
-                             "Shapes of mean grids do not match")
+        # Check the shapes are the same
+        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
+                         "Shapes of mean grids do not match")
 
-            self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
 
         std_grid = grid["rms"]
 
         # Load ground truth data for background standard deviations (rms).
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "std_grid_image_206-215-t0002.fits_radius_1000.npy"))
-             as std_ground_truth_grid):
+        std_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                    "std_grid_image_206-215-t0002.fits_radius_1000.npy")))
 
-            # Check the shapes are the same
-            self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
-                             "Shapes of rms grids do not match")
+        # Check the shapes are the same
+        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
+                         "Shapes of rms grids do not match")
 
-            self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
+        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
