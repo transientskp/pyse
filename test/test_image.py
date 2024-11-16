@@ -526,6 +526,7 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
 
             self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
 
+
 # The TestBackgroundCharacteristicsComplex class has been generated using
 # ChatGPT 4.0. All AI-output has been verified for correctness,
 # accuracy and completeness, adapted where needed, and approved by the author.
