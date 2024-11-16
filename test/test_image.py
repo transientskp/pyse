@@ -494,40 +494,37 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
                                      fitsfile.wcs)
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "mean_grid_deconvolved.fits.npz"),
+                                "mean_grid_deconvolved.fits.npy"),
                    os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "std_grid_deconvolved.fits.npz"))
+                                "std_grid_deconvolved.fits.npy"))
     def test_sigma_clip_deconvolved(self):
         grid = self.img.grids
 
         mean_grid = grid["bg"]
 
         # Load ground truth data for background means.
-        with np.load(os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                  "mean_grid_deconvolved.fits.npz")) as npz:
-
-            mean_ground_truth_grid = np.ma.MaskedArray(**npz)
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                   "mean_grid_deconvolved.fits.npy"))
+              as mean_ground_truth_grid):
 
             # Check the shapes are the same
             self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
                              "Shapes of mean grids do not match")
 
-            self.assertTrue(np.ma.allclose(mean_grid, mean_ground_truth_grid))
+            self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
 
         std_grid = grid["rms"]
 
         # Load ground truth data for background standard deviations (rms).
-        with np.load(os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                  "std_grid_deconvolved.fits.npz")) as npz:
-
-            std_ground_truth_grid = np.ma.MaskedArray(**npz)
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                   "std_grid_deconvolved.fits.npy"))
+              as std_ground_truth_grid):
 
             # Check the shapes are the same
             self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
                              "Shapes of rms grids do not match")
 
-            self.assertTrue(np.ma.allclose(std_grid, std_ground_truth_grid))
-
+            self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
 
 # The TestBackgroundCharacteristicsComplex class has been generated using
 # ChatGPT 4.0. All AI-output has been verified for correctness,
