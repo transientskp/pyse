@@ -491,7 +491,8 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
         self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
-                                     fitsfile.wcs)
+                                     fitsfile.wcs,
+                                     back_size_x=128, back_size_y=51)
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
