@@ -42,7 +42,7 @@ class SourceParameters(unittest.TestCase):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
         img = image.ImageData(fitsfile.data, fitsfile.beam,
-                              fitsfile.wcs, back_size_x=128, back_size_y=51)
+                              fitsfile.wcs)
 
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background

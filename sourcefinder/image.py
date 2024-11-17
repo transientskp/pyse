@@ -10,8 +10,6 @@ import numpy as np
 from numba import guvectorize, float32, int32
 
 import time
-import os
-from test.conftest import DATAPATH
 
 from sourcefinder import extract
 from sourcefinder import stats
