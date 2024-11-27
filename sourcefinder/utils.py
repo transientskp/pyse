@@ -278,9 +278,23 @@ def nearest_nonzero(some_arr, rms):
     if some_arr.shape != rms.shape:
         raise ValueError("some_arr and rms must have the same shape.")
     
-    # Handle empty array or single-element array
-    if some_arr.size < 2:
+    # Handle empty array.
+    if some_arr.size == 0:
         return some_arr
+
+    # Handle single-element array.
+    if some_arr.size == 1:
+        if rms[0, 0] == 0:
+            # Return an empty array if the single value in rms is 0.
+            # A rms of 0, means a standard deviation of zero, which means we
+            # cannot do any form of thresholding for source detection. If we
+            # return an empty background grid, ImageData._interpolate will
+            # return a completely masked background map, such that no sources
+            # will be detected.
+            return np.empty((0, 0))
+        else:
+            return some_arr  # No replacement needed if rms[0, 0] is non-zero.
+
 
     # Create a mask for zero values in rms
     zero_mask = rms == 0
