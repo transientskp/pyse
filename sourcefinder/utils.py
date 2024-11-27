@@ -278,14 +278,10 @@ def nearest_nonzero(some_arr, rms):
     if some_arr.shape != rms.shape:
         raise ValueError("some_arr and rms must have the same shape.")
     
-    # Handle empty array
-    if some_arr.size == 0:
+    # Handle empty array or single-element array
+    if some_arr.size < 2:
         return some_arr
-    
-    # Handle single-element array
-    if some_arr.shape == (1, 1):
-        return some_arr  # No replacement possible
-    
+
     # Create a mask for zero values in rms
     zero_mask = rms == 0
 
