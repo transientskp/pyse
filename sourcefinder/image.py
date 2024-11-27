@@ -381,10 +381,10 @@ class ImageData(object):
         If roundup is true, values of the resultant map which are lower than
         the input grid are trimmed.
         """
-        # Use zeroes with the mask from the observational image as as starting
-        # point for the mean background and rms background maps. Next, fill in
+        # Use zeroes with the mask from the observational image as a starting
+        # point for the mean background and rms background maps. Next, use
         # the interpolated values from the background grids, which were derived
-        # using kappa * sigma clipping, to fill in unmasked patches.
+        # using kappa * sigma clipping, to fill in all unmasked pixels.
         my_map = np.ma.MaskedArray(np.zeros(self.data.shape),
                                    mask=self.data.mask, dtype=np.float32)
 
@@ -397,11 +397,6 @@ class ImageData(object):
             my_map.mask = True
             return my_map
 
-        # there's no point in working with the whole of the data array if it's
-        # masked.
-        # useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
-        # assert (len(useful_chunk) == 1)
-        # my_xdim, my_ydim = self.data[useful_chunk[0]].shape
         my_xdim, my_ydim = inds[1] - inds[0], inds[3] - inds[2]
 
         if MEDIAN_FILTER:
@@ -421,11 +416,11 @@ class ImageData(object):
         # resampling-a-numpy-array-representing-an-image
         # Should be much faster than scipy.ndimage.map_coordinates.
         # scipy.ndimage.zoom should also be an option for speedup, but zoom did
-        # not let me produce the exact same output as map_coordinates.
-        # I checked, using fitsdiff, that it gives the exact same output as the
+        # not reproduce the exact same output as map_coordinates.
+        # Used fitsdiff to check that it gives the exact same output as the
         # original code up to and including --relative-tolerance=1e-15 for
         # INTERPOLATE_ORDER=1.
-        # It was actually quite a hassle to get the same output and the
+        # Achieving this resemblance was quite involved and the
         # fill_value is essential in interp1d. However, for some unit tests,
         # grid.shape=(1,1) and then it will break with "ValueError: x and y
         # arrays must have at least 2 entries". So in that case
@@ -455,7 +450,7 @@ class ImageData(object):
                                                    bounds_error=False,
                                                    fill_value=(transposed[:, 0],
                                                                transposed[:, -1]))
-            # my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
                 perpendicular_interpolation(x_sought).T
 
@@ -464,9 +459,7 @@ class ImageData(object):
             # unmasked patch of the image to fill.
             slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
             slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
-            # my_map[useful_chunk[0]] = ndimage.map_coordinates(
-            #    grid, np.mgrid[slicex, slicey],
-            #    mode='nearest', order=INTERPOLATE_ORDER)
+
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
                                         mode='nearest',
