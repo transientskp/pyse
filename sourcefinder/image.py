@@ -143,7 +143,8 @@ class ImageData(object):
     def background(self):
         """"Returns background object from sep"""
         return sep.Background(self.data.data, mask = self.data.mask,
-                              bw=self.back_size_x, bh=self.back_size_y, fw=0, fh=0)
+                              bw=self.back_size_x, bh=self.back_size_y,
+                              fw=0, fh=0)
 
     @cached_property
     @timeit
@@ -153,7 +154,8 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.back(), mask=self.data.mask)
             else:
-                return self._interpolate(self.grids['bg'])
+                return self._interpolate(self.grids['bg'],
+                                         self.grids['indices'])
         else:
             return self._user_backmap
 
@@ -165,7 +167,8 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.rms(), mask=self.data.mask)
             else:
-                return self._interpolate(self.grids['rms'], roundup=True)
+                return self._interpolate(self.grids['rms'],
+                                         self.grids['indices'], roundup=True)
         else:
             return self._user_noisemap
 
@@ -262,30 +265,51 @@ class ImageData(object):
         # if it's masked.
         useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
-        y_dim = self.data[useful_chunk[0]].data.shape[1]
-        useful_data = da.from_array(self.data[useful_chunk[0]],
-                                    chunks=(self.back_size_x, y_dim))
+        x_dim, y_dim  = self.data[useful_chunk[0]].shape
+        # We should divide up the image into subimages such that each grid
+        # node is centered on a subimage. This is only possible if
+        # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
+        # respectively. If not, we need to select a frame within useful_chunk
+        # that does have the appropriate dimensions. At the same time, it should
+        # be as large as possible and centered within useful_chunk.
+        rem_row = np.mod(x_dim, self.back_size_x)
+        rem_col = np.mod(y_dim, self.back_size_y)
+        start_offset_row, rem_rem_row = divmod(rem_row, 2)
+        start_offset_col, rem_rem_col = divmod(rem_col, 2)
+        end_offset_row = start_offset_row + rem_rem_row
+        end_offset_col = start_offset_col + rem_rem_col
 
-        mode_and_rms = useful_data.map_blocks(
-            ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim,
+        offsets = np.array([start_offset_row, -end_offset_row,
+                            start_offset_col, -end_offset_col])
+
+        useful_chunk_inds = ImageData.slices_to_indices(useful_chunk)[0]
+
+        centred_inds = useful_chunk_inds + offsets
+
+        useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
+                                              centred_inds[2]:centred_inds[3]],
+                                    chunks=(self.back_size_x, y_dim - rem_col))
+
+        mean_and_rms = useful_data.map_blocks(
+            ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
             self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
 
-        # See also similar comment below. This solution was chosen because
-        # map_blocks does not seem to be able to output multiple arrays. One can
-        # however output to a complex array and take real and imaginary parts
-        # afterward. Not a very clean solution, I admit.
+        # See also similar comment in compute_mode_and_rms_of_row_of_subimages.
+        # This solution was chosen because map_blocks does not seem to be able
+        # to output multiple arrays. One can however output to a complex array
+        # and take real and imaginary parts afterward.
 
         # Fill in the zeroes with nearest neighbours.
         # In this way we do not have to make a MaskedArray, which
         # scipy.interpolate.interp1d cannot handle adequately.
-        # utils.nearest_nonzero modifies in-place.
-        mode_grid = utils.nearest_nonzero(mode_and_rms.real)
-        rms_grid = utils.nearest_nonzero(mode_and_rms.imag)
+        mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
+        rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
 
-        return {'bg': mode_grid, 'rms': rms_grid}
+        return {'bg': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
 
     @staticmethod
-    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages, y_dim, back_size_y):
+    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages,
+                                                 y_dim, back_size_y):
 
         # We set up a dedicated logging subchannel, as the sigmaclip loop
         # logging is very chatty:
@@ -295,8 +319,10 @@ class ImageData(object):
         for starty in range(0, y_dim, back_size_y):
             chunk = row_of_subimages[:, starty:starty+back_size_y]
             if np.ma.is_masked(chunk) or not chunk.any():
-                # In the original code we had rmsrow.append(False), but now we work with an array instead of a list,
-                # so I'll set these values to zero instead and use these zeroes to create the mask.
+                # In the original code we had rmsrow.append(False), but now we
+                # work with a ndarray instead of a list, so we'll set these
+                # values to zero instead and use these zeroes to create the
+                # mask.
                 rms = 0
                 mode = 0
             else:
@@ -324,14 +350,16 @@ class ImageData(object):
                             'bg not skewed, %f clipping iterations',
                             num_clip_its)
                         mode = 2.5 * median - 1.5 * mean
-            row_of_complex_values = np.append(row_of_complex_values,  np.array(mode + 1j*rms))[None]
-        # This solution is a bit dirty. I would like dask.array.map_blocks to output two arrays,
-        # but presently that module does not seem to provide for that. But I can, however, output to a
-        # complex array and later take the real part of that for the mode and the imaginary part
+            row_of_complex_values = \
+                np.append(row_of_complex_values,  np.array(mode + 1j*rms))[None]
+        # Ideally, we would like dask.array.map_blocks to output two arrays,
+        # but that module does not seem to provide for that. We can, however,
+        # output to a complex array and later take the real part of that for the
+        # mean (approximated by a mode estimation) and the imaginary part
         # for the rms.
         return row_of_complex_values
 
-    def _interpolate(self, grid, roundup=False):
+    def _interpolate(self, grid, inds, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
 
@@ -353,11 +381,28 @@ class ImageData(object):
         If roundup is true, values of the resultant map which are lower than
         the input grid are trimmed.
         """
+        # Use zeroes with the mask from the observational image as as starting
+        # point for the mean background and rms background maps. Next, fill in
+        # the interpolated values from the background grids, which were derived
+        # using kappa * sigma clipping, to fill in unmasked patches.
+        my_map = np.ma.MaskedArray(np.zeros(self.data.shape),
+                                   mask=self.data.mask, dtype=np.float32)
+
+        # Remove the MaskedArrayFutureWarning warning and keep old numpy < 1.11
+        # behavior
+        my_map.unshare_mask()
+
+        # If the grid has size 0 there is no point in proceeding.
+        if grid.size == 0:
+            my_map.mask = True
+            return my_map
+
         # there's no point in working with the whole of the data array if it's
         # masked.
-        useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
-        assert (len(useful_chunk) == 1)
-        my_xdim, my_ydim = self.data[useful_chunk[0]].shape
+        # useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
+        # assert (len(useful_chunk) == 1)
+        # my_xdim, my_ydim = self.data[useful_chunk[0]].shape
+        my_xdim, my_ydim = inds[1] - inds[0], inds[3] - inds[2]
 
         if MEDIAN_FILTER:
             f_grid = ndimage.median_filter(grid, MEDIAN_FILTER)
@@ -372,22 +417,18 @@ class ImageData(object):
         xratio = float(my_xdim) / self.back_size_x
         yratio = float(my_ydim) / self.back_size_y
 
-        my_map = np.ma.MaskedArray(np.zeros(self.data.shape),
-                                   mask=self.data.mask, dtype=np.float32)
-
-        # Remove the MaskedArrayFutureWarning warning and keep old numpy < 1.11
-        # behavior
-        my_map.unshare_mask()
-
-        # Inspired by https://stackoverflow.com/questions/13242382/resampling-a-numpy-array-representing-an-image
+        # Inspired by https://stackoverflow.com/questions/13242382/
+        # resampling-a-numpy-array-representing-an-image
         # Should be much faster than scipy.ndimage.map_coordinates.
-        # scipy.ndimage.zoom should also be an option for speedup, but zoom dit not let me produce the exact
-        # same output as map_coordinates. My bad.
-        # I checked, using fitsdiff, that it gives the exact same output as the original code
-        # up to and including --relative-tolerance=1e-15 for INTERPOLATE_ORDER=1.
-        # It was actually quite a hassle to get the same output and the fill_value is essential
-        # in interp1d. However, for some unit tests, grid.shape=(1,1) and then it will break
-        # with "ValueError: x and y arrays must have at least 2 entries". So in that case
+        # scipy.ndimage.zoom should also be an option for speedup, but zoom did
+        # not let me produce the exact same output as map_coordinates.
+        # I checked, using fitsdiff, that it gives the exact same output as the
+        # original code up to and including --relative-tolerance=1e-15 for
+        # INTERPOLATE_ORDER=1.
+        # It was actually quite a hassle to get the same output and the
+        # fill_value is essential in interp1d. However, for some unit tests,
+        # grid.shape=(1,1) and then it will break with "ValueError: x and y
+        # arrays must have at least 2 entries". So in that case
         # map_coordinates should be used.
 
         if INTERPOLATE_ORDER == 1 and grid.shape[0] > 1 and grid.shape[1] > 1:
@@ -400,21 +441,36 @@ class ImageData(object):
             y_sought = np.linspace(-0.5, -0.5 + yratio, my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            primary_interpolation = interp1d(y_initial, grid, kind='slinear', assume_sorted=True,
-                                             axis=1, copy=False, bounds_error=False,
-                                             fill_value=(grid[:, 0], grid[:, -1]))
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
+                                             assume_sorted=True, axis=1,
+                                             copy=False, bounds_error=False,
+                                             fill_value=(grid[:, 0],
+                                                         grid[:, -1]))
             transposed = primary_interpolation(y_sought).T
 
-            perpendicular_interpolation = interp1d(x_initial, transposed, kind='slinear', assume_sorted=True,
-                                                   axis=1, copy=False, bounds_error=False,
-                                                   fill_value=(transposed[:, 0], transposed[:, -1]))
-            my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+            perpendicular_interpolation = interp1d(x_initial, transposed,
+                                                   kind='slinear',
+                                                   assume_sorted=True,
+                                                   axis=1, copy=False,
+                                                   bounds_error=False,
+                                                   fill_value=(transposed[:, 0],
+                                                               transposed[:, -1]))
+            # my_map[useful_chunk[0]] = perpendicular_interpolation(x_sought).T
+            my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
+                perpendicular_interpolation(x_sought).T
+
         else:
+            # This condition is there to make sure we actually have some
+            # unmasked patch of the image to fill.
             slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
             slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
-            my_map[useful_chunk[0]] = ndimage.map_coordinates(
-               grid, np.mgrid[slicex, slicey],
-               mode='nearest', order=INTERPOLATE_ORDER)
+            # my_map[useful_chunk[0]] = ndimage.map_coordinates(
+            #    grid, np.mgrid[slicex, slicey],
+            #    mode='nearest', order=INTERPOLATE_ORDER)
+            my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
+                ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
+                                        mode='nearest',
+                                        order=INTERPOLATE_ORDER))
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -827,7 +883,8 @@ class ImageData(object):
         # If there is no usable data, we return an empty set of islands.
         if not len(self.rmsmap.compressed()):
             logging.warning("RMS map masked; sourcefinding skipped")
-            return [], np.zeros(self.data_bgsubbed.shape, dtype=np.int)
+            return ([], np.zeros(self.data_bgsubbed.shape, dtype=np.int32),
+                   None, None, None, None, None, None)
 
         # At this point, we select all the data which is eligible for
         # sourcefitting. We are actually using three separate filters, which
@@ -910,6 +967,7 @@ class ImageData(object):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
                           correlation_lengths, fixed=fixed)
 
+    @timeit
     @staticmethod
     def slices_to_indices(slices):
         all_indices = np.empty((len(slices), 4), dtype=np.int32)
