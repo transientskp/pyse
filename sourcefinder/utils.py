@@ -295,7 +295,6 @@ def nearest_nonzero(some_arr, rms):
         else:
             return some_arr  # No replacement needed if rms[0, 0] is non-zero.
 
-
     # Create a mask for zero values in rms
     zero_mask = rms == 0
 
