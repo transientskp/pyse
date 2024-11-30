@@ -160,7 +160,7 @@ class ImageData(object):
             else:
                 np.save(os.path.join(DATAPATH,
                                      "kappa_sigma_clipping",
-                                     "mean_grid_deconvolved.fits"),
+                                     "mean_grid_image_206-215-t0002.fits_radius_1000.npy"),
                         self.grids['bg'])
                 return self._interpolate(self.grids['bg'],
                                          self.grids['indices'])
@@ -178,7 +178,7 @@ class ImageData(object):
             else:
                 np.save(os.path.join(DATAPATH,
                                      "kappa_sigma_clipping",
-                                     "std_grid_deconvolved.fits"),
+                                     "std_grid_image_206-215-t0002.fits_radius_1000.npy"),
                         self.grids['rms'])
                 return self._interpolate(self.grids['rms'],
                                          self.grids['indices'], roundup=True)
