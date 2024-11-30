@@ -23,6 +23,8 @@ from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
 import sep
+import os
+from test.conftest import DATAPATH
 
 try:
     import ndimage
@@ -156,6 +158,10 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.back(), mask=self.data.mask)
             else:
+                np.save(os.path.join(DATAPATH,
+                                     "kappa_sigma_clipping",
+                                     "mean_grid_deconvolved.fits"),
+                        self.grids['bg'])
                 return self._interpolate(self.grids['bg'],
                                          self.grids['indices'])
         else:
@@ -170,6 +176,10 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.rms(), mask=self.data.mask)
             else:
+                np.save(os.path.join(DATAPATH,
+                                     "kappa_sigma_clipping",
+                                     "std_grid_deconvolved.fits"),
+                        self.grids['rms'])
                 return self._interpolate(self.grids['rms'],
                                          self.grids['indices'], roundup=True)
         else:
