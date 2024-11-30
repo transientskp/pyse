@@ -156,10 +156,10 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.back(), mask=self.data.mask)
             else:
-                np.save(os.path.join(DATAPATH,
-                                     "kappa_sigma_clipping",
-                                     "mean_grid_deconvolved.fits"),
-                        self.grids['bg'])
+                # np.save(os.path.join(DATAPATH,
+                #                      "kappa_sigma_clipping",
+                #                      "mean_grid_deconvolved.fits"),
+                #         self.grids['bg'])
                 return self._interpolate(self.grids['bg'],
                                          self.grids['indices'])
         else:
@@ -174,10 +174,10 @@ class ImageData(object):
             if SEP:
                 return np.ma.array(self.background.rms(), mask=self.data.mask)
             else:
-                np.save(os.path.join(DATAPATH,
-                                     "kappa_sigma_clipping",
-                                     "std_grid_deconvolved.fits"),
-                        self.grids['rms'])
+                # np.save(os.path.join(DATAPATH,
+                #                      "kappa_sigma_clipping",
+                #                      "std_grid_deconvolved.fits"),
+                #         self.grids['rms'])
                 return self._interpolate(self.grids['rms'],
                                          self.grids['indices'], roundup=True)
         else:
@@ -297,24 +297,35 @@ class ImageData(object):
 
         centred_inds = useful_chunk_inds + offsets
 
-        useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
-                                              centred_inds[2]:centred_inds[3]],
-                                    chunks=(self.back_size_x, y_dim - rem_col))
+        # Before proceeding, check that our data has the size of at least
+        # one subimage, for both dimensions.
+        if (centred_inds[1] - centred_inds[0] > self.back_size_x and
+            centred_inds[3] - centred_inds[2] > self.back_size_y):
 
-        mean_and_rms = useful_data.map_blocks(
-            ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
-            self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
+            useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
+                                                  centred_inds[2]:centred_inds[3]],
+                                        chunks=(self.back_size_x, y_dim - rem_col))
 
-        # See also similar comment in compute_mode_and_rms_of_row_of_subimages.
-        # This solution was chosen because map_blocks does not seem to be able
-        # to output multiple arrays. One can however output to a complex array
-        # and take real and imaginary parts afterward.
+            mean_and_rms = useful_data.map_blocks(
+                ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
+                self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
 
-        # Fill in the zeroes with nearest neighbours.
-        # In this way we do not have to make a MaskedArray, which
-        # scipy.interpolate.interp1d cannot handle adequately.
-        mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
-        rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
+            # Fill in the zeroes with nearest neighbours.
+            # In this way we do not have to make a MaskedArray, which
+            # scipy.interpolate.interp1d cannot handle adequately.
+            # See also similar comment in compute_mode_and_rms_of_row_of_subimages.
+            # This solution was chosen because map_blocks does not seem to be able
+            # to output multiple arrays. One can however output to a complex array
+            # and take real and imaginary parts afterward.
+            mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
+            rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
+        else:
+            # Return an empty grid if we don't have enough pixels along both
+            # dimensions. In that case ImageData._interpolate will return
+            # completely masked background maps, which is what we want, since
+            # no sources will be extracted.
+            mean_grid = np.empty((0, 0), dtype=np.float32)
+            rms_grid = np.empty((0, 0), dtype=np.float32)
 
         return {'bg': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
 
