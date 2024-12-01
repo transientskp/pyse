@@ -254,6 +254,7 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
+    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -309,8 +310,8 @@ class ImageData(object):
             # This solution was chosen because map_blocks does not seem to be able
             # to output multiple arrays. One can however output to a complex array
             # and take real and imaginary parts afterward.
-            mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
-            rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
+            mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.imag)
+            rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.imag)
         else:
             # Return an empty grid if we don't have enough pixels along both
             # dimensions. In that case ImageData._interpolate will return
