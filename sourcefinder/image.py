@@ -149,7 +149,6 @@ class ImageData(object):
                               fw=0, fh=0)
 
     @cached_property
-    @timeit
     def backmap(self):
         """Mean background map"""
         if not hasattr(self, "_user_backmap"):
@@ -162,7 +161,6 @@ class ImageData(object):
             return self._user_backmap
 
     @cached_property
-    @timeit
     def rmsmap(self):
         """root-mean-squares map, i.e. the standard deviation of the local
         background noise, interpolated across the image."""
@@ -295,13 +293,33 @@ class ImageData(object):
         if (centred_inds[1] - centred_inds[0] > self.back_size_x and
             centred_inds[3] - centred_inds[2] > self.back_size_y):
 
-            useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
-                                                  centred_inds[2]:centred_inds[3]],
-                                        chunks=(self.back_size_x, y_dim - rem_col))
+            # useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
+            #                                       centred_inds[2]:centred_inds[3]],
+            #                             chunks=(self.back_size_x, y_dim - rem_col))
+            #
+            # mean_and_rms = useful_data.map_blocks(
+            #     ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
+            #     self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
 
-            mean_and_rms = useful_data.map_blocks(
-                ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
-                self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
+            subimages, number_of_elements_for_each_subimage = \
+                utils.make_subimages(self.data.data[centred_inds[0]:
+                                                    centred_inds[1],
+                                                    centred_inds[2]:
+                                                    centred_inds[3]],
+                                     self.data.mask[centred_inds[0]:
+                                                    centred_inds[1],
+                                                    centred_inds[2]:
+                                                    centred_inds[3]],
+                                     self.back_size_x, self.back_size_y)
+
+            mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
+                                 dtype=np.float32)
+            rms_grid = np.zeros(number_of_elements_for_each_subimage.shape,
+                                dtype=np.float32)
+
+            stats.data_clipper_dynamic(subimages,
+                                       number_of_elements_for_each_subimage,
+                                       mean_grid, rms_grid)
 
             # Fill in the zeroes with nearest neighbours.
             # In this way we do not have to make a MaskedArray, which
@@ -310,8 +328,10 @@ class ImageData(object):
             # This solution was chosen because map_blocks does not seem to be able
             # to output multiple arrays. One can however output to a complex array
             # and take real and imaginary parts afterward.
-            mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.imag)
-            rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.imag)
+            # mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
+            # rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
+            mean_grid = utils.nearest_nonzero(mean_grid, rms_grid)
+            rms_grid = utils.nearest_nonzero(rms_grid, rms_grid)
         else:
             # Return an empty grid if we don't have enough pixels along both
             # dimensions. In that case ImageData._interpolate will return
@@ -374,6 +394,7 @@ class ImageData(object):
         # for the rms.
         return row_of_complex_values
 
+    @timeit
     def _interpolate(self, grid, inds, roundup=False):
         """
         Interpolate a grid to produce a map of the dimensions of the image.
@@ -975,7 +996,6 @@ class ImageData(object):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
                           correlation_lengths, fixed=fixed)
 
-    @timeit
     @staticmethod
     def slices_to_indices(slices):
         all_indices = np.empty((len(slices), 4), dtype=np.int32)
@@ -1221,10 +1241,10 @@ class ImageData(object):
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
-            
+
                 param = extract.ParamSet()
                 param["sig"] = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
-            
+
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
                 param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
                 param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
@@ -1235,7 +1255,7 @@ class ImageData(object):
                 param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
                 param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
                 param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
-            
+
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
