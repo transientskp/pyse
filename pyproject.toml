@@ -23,7 +23,7 @@ dependencies = [
     "scipy",
     "numba",
     "sep",
-    "six",
+    "sphinx",
 ]
 
 [project.urls]
