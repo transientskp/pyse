@@ -54,6 +54,7 @@ packages = ["sourcefinder"]
 extra-dependencies = [
     "pytest",
     "pytest-cov",
+    "pytest-xdist",
 ]
 
 [tool.hatch.envs.lint]
@@ -67,7 +68,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra"]
+addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra", "-n=logical", "--dist=worksteal"]
 
 [tool.black]
 include = '\.pyi?$'
