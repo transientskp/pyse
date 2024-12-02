@@ -43,16 +43,6 @@ License
 -------
 
 PySE was released under the BSD-2 license.
-This is still the case for the master branch.
-
-However, some of the fast branches of PySE make use of `SEP <https://github.com/kbarbary/sep>`_.
-Please have a look at the `SEP license info <https://github.com/kbarbary/sep?tab=readme-ov-file#license>`_.
-This means that the license for PySE as a whole, for some of the fast branches, is LGPLv3.
-Only sourcefinder/image.py makes use of SEP, so the other Python modules have a BSD-2 license.
-
-We will be including C source code for least squares fitting into one or more of the fast branches.
-This fitting code was written decades ago as part of the `Groningen Image Processing System (GIPSY) <https://www.astro.rug.nl/~gipsy/>`_.
-GIPSY has an `ASCL record <https://ascl.net/1109.018>`_ and a LGPL2+ license.
 
 Authors
 -------
