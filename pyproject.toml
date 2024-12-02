@@ -25,6 +25,7 @@ dependencies = [
     "numba",
     "sep",
     "six",
+    "numba-scipy"
 ]
 
 [project.urls]
