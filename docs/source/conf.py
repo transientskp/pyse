@@ -12,9 +12,7 @@
 #
 import os
 import sys
-print(f"{os.getcwd() = }\n, {sys.path = }\n\n")
 sys.path.insert(0, os.path.abspath('../..'))
-print(f"{os.getcwd() = }\n, {sys.path = }\n\n")
 
 
 # -- Project information -----------------------------------------------------
