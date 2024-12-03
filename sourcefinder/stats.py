@@ -9,9 +9,11 @@ from scipy.special import erf
 import numba_scipy
 from scipy.optimize import fsolve
 from numba import njit, guvectorize, int32, float32
+from dask.distributed import print as dask_print
 # CODE & NUMBER HANDLING ROUTINES
 
 
+@njit
 def find_true_std(sigma, clip_limit, clipped_std):
     # Solves the transcendental equation 2.25 from Spreeuw's thesis.
     help1 = clip_limit / (sigma * np.sqrt(2))
@@ -46,27 +48,63 @@ def derivative(f, sigma, sigma_meas, D, eps=1e-8):
 # ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 @njit
-def newton_1d_safeguard_sigma(f, sigma0, sigma_meas, D, min_sigma, max_sigma,
-                              tol=1e-8, max_iter=100):
+def newton_raphson_root_finder(f, sigma0, sigma_meas, D, min_sigma, max_sigma,
+                               tol=1e-8, max_iter=100):
     """
     Solve the transcendental equation for sigma using Newton's method with
     interval safeguards.
-    f: function to find the root of.
-    sigma0: initial guess for sigma.
-    sigma_meas: measured sigma value.
-    D: parameter D in the equation.
-    min_sigma: minimum bound for sigma.
-    max_sigma: maximum bound for sigma.
-    tol: tolerance for convergence.
-    max_iter: maximum number of iterations.
+
+    Parameters
+    ----------
+    f : function
+        The function to find the root of. It should take three parameters: 
+        sigma, sigma_meas, and D.
+    sigma0 : float
+        Initial guess for the value of sigma.
+    sigma_meas : float
+        Measured sigma value, used in the equation.
+    D : float
+        The parameter D in the transcendental equation.
+    min_sigma : float
+        Minimum bound for sigma.
+    max_sigma : float
+        Maximum bound for sigma.
+    tol : float, optional
+        The tolerance for convergence. The default is 1e-8.
+    max_iter : int, optional
+        The maximum number of iterations. The default is 100.
+
+    Returns
+    -------
+    sigma : float
+        The value of sigma that solves the equation, constrained within the 
+        bounds [min_sigma, max_sigma].
+    i : int
+        The number of iterations performed. If convergence was reached, this 
+        is the iteration count. If max iterations were reached, this is equal 
+        to max_iter.
+
+    Raises
+    ------
+    ValueError
+        If the derivative of the function is near zero, causing a division by 
+        zero error.
+        
+    Notes
+    -----
+    The method employs Newton's method for root-finding, with safeguards to 
+    ensure that sigma stays within the bounds [min_sigma, max_sigma]. The 
+    method terminates when the absolute change in sigma is smaller than the 
+    specified tolerance `tol` or when the maximum number of iterations is 
+    reached. If the derivative is too small (near zero), a ValueError is raised.
     """
+    
     sigma = sigma0
     for i in range(max_iter):
         f_val = f(sigma, sigma_meas, D)
-        if np.abs(f_val) < tol:
-            return sigma, i  # root found, return solution and iterations
 
         df_val = derivative(f, sigma, sigma_meas, D)
+
         if np.abs(df_val) < tol:  # avoid division by zero
             raise ValueError("Derivative near zero, method fails.")
 
@@ -135,8 +173,14 @@ def sigma_clip(data, kappa=2.0, max_iter=100,
     std = np.sqrt(clipped_var)
 
     if limit is not None:
-        std_corr_for_clipping_bias = fsolve(find_true_std, std,
-                                            args=(limit, std))[0]
+        fsolve_std_corr_for_clipping_bias = fsolve(find_true_std, std,
+                                                   args=(limit, std))[0]
+        std_corr_for_clipping_bias, iterations = (
+            newton_raphson_root_finder(f_sigma, std, std,
+                                       limit, 0, limit))
+        dask_print((f"{fsolve_std_corr_for_clipping_bias = :.4e},   "
+                    f"{std_corr_for_clipping_bias = :.4e},   "
+                    f"{std = :.4e},   {limit = :.4e}, {iterations = }\n"))
     else:
         std_corr_for_clipping_bias = std
 
@@ -178,8 +222,8 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
                 # The standard deviation of clipped data will be biased low,
                 # correct for that.
                 std[0], iterations = (
-                    newton_1d_safeguard_sigma(f_sigma, regular_std, regular_std,
-                                              limit, 0, limit))
+                    newton_raphson_root_finder(f_sigma, regular_std,
+                                               regular_std, limit, 0, limit))
             else:
                 std[0] = regular_std
 
