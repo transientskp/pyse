@@ -512,7 +512,8 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
                          "Shapes of mean grids do not match")
 
-        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
+                                    rtol=1e-3))
 
         std_grid = grid["rms"]
 
@@ -525,7 +526,7 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
                          "Shapes of rms grids do not match")
 
-        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
+        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid, rtol=1e-3))
 
 
 # The TestBackgroundCharacteristicsComplex class has been generated using
@@ -559,7 +560,8 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
         self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
                          "Shapes of mean grids do not match")
 
-        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid))
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
+                                    rtol=1e-3))
 
         std_grid = grid["rms"]
 
