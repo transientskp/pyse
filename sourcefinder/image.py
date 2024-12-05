@@ -307,26 +307,29 @@ class ImageData(object):
 
 
     def _interpolate(self, grid, inds, roundup=False):
+
         """
         Interpolate a grid to produce a map of the dimensions of the image.
 
-        Args:
+        Parameters
+        ----------
+        grid : np.ma.MaskedArray
+            The grid to be interpolated.
 
-            grid (np.ma.MaskedArray)
+        roundup : bool, optional
+            If True, values of the resultant map which are lower than the input
+            grid are trimmed. Default is False.
 
-        Kwargs:
+        Returns
+        -------
+        np.ma.MaskedArray
+            The interpolated map.
 
-            roundup (bool)
-
-        Returns:
-
-            (np.ma.MaskedArray)
-
-        Used to transform the RMS, background or FDR grids produced by
-        L{_grids()} to a map we can compare with the image data.
-
-        If roundup is true, values of the resultant map which are lower than
-        the input grid are trimmed.
+        Notes
+        -----
+        This function is used to transform the RMS, background or FDR grids
+        produced by :func:`_grids()` to a map we can compare with the image
+        data.
         """
         # Use zeroes with the mask from the observational image as a starting
         # point for the mean background and rms background maps. Next, use
