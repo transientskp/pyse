@@ -658,7 +658,21 @@ class ImageData(object):
     @staticmethod
     def box_slice_about_pixel(x, y, box_radius):
         """
-        Returns a slice centred about (x,y), of width = 2*int(box_radius) + 1
+        Returns a slice centred about (x,y), of width = 2 * int(box_radius) + 1.
+
+        Parameters
+        ----------
+        x : int
+            Desired row index.
+        y : int
+            Desired column index.
+        box_radius : float
+            Radius of the box in pixel coordinates.
+
+        Returns
+        -------
+        tuple of slice
+            Slice centred about (x,y) with width = 2*box_radius + 1.
         """
         ibr = int(box_radius)
         x = int(x)
@@ -667,17 +681,30 @@ class ImageData(object):
                 slice(y - ibr, y + ibr + 1))
 
     def fit_to_point(self, x, y, boxsize, threshold, fixed):
-        """Fit an elliptical Gaussian to a specified point on the image.
-
-        The fit is carried on a square section of the image, of length
-        *boxsize* & centred at pixel coordinates *x*, *y*. Any data
-        below *threshold* * rmsmap is not used for fitting. If *fixed*
-        is set to ``position``, then the pixel coordinates are fixed
-        in the fit.
-
-        Returns an instance of :class:`sourcefinder.extract.Detection`.
         """
+        Fit an elliptical Gaussian to a specified point on the image.
 
+        Parameters
+        ----------
+        x : int
+            Pixel x-coordinate of the point to fit.
+        y : int
+            Pixel y-coordinate of the point to fit.
+        boxsize : int
+            Length of the square section of the image to use for the fit.
+        threshold : float
+            Threshold below which data is not used for fitting (in units of
+            rmsmap).
+        fixed : str
+            If set to ``position``, the pixel coordinates are fixed in the
+            fit.
+
+        Returns
+        -------
+        Detection
+            An instance of :class:`sourcefinder.extract.Detection` containing
+            the fit results.
+        """
         logger.debug("Force-fitting pixel location ({},{})".format(x, y))
         # First, check that x and y are actually valid semi-positive integers.
         # Otherwise,
@@ -792,33 +819,35 @@ class ImageData(object):
                             fixed='position+shape',
                             ids=None):
         """
-        Convenience function to fit a list of sources at the given positions
+        Convenience function to fit a list of sources at the given positions.
 
-        This function wraps around fit_to_point().
+        This function wraps around :py:func:`fit_to_point`.
 
-        Args:
-            positions (tuple): list of (RA, Dec) tuples. Positions to be fit,
-                in decimal degrees.
-            boxsize: See :py:func:`fit_to_point`
-            threshold: as above.
-            fixed: as above.
-            ids (tuple): A list of identifiers. If not None, then must match
-                the length and order of the ``requested_fits``. Any
-                successfully fit positions will be returned in a tuple
-                along with the matching id. As these are simply passed back to
-                calling code they can be a string, tuple or whatever.
+        Parameters
+        ----------
+        positions : tuple
+            List of (RA, Dec) tuples. Positions to be fit, in decimal degrees.
+        boxsize : int
+            Length of the square section of the image to use for the fit.
+        threshold : float
+            Threshold below which data is not used for fitting.
+        fixed : str
+            If set to ``position``, the pixel coordinates are fixed in the fit.
+        ids : tuple, optional
+            List of identifiers. If not None, must match the length and order of
+            the requested fits.
 
-        In particular, boxsize is in pixel coordinates as in
-        fit_to_point, not in sky coordinates.
+        Note
+        ----
+        boxsize is in pixel coordinates, not in sky coordinates.
 
-        Returns:
-            tuple: A list of successful fits.
-                If ``ids`` is None, returns a single list of
-                :class:`sourcefinder.extract.Detection` s.
-                Otherwise, returns a tuple of two matched lists:
-                ([detections], [matching_ids]).
+        Returns
+        -------
+        tuple
+            A list of successful fits. If ``ids`` is None, returns a single list
+            of :class:`sourcefinder.extract.Detection` s. Otherwise, returns a
+            tuple of two matched lists: ([detections], [matching_ids]).
         """
-
         if ids is not None:
             assert len(ids) == len(positions)
 
@@ -862,21 +891,64 @@ class ImageData(object):
     def label_islands(self, detectionthresholdmap, analysisthresholdmap,
                       deblend_nthresh):
         """
-        Return a lablled array of pixels for fitting.
+        Return a labelled array of pixels for fitting.
 
-        Args:
+        Parameters
+        ----------
+        detectionthresholdmap : np.ma.MaskedArray
+            Detection threshold map with shape (nrow, ncol), matching the shape
+            of the observational image (self.rawdata). The values are of dtype
+            np.float32.
+        analysisthresholdmap : np.ma.MaskedArray
+            Analysis threshold map with shape (nrow, ncol), matching the shape
+            of the observational image (self.rawdata). The values are of dtype
+            np.float32.
+        deblend_nthresh : int
+            Number of thresholds for deblending.
 
-            detectionthresholdmap (np.ndarray):
-
-            analysisthresholdmap (np.ndarray):
-
-            deblend_nthresh: number of thresholds for deblending (integer)
-
-        Returns:
-
-            list of valid islands (list of int)
-
-            labelled islands (np.ndarray)
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            labels_above_det_thr : np.ndarray
+                1D array of labels above detection threshold, with shape
+                (num_islands_above_detection_threshold,) and dtype np.int64.
+                Note that the length of this array may be smaller than the total
+                number of islands above the analysis threshold, as some labels
+                may have been filtered out due to a peak spectral brightness
+                lower than the local detection threshold.
+            labelled_data : np.ndarray
+                Array of labelled pixels, where each pixel with a nonzero label
+                corresponds to an island above the analysis threshold. The array
+                has the same shape as the observational image (self.rawdata) and
+                contains integer values corresponding to the labels of the
+                islands. Pixels that do not belong to any island are assigned a
+                label of 0. The number of islands above the analysis threshold
+                is equal to the number of unique labels in this array, which is
+                equal to or larger than num_islands_above_detection_threshold,
+                i.e. the number of islands above the detection threshold.
+                This array has dtype np.int32.
+            num_islands_above_detection_threshold : int
+                Number of islands above detection threshold.
+            maxposs_above_det_thr : np.ndarray
+                Array of indices of the maximum pixel values above detection
+                threshold, with shape (num_islands_above_detection_threshold, 2)
+                and dtype np.int32.
+            maxis_above_det_thr : np.ndarray
+                Array of maximum pixel values above detection threshold, with
+                shape (num_islands_above_detection_threshold,) and dtype
+                np.float32.
+            npixs_above_det : np.ndarray
+                1D array of pixel counts for each island with peak spectral
+                brightness above the detection threshold, with shape
+                (num_islands_above_detection_threshold,) and dtype np.int32.
+            all_indices_above_det_thr : np.ndarray
+                Array of indices of the islands above detection threshold, with
+                shape (num_islands_above_detection_threshold, 4) and dtype
+                np.int32.
+            slices : list of slice
+                List of slices encompassing all islands in labelled_data, i.e.
+                encompassing all islands above the analysis threshold.
         """
         # If there is no usable data, we return an empty set of islands.
         if not len(self.rmsmap.compressed()):
