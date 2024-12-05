@@ -447,32 +447,41 @@ class ImageData(object):
                 labels=None, deblend_nthresh=0, force_beam=False):
 
         """
-        Kick off conventional (ie, RMS island finding) source extraction.
+        Kick off conventional (ie, rms island finding) source extraction.
 
-        Kwargs:
+        Parameters
+        ----------
+        det : float
+            Detection threshold, as a multiple of the rms noise. At
+            least one pixel in a source must exceed this for it to be
+            regarded as significant.
+        anl : float
+            Analysis threshold, as a multiple of the rms noise. All
+            the pixels within the island that exceed this will be used
+            when fitting the source.
+        noisemap : np.ndarray
+            Noise map, i.e. the standard deviation (rms) of the background
+            noise across the observational image
+        bgmap : np.ndarray
+            Background map, i.e. the mean of the background noise across
+            the observational image.
+        labelled_data : np.ndarray
+            The output of a connected component
+            analysis of the image, with a unique label for each source. Should
+            have the same shape as the observational image.
+        labels : np.ndarray
+            Labels array, i.e. a 1D integer array of labels for each source.
+        deblend_nthresh : int, optional
+            Number of subthresholds to use for deblending. Set to 0
+            to disable.
+        force_beam : bool, optional
+            Force all extractions to have major/minor axes and position angle
+            equal to the restoring beam.
 
-            det (float): detection threshold, as a multiple of the RMS
-                noise. At least one pixel in a source must exceed this
-                for it to be regarded as significant.
-
-            anl (float): analysis threshold, as a multiple of the RMS
-                noise. All the pixels within the island that exceed
-                this will be used when fitting the source.
-
-            noisemap (np.ndarray):
-
-            bgmap (np.ndarray):
-
-            deblend_nthresh (int): number of subthresholds to use for
-                deblending. Set to 0 to disable.
-
-            force_beam (bool): force all extractions to have major/minor axes
-                equal to the restoring beam
-
-        Returns:
-             :class:`sourcefinder.utility.containers.ExtractionResults`
+        Returns
+        -------
+        :class:`sourcefinder.utility.containers.ExtractionResults`
         """
-
         if anl > det:
             logger.warning(
                 "Analysis threshold is higher than detection threshold"
@@ -511,13 +520,28 @@ class ImageData(object):
     def reverse_se(self, det, anl):
         """Run source extraction on the negative of this image.
 
-        Obviously, there should be no sources in the negative image, so this
-        tells you about the false positive rate.
+        This process can be used to estimate the false positive rate, as there
+        should be no sources in the negative image.
 
-        We need to clear cached data -- backgroung map, cached clips, etc --
-        before & after doing this, as they'll interfere with the normal
-        extraction process. If this is regularly used, we'll want to
-        implement a separate cache.
+        Parameters
+        ----------
+        det : float
+            Detection threshold, as a multiple of the rms noise. At
+            least one pixel in a source must exceed this for it to be
+            regarded as significant.
+        anl : float
+            Analysis threshold, as a multiple of the rms noise. All
+            the pixels within the island that exceed this will be used
+            when fitting the source.
+
+        Returns
+        -------
+        :class:`sourcefinder.utility.containers.ExtractionResults`
+
+        To prevent interference with the normal extraction process, cached
+        data (background map, clips, etc.) is cleared before and after
+        running this method. If this method is used frequently, a separate
+        cache may be implemented in the future.
         """
         self.labels.clear()
         self.clip.clear()
@@ -531,13 +555,43 @@ class ImageData(object):
     def fd_extract(self, alpha, anl=None, noisemap=None,
                    bgmap=None, deblend_nthresh=0, force_beam=False
                    ):
-        """False Detection Rate based source extraction.
-        The FDR procedure guarantees that <FDR> < alpha.
-
-        See `Hopkins et al., AJ, 123, 1086 (2002)
-        <http://adsabs.harvard.edu/abs/2002AJ....123.1086H>`_.
         """
+        False Detection Rate based source extraction.
 
+        The FDR procedure guarantees that the False Detection Rate (FDR) is less
+        than alpha.
+
+        Parameters
+        ----------
+        alpha : float
+            Maximum allowed fraction of false positives. Must be between 0 and
+            1, exclusive.
+        anl : float
+            Analysis threshold, as a multiple of the rms noise. All
+            the pixels within the island that exceed this will be used
+            when fitting the source.
+        noisemap : np.ndarray
+            Noise map, i.e. the standard deviation (rms) of the background
+            noise across the observational image
+        bgmap : np.ndarray
+            Background map, i.e. the mean of the background noise across
+            the observational image.
+        deblend_nthresh : int, optional
+            Number of subthresholds to use for deblending. Set to 0
+            to disable.
+        force_beam : bool, optional
+            Force all extractions to have major/minor axes and position angle
+            equal to the restoring beam.
+
+        Returns
+        -------
+        :class:`sourcefinder.utility.containers.ExtractionResults`
+
+        Notes
+        -----
+        See Hopkins et al., AJ, 123, 1086 (2002) for more details.
+        http://adsabs.harvard.edu/abs/2002AJ....123.1086H
+        """
         # The correlation length in config.py is used not only for the
         # calculation of error bars with the Condon formulae, but also for
         # calculating the number of independent pixels.
