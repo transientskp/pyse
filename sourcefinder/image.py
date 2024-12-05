@@ -646,15 +646,6 @@ class ImageData(object):
         return self._pyse(fdr_threshold * self.rmsmap, anl * self.rmsmap,
                           deblend_nthresh, force_beam)
 
-    def flux_at_pixel(self, x, y, numpix=1):
-        """Return the background-subtracted flux at a certain position
-        in the map"""
-
-        # numpix is the number of pixels to look around the target.
-        # e.g. numpix = 1 means a total of 9 pixels, 1 in each direction.
-        return self.data_bgsubbed[y - numpix:y + numpix + 1,
-               x - numpix:x + numpix + 1].max()
-
     @staticmethod
     def box_slice_about_pixel(x, y, box_radius):
         """
