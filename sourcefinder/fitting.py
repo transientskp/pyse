@@ -15,35 +15,38 @@ FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
 
 def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
-    """Calculate source positional values using moments
-
-    Use the first moment of the distribution is the barycenter of an
-    ellipse. The second moments are used to estimate the rotation angle
-    and the length of the axes.
-
-    Args:
-
-        data (np.ndarray): Actual 2D image data
-
-        fudge_max_pix_factor(float): Correct for the underestimation of the peak
-                                     by taking the maximum pixel value.
-
-        beamsize(float): The FWHM size of the clean beam
-
-        threshold(float): source parameters like the semimajor and semiminor
-                          axes derived from moments can be underestimated if
-                          one does not take account of the threshold that was
-                          used to segment the source islands.
-
-    Returns:
-        dict: peak, total, x barycenter, y barycenter, semimajor
-            axis, semiminor axis, theta
-
-    Raises:
-        exceptions.ValueError: in case of NaN in input.
-
     """
+    Calculate source positional values using moments.
 
+    The first moment of the distribution is the barycenter of an ellipse.
+    The second moments are used to estimate the rotation angle and the
+    length of the axes.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Actual 2D image data.
+    fudge_max_pix_factor : float
+        Correct for the underestimation of the peak by taking the maximum
+        pixel value.
+    beamsize : float
+        The FWHM size of the clean beam.
+    threshold : float, default: 0
+        Source parameters like the semimajor and semiminor axes derived
+        from moments can be underestimated if one does not take account of
+        the threshold that was used to segment the source islands.
+
+    Returns
+    -------
+    dict
+        Dictionary containing peak, total, x barycenter, y barycenter,
+        semimajor axis, semiminor axis, and theta.
+
+    Raises
+    ------
+    exceptions.ValueError
+        If input contains NaN values.
+    """
     # Are we fitting a -ve or +ve Gaussian?
     if data.mean() >= 0:
         # The peak is always underestimated when you take the highest pixel.
@@ -139,134 +142,146 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      frac_flux_cal_error, Gaussian_islands_map,
                      Gaussian_residuals_map, dummy, computed_moments,
                      significance, chisq, reduced_chisq):
-    """Calculate source properties using moments. Vectorized using the
-    guvectorize decorator. Also, calculate the signal-to-noise ratio of the
-    detections as well as its chi-squared and reduced chi-squared statistics.
+    """
+    Calculate source properties using moments.
 
-    Use the first moment of the distribution is the barycenter of an
-    ellipse. The second moments are used to estimate the rotation angle
-    and the length of the axes.
+    Vectorized using the `guvectorize` decorator. Also calculates the 
+    signal-to-noise ratio of detections, chi-squared and reduced 
+    chi-squared statistics, and fills in maps with Gaussian islands and 
+    Gaussian residuals. Uses the first moments of the distribution to 
+    determine the barycenter of an ellipse, while the second moments estimate 
+    rotation angle and axis lengths.
 
-    Also, a positional 2D index local to the island is used such that every
-    pixel value can be linked to a position relative to a corner of the island.
+    Parameters
+    ----------
+    source_island : np.ndarray
+        Selected from the 2D image data by taking pixels above the analysis 
+        threshold, with its peak above the detection threshold. Flattened to 
+        a 1D ndarray. Units: spectral brightness, typically Jy/beam.
 
-    Args:
+    noise_island : np.ndarray
+        Pixel values selected from the 2D RMS noise map at the positions of 
+        the island. Flattened to a 1D ndarray. Units: spectral brightness, 
+        typically Jy/beam.
 
-        source_island (np.ndarray): Selected from the actual 2D image data,
-            by taking pixels above the analysis threshold only, with its peak
-            above the detection threshold. This selection results in a 1D
-            ndarray (without a mask). You can think of it as the source pixels,
-            but flattened.
+    chunkpos : np.ndarray
+        Index array of length 2 denoting the position of the top-left corner 
+        of the rectangular slice encompassing the island, relative to the 
+        top-left corner of the image.
 
-        noise_island (np.ndarray): Pixel values selected from the 2D rms
-             noise map, at the pixel positions of the island that comprises a
-             source, but, as with source_island, flattened. This selection
-             results in a 1D ndarray (without a mask).
+    posx : np.ndarray
+        Row indices of the pixels in `source_island` relative to the top-left 
+        corner of the rectangular slice encompassing the island. The top-left 
+        corner corresponds to `posx = 0`. Derived from the 2D image data.
 
-        chunkpos (np.ndarray): Index array of length 2 denoting the position
-            of the top left corner of the rectangular slice encompassing the
-            island relative to the top left corner of the image, which has pixel
-            coordinates (0, 0), i.e. we need chunkpos to return to absolute
-            pixel coordinates.
+    posy : np.ndarray
+        Column indices of the pixels in `source_island` relative to the 
+        top-left corner of the rectangular slice encompassing the island. 
+        The top-left corner corresponds to `posy = 0`. Derived from the 
+        2D image data.
 
-        posx (np.ndarray): Row indices of the pixels in island_data as taken
-            from the actual 2D images data (rectangular slice).
+    min_width : int
+        Minimum width (in pixels) of the island, derived as the lesser of its 
+        maximum width along the x and y axes.
 
-        posy  (np.ndarray): Column indices of the pixels in island_data as
-            taken from the actual 2D images data (rectangular slice).
+    no_pixels : int
+        Number of pixels that constitute the island.
 
-        min_width (integer): The minimum width (in pixels) of the island. This
-            was derived by calculating the maximum width of the island over x
-            and y and then taking the minimum of those two numbers.
+    threshold : float
+        Threshold used for segmenting source islands, which can affect 
+        parameters like semimajor and semiminor axes. A higher threshold may 
+        lead to a larger underestimate of the Gaussian axes. If the analysis 
+        threshold is known, this underestimate can be corrected. 
+        Units: spectral brightness, typically Jy/beam.
 
-        no_pixels (integer): The number of pixels that constitute the island.
+    noise : float
+        Local noise, i.e., the standard deviation of the background pixel 
+        values at the position of the island's peak pixel value. 
+        Units: spectral brightness, typically Jy/beam.
 
-        threshold(float): source parameters like the semimajor and semiminor
-            axes derived from moments can be underestimated if one does not
-            take account of the threshold that was used to segment the source
-            islands.
+    maxi : float
+        Peak pixel value within the island. Units: spectral brightness, 
+        typically Jy/beam.
 
-        noise(float): local noise, i.e. the standard deviation of the
-            background pixel values, at the position of the peak pixel value
-            of the island.
+    fudge_max_pix_factor : float
+        Correction factor for underestimation of the peak by considering the 
+        maximum pixel value.
 
-        maxi(float): peak pixel value from island.
+    max_pix_variance_factor : float
+        Additional variance induced by the maximum pixel method, beyond the 
+        background noise.
 
-        fudge_max_pix_factor(float): Correct for the underestimation of the peak
-                                     by taking the maximum pixel value.
+    beam : np.ndarray
+        Array of three floats: [semimajor axis, semiminor axis, theta]. 
+        Units: pixels.
 
-        max_pix_variance_factor (float): Take account of additional variance
-            induced by the maximum pixel method, on top of the background noise.
+    beamsize : float
+        FWHM size of the clean beam. Units: pixels.
 
-        beam(np.ndarray): array from three floats: semimaj, semimin, theta.
+    correlation_lengths : np.ndarray
+        Array of two floats describing distances along the semi-major and 
+        semi-minor axes of the clean beam beyond which noise is assumed 
+        uncorrelated. 
+        Units: pixels.
+        Some background: Aperture synthesis imaging yields noise that is 
+        partially correlated over the entire image. This has a considerable 
+        effect on error estimates. All noise within the correlation length 
+        is approximated as completely correlated, while noise beyond is 
+        considered uncorrelated.
 
-        beamsize(float): The FWHM size of the clean beam
+    clean_bias_error : float
+        Extra source of error based on Condon (PASP 109, 166, 1997) formulae.
 
-        correlation_lengths(np.ndarray): array from two floats describing the
-            distance along the semi-major and semi-minor axes of the clean
-            beam beyond which noise is assumed uncorrelated. Some background:
-            Aperture synthesis imaging yields noise that is partially
-            correlated over the entire image. This has a considerable effect on
-            error estimates. We approximate this by considering all noise
-            within the correlation length completely correlated and beyond
-            that completely uncorrelated.
+    frac_flux_cal_error : float
+        Extra source of error based on Condon (PASP 109, 166, 1997) formulae.
 
-        clean_bias_error: Extra source of error copied from the
-                          Condon (PASP 109, 166 (1997)) formulae
+    Gaussian_islands_map : np.ndarray
+        Initially a 2D np.float32 array filled with zeros, same shape as the 
+        astronomical image being processed. Computed Gaussian islands are 
+        added to this array at pixel positions above the analysis threshold.
 
-        frac_flux_cal_error: Extra source of error copied from the
-                          Condon (PASP 109, 166 (1997)) formulae
+    Gaussian_residuals_map : np.ndarray
+        Initially a 2D np.float32 array filled with zeros, same shape as 
+        `Gaussian_islands_map`. Residuals are computed by subtracting 
+        `Gaussian_islands_map` from the input image data.
 
-        Gaussian_islands_map (np.ndarray): Initially a 2D np.float32 ndarray
-            with only zeroes with the same shape as the astronomical image that
-            we are processing, i.e. the same shape as data_bgsubbed from the
-            ImageData class instantiation. The Gaussian islands computed in this
-            function are inserted (i.e. added) to this array, but only at pixel
-            positions of islands, i.e. only at pixel values above the analysis
-            threshold, zero outside the islands.
+    dummy : np.ndarray
+        Empty array matching the shape of `computed_moments`, required due 
+        to limitations in `guvectorize`.
 
-        Gaussian_residuals_map (np.ndarray): Initially a 2D np.float32 ndarray
-            with only zeroes with the same shape as Gaussian_islands_map.
-            Gaussian_islands_map is subtracted from ImageData.data_bgsubbed.data
-            to arrive at the residuals, but only at pixel positions of islands,
-            i.e. only at pixel values above the analysis threshold, zero outside
-            the islands.
+    computed_moments : np.ndarray
+        Array of shape (10, 2) containing moments such as peak spectral 
+        brightness (Jy/beam), flux density (Jy), barycenter (pixels), 
+        semi-major and semi-minor axes (pixels), and position angle 
+        (radians), along with corresponding errors.
 
-        dummy (np.ndarray): Empty array with the same shape as
-            computed_moments needed because of a flau in guvectorize: There
-            is no other way to tell guvectorize what the shape of the output
-            array will be. Therefore, we define an otherwise redundant input
-            array with the same shape as the desired output array.
+    significance : float
+        The significance of a detection is defined as the maximum 
+        signal-to-noise ratio across the island. Often this will be the ratio 
+        of the maximum pixel value within the source island divided by the 
+        noise at that position. But for extended sources, the noise can 
+        perhaps decrease away from the position of the peak spectral 
+        brightness more steeply than the source spectral brightness, and the 
+        maximum signal-to-noise ratio can be found at a different position.
 
-        computed_moments(np.ndarray): a (10, 2) array of floats containing
-            the computed moments, i.e.peak flux density, total flux,
-            x barycenter, y barycenter, semimajor axis, semiminor axis,
-            position angle and the deconvolved counterparts of the latter
-            three quantities. This constitutes a total of ten quantities and
-            their corresponding errors.
+    chisq : float
+        Chi-squared statistic indicating goodness-of-fit, derived in the same 
+        way as in the `fitting.goodness_of_fit` method.
 
-        significance(float32): Number indicating the significance of the
-            detection. Often this will be the ratio of the maximum pixel value
-            within the source island divided by the noise at that position. But
-            for extended sources, the noise can perhaps decrease away from the
-            position of the peak spectral brightness more steeply than the
-            source spectral brightness and the maximum signal-to-noise ratio
-            can be found at a different position.
+    reduced_chisq : float
+        Reduced chi-squared statistic indicating goodness-of-fit, derived in 
+        the same way as in the `fitting.goodness_of_fit` method.
 
-        chisq(float32): Chi-squared statistic representing an indication of
-            the goodness-of-fit, equivalent to chisq as calculated in
-            goodness_of_fit.
+    Returns
+    -------
+    None
+        Outputs are written to `Gaussian_islands_map`, `Gaussian_residuals_map`, 
+        `computed_moments`, `significance`, `chisq`, and `reduced_chisq`.
 
-        reduced_chisq(float32): Reduced chi-squared statistic representing an
-            indication of the goodness-of-fit, equivalent to reduced chisq as
-            calculated in goodness_of_fit.
-
-    Returns:
-        None (because of the guvectorize decorator), but computed_moments and
-              significance are filled with values.
-
-    Raises:
-        exceptions.ValueError: in case of NaN in input.
+    Raises
+    ------
+    ValueError
+        If input contains NaN values.
 
     """
 
