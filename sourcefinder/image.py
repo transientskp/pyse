@@ -209,7 +209,6 @@ class ImageData(object):
         try:
             self.labels.clear()
             self.clip.clear()
-            del self.background
             del self.backmap
             del self.rmsmap
             del self.data
