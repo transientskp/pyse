@@ -230,7 +230,6 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
-    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -906,15 +905,20 @@ class ImageData(object):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
                           correlation_lengths, fixed=fixed)
 
+    # “The sliced_to_indices function has been accelerated by a factor 2.7
+    # using ChatGPT 4.0.  Its AI-output has been verified for correctness,
+    # accuracy and completeness, adapted where needed, and approved by the
+    # author
     @staticmethod
     def slices_to_indices(slices):
-        all_indices = np.empty((len(slices), 4), dtype=np.int32)
-        for i in range(len(slices)):
-            some_slice = slices[i]
-            all_indices[i, :] = np.array([some_slice[0].start,
-                                          some_slice[0].stop,
-                                          some_slice[1].start,
-                                          some_slice[1].stop])
+        num_slices = len(slices)
+        all_indices = np.empty((num_slices, 4), dtype=np.int32)
+
+        # Extract start and stop indices for rows and columns
+        all_indices[:, 0] = [s[0].start for s in slices]  # Row start
+        all_indices[:, 1] = [s[0].stop for s in slices]   # Row stop
+        all_indices[:, 2] = [s[1].start for s in slices]  # Column start
+        all_indices[:, 3] = [s[1].stop for s in slices]   # Column stop
         return all_indices
 
     @staticmethod
@@ -1029,8 +1033,6 @@ class ImageData(object):
                 self.label_islands(detectionthresholdmap,
                                    analysisthresholdmap, deblend_nthresh
                                    )
-
-        start_post_labelling = time.time()
 
         num_islands = len(labels)
 
@@ -1168,9 +1170,6 @@ class ImageData(object):
 
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
-
-        end_post_labelling = time.time()
-        print("Post labelling took {:7.2f} seconds.".format(end_post_labelling-start_post_labelling))
 
         def is_usable(det):
             # Check that both ends of each axis are usable; that is, that they
