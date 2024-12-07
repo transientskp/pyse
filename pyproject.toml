@@ -14,8 +14,6 @@ authors = [
 requires-python = ">=3.10, <3.12"
 dependencies = [
     "astropy",
-    "dask[array]",
-    "dask[distributed]",
     "numpy<2.0",
     "psutil",
     "python-casacore",
@@ -23,8 +21,6 @@ dependencies = [
     "pytz",
     "scipy",
     "numba",
-    "sep",
-    "six",
     "numba-scipy"
 ]
 
