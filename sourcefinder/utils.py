@@ -3,13 +3,14 @@ This module contain utilities for the source finding routines
 """
 
 import math
-
 import numpy as np
 import scipy.integrate
 from scipy.ndimage import distance_transform_edt
 
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
+
+from numba import njit, prange
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
@@ -295,7 +296,6 @@ def nearest_nonzero(some_arr, rms):
         else:
             return some_arr  # No replacement needed if rms[0, 0] is non-zero.
 
-
     # Create a mask for zero values in rms
     zero_mask = rms == 0
 
@@ -310,3 +310,68 @@ def nearest_nonzero(some_arr, rms):
     
     return result
 
+
+# “The make_subimages function has been generated using ChatGPT 4.0.
+# Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
+@njit(parallel=True, cache=True)
+def make_subimages(a_data, a_mask, back_size_x, back_size_y):
+    """
+    Reshape the image data such that it is suitable for guvectorized
+    kappa * sigma clipping. The idea is that we have designed a function
+    that will perform kappa * sigma clipping on a single flattened subimage,
+    i.e. on a 1D ndarray. If we decorate that function with Numba's guvectorize
+    decorator, we can use a 2D grid of subimages as input instead of a single
+    flattened subimage. This means that the input to that guvectorized
+    kappa * sigma clipper should be 3D. This function makes that 3D input,
+    which is essentially a reshape using Numba with parallelization.
+
+    Parameters:
+    a_data (np.ndarray): The data of the masked array (without the mask).
+    a_mask (np.ndarray): The mask of the masked array (True means the value
+                         is masked).
+    back_size_x (int): The size of the subimage along the row indices.
+    back_size_y (int): The size of the subimages along the column indices.
+
+    Returns:
+    b (np.ndarray): 3D array where each subimage of size (back_size_x *
+                    back_size_y) is flattened and padded with NaN.
+    c (np.ndarray): 2D array where each element indicates the number of
+                    unmasked values in the corresponding subimage.
+    """
+    subimage_size = back_size_x * back_size_y
+    k, l = a_data.shape
+    p = k // back_size_x
+    r = l // back_size_y
+
+    # Initialize b with NaNs and c with zeros
+    b = np.full((p, r, subimage_size), np.nan, dtype=np.float32)
+    c = np.zeros((p, r), dtype=np.int32)
+
+    # Iterate over the subimages in parallel
+    for i in prange(p):
+        for j in range(r):
+            # Extract the subimage (data and mask)
+            subimage_data = a_data[i * back_size_x:(i + 1) * back_size_x,
+                            j * back_size_y:(j + 1) * back_size_y]
+            subimage_mask = a_mask[i * back_size_x:(i + 1) * back_size_x,
+                            j * back_size_y:(j + 1) * back_size_y]
+
+            # Preallocate an array for unmasked values (max size d*d)
+            unmasked_values = np.empty(subimage_size, dtype=a_data.dtype)
+            count = 0
+
+            # Collect unmasked values manually
+            for m in range(back_size_x):
+                for n in range(back_size_y):
+                    if not subimage_mask[m, n]:  # If not masked
+                        unmasked_values[count] = subimage_data[m, n]
+                        count += 1
+
+            # Store the count of unmasked values in c
+            c[i, j] = count
+
+            # Pad the unmasked values with NaNs and store in b
+            b[i, j, :count] = unmasked_values[:count]
+
+    return b, c

@@ -481,3 +481,97 @@ class TestNegationImage(unittest.TestCase):
         self.assertTrue(len(extraction_results) == 0,
                         msg=("Extracting sources from the negation of a Stokes"
                              " I image should yield only noise peaks."))
+
+
+# The TestBackgroundCharacteristicsSimple class has been generated using
+# ChatGPT 4.0. All AI-output has been verified for correctness,
+# accuracy and completeness, adapted where needed, and approved by the author.
+class TestBackgroundCharacteristicsSimple(unittest.TestCase):
+    def setUp(self):
+        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
+                                                            'deconvolved.fits'))
+        self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
+                                     fitsfile.wcs,
+                                     back_size_x=128, back_size_y=51)
+
+    @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                "mean_grid_deconvolved.fits.npy"),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                "std_grid_deconvolved.fits.npy"))
+    def test_sigma_clip_deconvolved(self):
+        grid = self.img.grids
+
+        mean_grid = grid["bg"]
+
+        # Load ground truth data for background means.
+        mean_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                           "mean_grid_deconvolved.fits.npy")))
+
+        # Check the shapes are the same
+        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
+                         "Shapes of mean grids do not match")
+
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
+                                    rtol=1e-3))
+
+        std_grid = grid["rms"]
+
+        # Load ground truth data for background standard deviations (rms).
+        std_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                                           "std_grid_deconvolved.fits.npy")))
+
+        # Check the shapes are the same
+        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
+                         "Shapes of rms grids do not match")
+
+        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid, rtol=1e-3))
+
+
+# The TestBackgroundCharacteristicsComplex class has been generated using
+# ChatGPT 4.0. All AI-output has been verified for correctness,
+# accuracy and completeness, adapted where needed, and approved by the author.
+class TestBackgroundCharacteristicsComplex(unittest.TestCase):
+    def setUp(self):
+        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
+                                               'image_206-215-t0002.fits'))
+        self.img = sfimage.ImageData(fitsfile.data, (0.208, 0.136, 15.619),
+                                     fitsfile.wcs, back_size_x=128,
+                                     back_size_y=128, radius=1000)
+
+    @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("mean_grid_image_206-215-t0002.fits_radius" +
+                                 "_1000.npy")),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("std_grid_image_206-215-t0002.fits_radius" +
+                                 "_1000.npy")))
+    def test_sigma_clip_AARTFAAC_TBB_MASKED(self):
+        grid = self.img.grids
+
+        mean_grid = grid["bg"]
+
+        # Load ground truth data for background means.
+        mean_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                    "mean_grid_image_206-215-t0002.fits_radius_1000.npy")))
+
+        # Check the shapes are the same
+        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
+                         "Shapes of mean grids do not match")
+
+        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
+                                    rtol=1e-3))
+
+        std_grid = grid["rms"]
+
+        # Load ground truth data for background standard deviations (rms).
+        std_ground_truth_grid = (
+            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                    "std_grid_image_206-215-t0002.fits_radius_1000.npy")))
+
+        # Check the shapes are the same
+        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
+                         "Shapes of rms grids do not match")
+
+        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))

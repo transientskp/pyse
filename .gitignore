@@ -23,9 +23,6 @@ reserve/
 # Do not include dask worker space
 dask-worker-space/
 
-# Do not include pyproject.toml build requirements, should be in setup.py
-pyproject.toml
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -129,3 +126,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# No text files
+*.txt
+
+# No version files
+_version.py

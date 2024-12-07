@@ -7,6 +7,8 @@ import itertools
 import logging
 
 import numpy as np
+from numba import guvectorize, float32, int32
+
 import time
 
 from sourcefinder import extract
@@ -14,13 +16,11 @@ from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
-import dask.array as da
 from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
-import sep
 
 try:
     import ndimage
@@ -61,13 +61,6 @@ MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
 # and filtered grids is larger than MF_THRESHOLD.
 DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
 STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
-
-# Let's retain the option of calculating background maps in the original way,
-# i.e. without using sep. This is slower, but more accurate. Ultimately, the
-# switch for choosing either should be propagated through an argument of the 
-# ImageData class instantiation, but we will implement that later. For now,
-# we will not use SEP as default.
-SEP = False
 # Vectorized processing of source islands is much faster, but excludes Gaussian
 # fits, therefore slightly less accurate.
 VECTORIZED = False
@@ -139,35 +132,22 @@ class ImageData(object):
         """Gridded RMS and background data for interpolating"""
         return self.__grids()
 
-    @cached_property
-    def background(self):
-        """"Returns background object from sep"""
-        return sep.Background(self.data.data, mask = self.data.mask,
-                              bw=self.back_size_x, bh=self.back_size_y,
-                              fw=0, fh=0)
 
     @cached_property
-    @timeit
     def backmap(self):
-        """Background map"""
+        """Mean background map"""
         if not hasattr(self, "_user_backmap"):
-            if SEP:
-                return np.ma.array(self.background.back(), mask=self.data.mask)
-            else:
-                return self._interpolate(self.grids['bg'],
+            return self._interpolate(self.grids['bg'],
                                          self.grids['indices'])
         else:
             return self._user_backmap
 
     @cached_property
-    @timeit
     def rmsmap(self):
-        """RMS map"""
+        """root-mean-squares map, i.e. the standard deviation of the local
+        background noise, interpolated across the image."""
         if not hasattr(self, "_user_noisemap"):
-            if SEP:
-                return np.ma.array(self.background.rms(), mask=self.data.mask)
-            else:
-                return self._interpolate(self.grids['rms'],
+            return self._interpolate(self.grids['rms'],
                                          self.grids['indices'], roundup=True)
         else:
             return self._user_noisemap
@@ -229,7 +209,6 @@ class ImageData(object):
         try:
             self.labels.clear()
             self.clip.clear()
-            del self.background
             del self.backmap
             del self.rmsmap
             del self.data
@@ -251,6 +230,7 @@ class ImageData(object):
     ###########################################################################
 
     # Private "support" methods
+    @timeit
     def __grids(self):
         """Calculate background and RMS grids of this image.
 
@@ -286,78 +266,46 @@ class ImageData(object):
 
         centred_inds = useful_chunk_inds + offsets
 
-        useful_data = da.from_array(self.data[centred_inds[0]:centred_inds[1],
-                                              centred_inds[2]:centred_inds[3]],
-                                    chunks=(self.back_size_x, y_dim - rem_col))
+        # Before proceeding, check that our data has the size of at least
+        # one subimage, for both dimensions.
+        if (centred_inds[1] - centred_inds[0] > self.back_size_x and
+            centred_inds[3] - centred_inds[2] > self.back_size_y):
 
-        mean_and_rms = useful_data.map_blocks(
-            ImageData.compute_mode_and_rms_of_row_of_subimages, y_dim - rem_col,
-            self.back_size_y, dtype=np.complex64, chunks=(1, 1)).compute()
+            subimages, number_of_elements_for_each_subimage = \
+                utils.make_subimages(self.data.data[centred_inds[0]:
+                                                    centred_inds[1],
+                                                    centred_inds[2]:
+                                                    centred_inds[3]],
+                                     self.data.mask[centred_inds[0]:
+                                                    centred_inds[1],
+                                                    centred_inds[2]:
+                                                    centred_inds[3]],
+                                     self.back_size_x, self.back_size_y)
 
-        # See also similar comment in compute_mode_and_rms_of_row_of_subimages.
-        # This solution was chosen because map_blocks does not seem to be able
-        # to output multiple arrays. One can however output to a complex array
-        # and take real and imaginary parts afterward.
+            mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
+                                 dtype=np.float32)
+            rms_grid = np.zeros(number_of_elements_for_each_subimage.shape,
+                                dtype=np.float32)
 
-        # Fill in the zeroes with nearest neighbours.
-        # In this way we do not have to make a MaskedArray, which
-        # scipy.interpolate.interp1d cannot handle adequately.
-        mean_grid = utils.nearest_nonzero(mean_and_rms.real, mean_and_rms.real)
-        rms_grid = utils.nearest_nonzero(mean_and_rms.imag, mean_and_rms.real)
+            stats.data_clipper_dynamic(subimages,
+                                       number_of_elements_for_each_subimage,
+                                       mean_grid, rms_grid)
+
+            # Fill in the zeroes with nearest neighbours.
+            # In this way we do not have to make a MaskedArray, which
+            # scipy.interpolate.interp1d cannot handle adequately.
+            mean_grid = utils.nearest_nonzero(mean_grid, rms_grid)
+            rms_grid = utils.nearest_nonzero(rms_grid, rms_grid)
+        else:
+            # Return an empty grid if we don't have enough pixels along both
+            # dimensions. In that case ImageData._interpolate will return
+            # completely masked background maps, which is what we want, since
+            # no sources will be extracted.
+            mean_grid = np.empty((0, 0), dtype=np.float32)
+            rms_grid = np.empty((0, 0), dtype=np.float32)
 
         return {'bg': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
 
-    @staticmethod
-    def compute_mode_and_rms_of_row_of_subimages(row_of_subimages,
-                                                 y_dim, back_size_y):
-
-        # We set up a dedicated logging subchannel, as the sigmaclip loop
-        # logging is very chatty:
-        sigmaclip_logger = logging.getLogger(__name__ + '.sigmaclip')
-        row_of_complex_values = np.empty(0, np.complex64)
-
-        for starty in range(0, y_dim, back_size_y):
-            chunk = row_of_subimages[:, starty:starty+back_size_y]
-            if np.ma.is_masked(chunk) or not chunk.any():
-                # In the original code we had rmsrow.append(False), but now we
-                # work with a ndarray instead of a list, so we'll set these
-                # values to zero instead and use these zeroes to create the
-                # mask.
-                rms = 0
-                mode = 0
-            else:
-                chunk, sigma, median, num_clip_its = stats.sigma_clip(
-                    chunk.ravel())
-                if len(chunk) == 0 or not chunk.any():
-                    rms = 0
-                    mode = 0
-                else:
-                    mean = np.mean(chunk)
-                    rms = sigma
-                    # In the case of a crowded field, the distribution will be
-                    # skewed and we take the median as the background level.
-                    # Otherwise, we take 2.5 * median - 1.5 * mean. This is the
-                    # same as SExtractor: see discussion at
-                    # <http://terapix.iap.fr/forum/showthread.php?tid=267>.
-                    # (mean - median) / sigma is a quick n' dirty skewness
-                    # estimator devised by Karl Pearson.
-                    if np.fabs(mean - median) / sigma >= 0.3:
-                        sigmaclip_logger.debug(
-                            'bg skewed, %f clipping iterations', num_clip_its)
-                        mode = median
-                    else:
-                        sigmaclip_logger.debug(
-                            'bg not skewed, %f clipping iterations',
-                            num_clip_its)
-                        mode = 2.5 * median - 1.5 * mean
-            row_of_complex_values = \
-                np.append(row_of_complex_values,  np.array(mode + 1j*rms))[None]
-        # Ideally, we would like dask.array.map_blocks to output two arrays,
-        # but that module does not seem to provide for that. We can, however,
-        # output to a complex array and later take the real part of that for the
-        # mean (approximated by a mode estimation) and the imaginary part
-        # for the rms.
-        return row_of_complex_values
 
     def _interpolate(self, grid, inds, roundup=False):
         """
@@ -855,7 +803,8 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap, deblend_nthresh):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap,
+                      deblend_nthresh):
         """
         Return a lablled array of pixels for fitting.
 
@@ -894,13 +843,10 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        # combined_mask = np.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
-        #                                 self.data.mask)
 
         clipped_data = np.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * self.background.globalrms)),
-            1, 0
+            (self.rmsmap >= (RMS_FILTER * self.grids["rms"].mean())), 1, 0
         ).filled(fill_value=0)
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
@@ -960,7 +906,6 @@ class ImageData(object):
         return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
                           correlation_lengths, fixed=fixed)
 
-    @timeit
     @staticmethod
     def slices_to_indices(slices):
         all_indices = np.empty((len(slices), 4), dtype=np.int32)
@@ -1206,10 +1151,10 @@ class ImageData(object):
 
             for count, label in enumerate(labels):
                 chunk = slices[label - 1]
-            
+
                 param = extract.ParamSet()
                 param["sig"] = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
-            
+
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
                 param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
                 param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
@@ -1220,7 +1165,7 @@ class ImageData(object):
                 param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
                 param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
                 param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
-            
+
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
