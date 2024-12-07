@@ -14,23 +14,12 @@ from dask.distributed import print as dask_print
 
 
 @njit
-def find_true_std(sigma, clip_limit, clipped_std):
+def find_true_std(sigma, clipped_std, clip_limit):
     # Solves the transcendental equation 2.25 from Spreeuw's thesis.
     help1 = clip_limit / (sigma * np.sqrt(2))
     help2 = np.sqrt(2 * np.pi) * erf(help1)
     return (sigma ** 2 * (help2 - 2 * np.sqrt(2) * help1 *
             np.exp(-help1 ** 2)) - clipped_std ** 2 * help2)
-
-
-@njit
-def f_sigma(sigma, sigma_meas, D):
-    """
-    Transcendental equation to be solved for sigma.
-    """
-    term1 = np.sqrt(2 * np.pi) * erf(D / (sigma * np.sqrt(2)))
-    term2 = term1 - 2 * (D / sigma) * np.exp(-D ** 2 / (2 * sigma ** 2))
-
-    return sigma_meas ** 2 * (term1 / term2) - sigma ** 2
 
 
 # “This 'derivative' function has been generated using ChatGPT 4.0.
@@ -222,7 +211,7 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
                 # The standard deviation of clipped data will be biased low,
                 # correct for that.
                 std[0], iterations = (
-                    newton_raphson_root_finder(f_sigma, regular_std,
+                    newton_raphson_root_finder(find_true_std, regular_std,
                                                regular_std, limit, 0, limit))
             else:
                 std[0] = regular_std
