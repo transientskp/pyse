@@ -804,7 +804,8 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap, deblend_nthresh):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap,
+                      deblend_nthresh):
         """
         Return a lablled array of pixels for fitting.
 
@@ -843,8 +844,6 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
         RMS_FILTER = 0.001
-        # combined_mask = np.logical_or(self.rmsmap.data < RMS_FILTER * self.background.globalrms,
-        #                                 self.data.mask)
 
         clipped_data = np.ma.where(
             (self.data_bgsubbed > analysisthresholdmap) &
