@@ -316,7 +316,7 @@ class ImageData(object):
         grid : np.ma.MaskedArray
             The grid to be interpolated.
 
-        roundup : bool, optional
+        roundup : bool, default: False
             If True, values of the resultant map which are lower than the input
             grid are trimmed. Default is False.
 
