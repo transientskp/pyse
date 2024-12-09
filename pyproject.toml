@@ -21,8 +21,8 @@ dependencies = [
     "pytz",
     "scipy",
     "numba",
-    "numba-scipy"
-    "sphinx",
+    "numba-scipy",
+    "sphinx"
 ]
 
 [project.urls]
