@@ -74,16 +74,40 @@ class ImageData(object):
     """
 
     def __init__(self, data, beam, wcs, margin=0, radius=0, back_size_x=32,
-                 back_size_y=32, residuals=False, islands=False):
-        """Sets up an ImageData object.
+                 back_size_y=32, residuals=False, islands=False, eps_ra =0,
+                 eps_dec=0):
+        """
+        Initializes an ImageData object.
 
-        *Args:*
-          - data (2D np.ndarray): actual image data
-          - wcs (utility.coordinates.wcs): world coordinate system
-            specification
-          - beam (3-tuple): beam shape specification as
-            (semimajor, semiminor, theta)
-
+        Parameters
+        ----------
+        data : 2D np.ndarray
+            Actual image data.
+        beam : tuple
+            Beam shape specification as (semimajor, semiminor, theta).
+        wcs : utility.coordinates.wcs
+            World coordinate system specification.
+        margin : int, default: 0
+            Margin value.
+        radius : float, default: 0
+            Radius value.
+        back_size_x : int, default: 32
+            Background size in the x-direction.
+        back_size_y : int, default: 32
+            Background size in the y-direction.
+        residuals : bool, default: False
+            Whether to save Gaussian residuals, at the pixels corresponding to
+            the islands, as an image. Other pixel values will be zero.
+        islands : bool, default: False
+            Whether to save the Gaussian reconstructions, at the pixels
+            corresponding to the islands, as an image. Other pixel values will
+            be zero.
+        eps_ra : float, default: 0
+            Calibration uncertainty along Right Ascension in degrees.
+            See equation 27a of NVSS paper.
+        eps_dec : float, default: 0
+            Calibration uncertainty along Declination in degrees.
+            See equation 27b of NVSS paper.
         """
 
         # Do data, wcs and beam need deepcopy?
@@ -113,6 +137,8 @@ class ImageData(object):
         self.radius = radius
         self.residuals = residuals
         self.islands = islands
+        self.eps_ra = eps_ra
+        self.eps_dec = eps_dec
 
     ###########################################################################
     #                                                                         #
@@ -459,22 +485,22 @@ class ImageData(object):
             Analysis threshold, as a multiple of the rms noise. All
             the pixels within the island that exceed this will be used
             when fitting the source.
-        noisemap : np.ndarray
+        noisemap : np.ndarray, default: None
             Noise map, i.e. the standard deviation (rms) of the background
             noise across the observational image
-        bgmap : np.ndarray
+        bgmap : np.ndarray, default: None
             Background map, i.e. the mean of the background noise across
             the observational image.
-        labelled_data : np.ndarray
+        labelled_data : np.ndarray, default: None
             The output of a connected component
             analysis of the image, with a unique label for each source. Should
             have the same shape as the observational image.
-        labels : np.ndarray
+        labels : np.ndarray, default: None
             Labels array, i.e. a 1D integer array of labels for each source.
-        deblend_nthresh : int, optional
+        deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, optional
+        force_beam : bool, default: False
             Force all extractions to have major/minor axes and position angle
             equal to the restoring beam.
 
@@ -566,20 +592,20 @@ class ImageData(object):
         alpha : float
             Maximum allowed fraction of false positives. Must be between 0 and
             1, exclusive.
-        anl : float
+        anl : float, default: None
             Analysis threshold, as a multiple of the rms noise. All
             the pixels within the island that exceed this will be used
             when fitting the source.
-        noisemap : np.ndarray
+        noisemap : np.ndarray, default: None
             Noise map, i.e. the standard deviation (rms) of the background
             noise across the observational image
-        bgmap : np.ndarray
+        bgmap : np.ndarray, default: None
             Background map, i.e. the mean of the background noise across
             the observational image.
-        deblend_nthresh : int, optional
+        deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, optional
+        force_beam : bool, default: False
             Force all extractions to have major/minor axes and position angle
             equal to the restoring beam.
 
@@ -820,11 +846,11 @@ class ImageData(object):
             List of (RA, Dec) tuples. Positions to be fit, in decimal degrees.
         boxsize : int
             Length of the square section of the image to use for the fit.
-        threshold : float
+        threshold : float, default: None
             Threshold below which data is not used for fitting.
-        fixed : str
-            If set to ``position``, the pixel coordinates are fixed in the fit.
-        ids : tuple, optional
+        fixed : str, default: 'position+shape'
+            If set to `position`, the pixel coordinates are fixed in the fit.
+        ids : tuple, default: None
             List of identifiers. If not None, must match the length and order of
             the requested fits.
 
@@ -1123,7 +1149,7 @@ class ImageData(object):
     def _pyse(
             self, detectionthresholdmap, analysisthresholdmap,
             deblend_nthresh, force_beam, labelled_data=None,
-            labels=np.array([], dtype=np.int32), eps_ra=0, eps_dec=0):
+            labels=np.array([], dtype=np.int32)):
         """
         Run Python-based source extraction on this image.
     
@@ -1249,8 +1275,9 @@ class ImageData(object):
                     continue
                 try:
                     det = extract.Detection(measurement, self,
-                                            chunk=island.chunk, eps_ra=eps_ra,
-                                            eps_dec=eps_dec)
+                                            chunk=island.chunk,
+                                            eps_ra=self.eps_ra,
+                                            eps_dec=self.eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
                         logger.warning('Bad fit from blind extraction at pixel coords:'
@@ -1281,7 +1308,7 @@ class ImageData(object):
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
                     self.max_pix_variance_factor,  self.beam, self.beamsize,
-                    self.correlation_lengths, eps_ra, eps_dec)
+                    self.correlation_lengths, self.eps_ra, self.eps_dec)
 
             if self.islands:
                 self.Gaussian_islands = Gaussian_islands
@@ -1295,25 +1322,36 @@ class ImageData(object):
                 param = extract.ParamSet()
                 param["sig"] = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
 
-                param["peak"] = Uncertain(moments_of_sources[count, 0, 0], moments_of_sources[count, 1, 0])
-                param["flux"] = Uncertain(moments_of_sources[count, 0, 1], moments_of_sources[count, 1, 1])
-                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2], moments_of_sources[count, 1, 2])
-                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3], moments_of_sources[count, 1, 3])
-                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4], moments_of_sources[count, 1, 4])
-                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5], moments_of_sources[count, 1, 5])
-                param["theta"] = Uncertain(moments_of_sources[count, 0, 6], moments_of_sources[count, 1, 6])
-                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7], moments_of_sources[count, 1, 7])
-                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8], moments_of_sources[count, 1, 8])
-                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9], moments_of_sources[count, 1, 9])
+                param["peak"] = Uncertain(moments_of_sources[count, 0, 0],
+                                          moments_of_sources[count, 1, 0])
+                param["flux"] = Uncertain(moments_of_sources[count, 0, 1],
+                                          moments_of_sources[count, 1, 1])
+                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2],
+                                          moments_of_sources[count, 1, 2])
+                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3],
+                                          moments_of_sources[count, 1, 3])
+                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4],
+                                               moments_of_sources[count, 1, 4])
+                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5],
+                                               moments_of_sources[count, 1, 5])
+                param["theta"] = Uncertain(moments_of_sources[count, 0, 6],
+                                           moments_of_sources[count, 1, 6])
+                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7],
+                                                    moments_of_sources[count, 1, 7])
+                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8],
+                                                    moments_of_sources[count, 1, 8])
+                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9],
+                                                  moments_of_sources[count, 1, 9])
 
                 det = extract.Detection(param, self, chunk=chunk)
                 results.append(det)
 
         def is_usable(det):
-            # Check that both ends of each axis are usable; that is, that they
-            # fall within an unmasked part of the image.
-            # The axis will not likely fall exactly on a pixel number, so
-            # check all the surroundings.
+            """
+            Check that both ends of each axis are usable; that is, that they
+            fall within an unmasked part of the image. The axis will not likely
+            fall exactly on a pixel number, so check all the surroundings.
+            """
             def check_point(x, y):
                 x = (int(x), int(np.ceil(x)))
                 y = (int(y), int(np.ceil(y)))
