@@ -43,11 +43,63 @@ class Island(object):
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
     """
+class Island(object):
+    """
+    The source extraction process forms islands, which it then fits.
+    Each island needs to know its position in the image (ie, x, y pixel
+    value at one corner), the threshold above which it is detected
+    (analysis_threshold by default, but will increase if the island is
+    the result of deblending), and a data array.
+
+    The island should provide a means of deblending: splitting itself
+    apart and returning multiple sub-islands, if necessary.
+    """
 
     def __init__(self, data, rms, chunk, analysis_threshold, detection_map,
                  beam, deblend_nthresh, deblend_mincont, structuring_element,
                  rms_orig=None, flux_orig=None, subthrrange=None
                  ):
+        """
+        Parameters
+        ----------
+        data : ndarray
+            A 2D array representing the rectangular patch of the observational
+            image encompassing the island. Values as small as -BIGNUM denote
+            pixels outside the island, they will typically be in the corners of
+            the patch.
+        rms : MaskedArray
+            A 2D masked array representing the patch of the rms noise map,
+            corresponding to the same pixel positions as `data`. The values are
+            interpolated from a grid of standard deviations of the background
+            noise across the image.
+        chunk : tuple of slices
+            Defines the corners of the patch encompassing the island as a
+            tuple of slices.
+        analysis_threshold : float
+            The analysis threshold, when multiplied with the local rms noise,
+            segments the observational image - with the mean background
+            subtracted - into islands.
+        detection_map : MaskedArray
+            A 2D masked array corresponding to the same patch of the sky as
+            `data`, but applied to the detection threshold map. Typically a
+            higher threshold than the analysis threshold map.
+        beam : tuple of floats
+            The clean beam parameters as the semi-major and semi-minor axes
+            in pixel coordinates and the position angle in radians.
+        deblend_nthresh : int
+            The number of subthresholds used for deblending.
+        deblend_mincont : float
+            Min. fraction of island flux in deblended subisland.
+        structuring_element : ndarray
+            A 2D array defining the connectivity between pixels.
+            Typically one chooses between 4-connectivity and 8-connectivity.
+        rms_orig : MaskedArray, default: None
+            The original rms noise of the island.
+        flux_orig : float, default: None
+            The original flux value of the island.
+        subthrrange : ndarray, default: None
+            The subthreshold range for deblending.
+        """
 
         # deblend_nthresh is the number of subthresholds used when deblending.
         self.deblend_nthresh = deblend_nthresh
@@ -121,7 +173,8 @@ class Island(object):
                 break
             clipped_data = np.where(
                 self.data.filled(fill_value=0) >= level, 1, 0)
-            labels, number = ndimage.label(clipped_data, self.structuring_element)
+            labels, number = ndimage.label(clipped_data,
+                                           self.structuring_element)
 
             # If we have more than one island, then we need to make subislands.
             if number > 1:
@@ -167,12 +220,12 @@ class Island(object):
                 # Sufficient means: the flux of the branch above the
                 # subthreshold (=level) must exceed some user given fraction
                 # of the composite object, i.e., the original island.
-                subislands = [isl for isl in subislands if (isl.data - np.ma.array(
-                    np.ones(isl.data.shape) * level,
-                    mask=isl.data.mask)).sum() > self.deblend_mincont *
-                              self.flux_orig]
+                subislands = [isl for isl in subislands if (isl.data -
+                              level * np.ma.ones_like(isl.data)).sum() >
+                              self.deblend_mincont * self.flux_orig]
                 # Discard subislands below detection threshold
-                subislands = [isl for isl in subislands if (isl.data - isl.detection_map).max() >= 0]
+                subislands = [isl for isl in subislands if (isl.data -
+                              isl.detection_map).max() >= 0]
                 numbersignifsub = len(subislands)
                 # Proceed with the previous island, but make sure the next
                 # subthreshold is higher than the present one.
@@ -181,7 +234,9 @@ class Island(object):
                     if niter + 1 < self.deblend_nthresh:
                         # Apparently, the map command always results in
                         # nested lists.
-                        return list(utils.flatten([island.deblend(niter=niter + 1) for island in subislands]))
+                        return list(utils.flatten(
+                                    [island.deblend(niter=niter + 1)
+                                     for island in subislands]))
                     else:
                         return subislands
                 elif numbersignifsub == 1 and niter + 1 < self.deblend_nthresh:
