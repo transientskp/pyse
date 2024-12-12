@@ -43,17 +43,6 @@ class Island(object):
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
     """
-class Island(object):
-    """
-    The source extraction process forms islands, which it then fits.
-    Each island needs to know its position in the image (ie, x, y pixel
-    value at one corner), the threshold above which it is detected
-    (analysis_threshold by default, but will increase if the island is
-    the result of deblending), and a data array.
-
-    The island should provide a means of deblending: splitting itself
-    apart and returning multiple sub-islands, if necessary.
-    """
 
     def __init__(self, data, rms, chunk, analysis_threshold, detection_map,
                  beam, deblend_nthresh, deblend_mincont, structuring_element,
