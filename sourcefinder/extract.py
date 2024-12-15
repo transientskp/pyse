@@ -134,13 +134,29 @@ class Island(object):
             )
 
     def deblend(self, niter=0):
-        """Return a decomposed numpy array of all the subislands.
-
-        Iterate up through subthresholds, looking for our island
-        splitting into two. If it does, start again, with two or more
-        separate islands.
         """
-
+        Decompose the island into subislands.
+    
+        Parameters
+        ----------
+        niter : int, default: 0
+            A value of niter corresponds to a subthreshold level. There will be
+            self.deblend_nthresh subthresholds in total, evenly spaced
+            logarithmically, between the lowest and highest pixel value, but not
+            include these limits. niter==0 corresponds to the lowest
+            subthreshold, i.e. to the subthreshold just above self.data.min().
+    
+        Returns
+        -------
+        numpy.ndarray
+            A decomposed numpy array of all the subislands.
+    
+        Notes
+        -----
+        This function iterates up through subthresholds, looking for the island
+        to split into two or more separate islands. If splitting occurs, the
+        function starts again with the new subislands.
+        """
         logger.debug("Deblending source")
         for level in self.subthrrange[niter:]:
 
@@ -237,20 +253,54 @@ class Island(object):
         return self
 
     def threshold(self):
-        """Threshold"""
+        """Threshold for island segmentation expressed as the rms noise at the
+        position of the island's pixel with the highest spectral brightness
+        times the analysis threshold."""
         return self.noise() * self.analysis_threshold
 
     def noise(self):
-        """Noise at maximum position"""
+        """Noise at position of the island pixel with the highest spectral
+        brightness."""
         return self.rms[self.max_pos]
 
     def sig(self):
-        """Deviation"""
+        """Source significance expressed as the maximum signal-to-noise
+        across the island."""
         return (self.data / self.rms_orig).max()
 
     def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize,
             correlation_lengths, fixed=None):
-        """Fit the position"""
+        """
+        Measure the source, i.e. compute its Gaussian parameters and the
+        corresponding errors.
+
+        Parameters
+        ----------
+        fudge_max_pix_factor : float
+            Factor to correct for the underestimation of the peak spectral
+            brightness, since that peak will in general be positioned some
+            small angular distance from the center of the pixel with the highest
+            spectral brightness.
+        max_pix_variance_factor : float
+            The statistical correction from fudge_max_pix_factor introduces a
+            variance which, although small, can be accounted for when deriving
+            the uncertainty in the peak spectral brightness.
+        beamsize : float
+            The size of the clean beam, in square pixels.
+        correlation_lengths : array_like
+            Correlation lengths.
+        fixed : object, optional
+            Fixed parameters for the fit. Default is None.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the measurement, Gaussian island, and Gaussian residual.
+
+        Notes
+        -----
+        This function fits the position of the island using the provided parameters.
+        """
         try:
             measurement, gauss_island, gauss_residual = \
                 source_profile_and_errors(self.data, self.threshold(),
