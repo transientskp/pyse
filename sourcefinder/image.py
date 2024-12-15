@@ -331,7 +331,7 @@ class ImageData(object):
 
         return {'bg': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
 
-
+    @timeit
     def _interpolate(self, grid, inds, roundup=False):
 
         """
@@ -412,23 +412,30 @@ class ImageData(object):
             y_sought = np.linspace(-0.5, -0.5 + yratio, my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
-                                             assume_sorted=True, axis=1,
-                                             copy=False, bounds_error=False,
-                                             fill_value=(grid[:, 0],
-                                                         grid[:, -1]))
-            transposed = primary_interpolation(y_sought).T
+            # primary_interpolation = interp1d(y_initial, grid, kind='slinear',
+            #                                  assume_sorted=True, axis=1,
+            #                                  copy=False, bounds_error=False,
+            #                                  fill_value=(grid[:, 0],
+            #                                              grid[:, -1]))
+            # transposed = primary_interpolation(y_sought).T
+            #
+            transposed = np.interp(y_sought, y_initial, grid,
+                                   left = grid[:, 0], right =grid[:, -1]).T
 
-            perpendicular_interpolation = interp1d(x_initial, transposed,
-                                                   kind='slinear',
-                                                   assume_sorted=True,
-                                                   axis=1, copy=False,
-                                                   bounds_error=False,
-                                                   fill_value=(transposed[:, 0],
-                                                               transposed[:, -1]))
+            # perpendicular_interpolation = interp1d(x_initial, transposed,
+            #                                        kind='slinear',
+            #                                        assume_sorted=True,
+            #                                        axis=1, copy=False,
+            #                                        bounds_error=False,
+            #                                        fill_value=(transposed[:, 0],
+            #                                                    transposed[:, -1]))
 
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
                 perpendicular_interpolation(x_sought).T
+
+            my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
+                np.interp(x_sought, x_initial, transposed, left=transposed[:, 0],
+                          right=transposed[:, -1]).T
 
         else:
             # This condition is there to make sure we actually have some
