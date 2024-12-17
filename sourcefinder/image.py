@@ -27,6 +27,8 @@ try:
 except ImportError:
     from scipy import ndimage
 from numba import guvectorize, float32, int32
+import os
+from test.conftest import DATAPATH
 
 
 def timeit(method):
@@ -163,8 +165,14 @@ class ImageData(object):
     def backmap(self):
         """Mean background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'],
-                                         self.grids['indices'])
+            means_interpolated = self._interpolate(self.grids['bg'],
+                                                   self.grids['indices'])
+            np.savez_compressed(os.path.join(DATAPATH,
+                                "kappa_sigma_clipping",
+                                "means_interpolated_deconvolved.fits"),
+                                data=means_interpolated,
+                                mask=means_interpolated.mask)
+            return means_interpolated
         else:
             return self._user_backmap
 
@@ -173,8 +181,15 @@ class ImageData(object):
         """root-mean-squares map, i.e. the standard deviation of the local
         background noise, interpolated across the image."""
         if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'],
-                                         self.grids['indices'], roundup=True)
+            stds_interpolated = self._interpolate(self.grids['rms'],
+                                                  self.grids['indices'],
+                                                  roundup=True)
+            np.savez_compressed(os.path.join(DATAPATH,
+                                 "kappa_sigma_clipping",
+                                 "stds_interpolated_deconvolved.fits"),
+                                data=stds_interpolated.data,
+                                mask=stds_interpolated.mask)
+            return stds_interpolated
         else:
             return self._user_noisemap
 
@@ -412,31 +427,23 @@ class ImageData(object):
             y_sought = np.linspace(-0.5, -0.5 + yratio, my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            # primary_interpolation = interp1d(y_initial, grid, kind='slinear',
-            #                                  assume_sorted=True, axis=1,
-            #                                  copy=False, bounds_error=False,
-            #                                  fill_value=(grid[:, 0],
-            #                                              grid[:, -1]))
-            # transposed = primary_interpolation(y_sought).T
-            #
-            transposed = np.interp(y_sought, y_initial, grid,
-                                   left = grid[:, 0], right =grid[:, -1]).T
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
+                                             assume_sorted=True, axis=1,
+                                             copy=False, bounds_error=False,
+                                             fill_value=(grid[:, 0],
+                                                         grid[:, -1]))
+            transposed = primary_interpolation(y_sought).T
 
-            # perpendicular_interpolation = interp1d(x_initial, transposed,
-            #                                        kind='slinear',
-            #                                        assume_sorted=True,
-            #                                        axis=1, copy=False,
-            #                                        bounds_error=False,
-            #                                        fill_value=(transposed[:, 0],
-            #                                                    transposed[:, -1]))
+            perpendicular_interpolation = interp1d(x_initial, transposed,
+                                                   kind='slinear',
+                                                   assume_sorted=True,
+                                                   axis=1, copy=False,
+                                                   bounds_error=False,
+                                                   fill_value=(transposed[:, 0],
+                                                               transposed[:, -1]))
 
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
                 perpendicular_interpolation(x_sought).T
-
-            my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
-                np.interp(x_sought, x_initial, transposed, left=transposed[:, 0],
-                          right=transposed[:, -1]).T
-
         else:
             # This condition is there to make sure we actually have some
             # unmasked patch of the image to fill.

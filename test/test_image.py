@@ -493,6 +493,7 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
                                      fitsfile.wcs,
                                      back_size_x=128, back_size_y=51)
+        self.img.extract(det=10, anl=5)
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
