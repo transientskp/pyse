@@ -287,19 +287,22 @@ class Island(object):
             the uncertainty in the peak spectral brightness.
         beamsize : float
             The size of the clean beam, in square pixels.
-        correlation_lengths : array_like
-            Correlation lengths.
-        fixed : object, optional
-            Fixed parameters for the fit. Default is None.
+        correlation_lengths : tuple
+            2 floats describing over which distance (in pixels) noise should be
+            considered correlated, along both principal axes of the Gaussian
+            profile of the restoring beam. This has to be taken into account
+            when errors on source parameters are derived.
+        fixed : dict, default: None
+            Parameters & their values to be kept frozen (ie, not fitted).
 
         Returns
         -------
         tuple
-            A tuple containing the measurement, Gaussian island, and Gaussian residual.
-
-        Notes
-        -----
-        This function fits the position of the island using the provided parameters.
+            A tuple containing the measurement as a Paramset instance and a
+            Gaussian island and a Gaussian residual, both as regular ndarrays.
+            In those ndarrays masked (unfitted) regions have been filled with
+            0-values, typically in the corners of the rectangular area
+            encompassing the island.
         """
         try:
             measurement, gauss_island, gauss_residual = \
