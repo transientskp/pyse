@@ -125,7 +125,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
     """Calculate the Condon correlation length
 
     In order to derive the error bars from Gauss fitting from the
-    Condon (1997, PASP 109, 116C) formulae, one needs the so called
+    Condon (1997, PASP 109, 116C) formulae, one needs the so-called
     correlation length. The Condon formulae assumes a circular area
     with diameter theta_N (in pixels) for the correlation. This was
     later generalized by Hopkins et al. (2003, AJ 125, 465) for
