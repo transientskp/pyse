@@ -764,7 +764,9 @@ class ParamSet(MutableMapping):
         Returns
         -------
         ParamSet
-            The updated ParamSet instance with deconvolved parameters.
+            The updated ParamSet instance with deconvolved Gaussian shape
+            parameters, i.e. the semi-major and semi-minor axes and the position
+            angle.
         """
 
         # If the fitted axes are larger than the clean beam
@@ -879,10 +881,12 @@ class ParamSet(MutableMapping):
 
 def source_profile_and_errors(data, threshold, rms, noise, beam,
                               fudge_max_pix_factor, beamsize,
-    """Return a number of measurable properties with errorbars
+                              correlation_lengths, fixed=None):
+    """
+    Return a number of measurable properties with errorbars.
 
     Given an island of pixels it will return a number of measurable
-    properties including errorbars.  It will also compute residuals
+    properties including errorbars. It will also compute residuals
     from Gauss fitting and export these to a residual map.
 
     In addition to handling the initial parameter estimation, and any fits
@@ -890,53 +894,55 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     calculations -
     see :func:`sourcefinder.measuring.goodness_of_fit` for details.
 
-    Args:
+    Parameters
+    ----------
+    data : np.ndarray
+        Array of pixel values, can be a masked array, which is necessary for
+        proper Gauss fitting, because the pixels below the threshold in the
+        corners and along the edges should not be included in the fitting
+        process.
+    threshold : float
+        Threshold used for selecting pixels for the source (ie, building an
+        island). Typically, this will be the analysis threshold (float) times
+        the noise level (float) at the position of the island's pixel with the
+        highest spectral brightness.
+    noise : float
+        Noise level at the position of the island pixel with the highest
+        spectral brightness.
+    beam : tuple
+        Beam parameters (semimaj, semimin, theta), i.e. the semi-major and
+        semi-minor axes in pixel coordinates and the position angle in radians.
+    fudge_max_pix_factor : float
+        Correct for the underestimation of the peak when taking the maximum
+        pixel value.
+    beamsize : float
+        The FWHM size of the clean beam in square pixels.
+    correlation_lengths : tuple
+        Two floats describing the distance along the semimajor and
+        semiminor axes of the clean beam beyond which noise is assumed
+        uncorrelated. Some background: Aperture synthesis imaging yields
+        noise that is partially correlated over the entire image. This has a
+        considerable effect on error estimates. We approximate this by
+        considering all noise within the correlation length completely
+        correlated and beyond that completely uncorrelated.
+    fixed : dict, optional
+        Parameters (and their values) to hold fixed while fitting. Passed on
+        to fitting.fitgaussian().
 
-        data: np.ma.Maskedarray or np.ndarray
-            Array of pixel values, can be a masked
-            array, which is necessary for proper Gauss fitting,
-            because the pixels below the threshold in the corners and
-            along the edges should not be included in the fitting
-            process
-
-        threshold (float): Threshold used for selecting pixels for the
-            source (ie, building an island)
-
-        rms (np.ndarray or np.ma.MaskedArray): noise levels at pixel positions
-            corresponding to the data array, determined from the interpolated
-            grid of standard deviations of the background pixels.
-
-        noise (float): rms (noise level) at the maximum pixel position
-
-        beam (tuple): beam parameters (semimaj,semimin,theta)
-
-        fudge_max_pix_factor(float): Correct for the underestimation of the peak
-                                     by taking the maximum pixel value.
-
-        beamsize(float): The FWHM size of the clean beam
-
-        correlation_lengths(tuple): Tuple of two floats describing the distance
-                                    along the semimajor and semiminor axes of
-                                    the clean beam beyond which noise is assumed
-                                    uncorrelated. Some background: Aperture
-                                    synthesis imaging yields noise that is
-                                    partially correlated over the entire image.
-                                    This has a considerable effect on error
-                                    estimates. We approximate this by
-                                    considering all noise within the
-                                    correlation length completely correlated
-                                     and beyond that completely uncorrelated.
-
-    Kwargs:
-
-        fixed (dict): Parameters (and their values) to hold fixed while fitting.
-            Passed on to measuring.fitgaussian().
-
-    Returns:
-        tuple: a populated ParamSet, an islands map and a residuals map.
-            Note that both the islands and residuals maps are regular ndarrays,
-            where masked (unfitted) regions have been filled with 0-values.
-
+    Returns
+    -------
+    tuple
+        A populated ParamSet, a Gaussian islands np.ndarray and a residuals
+        np.ndarray. The Gaussian islands are reconstructions using the derived
+        Gaussian parameters and the residuals are the difference between the
+        data and those reconstructions, i.e. the reconstructions are subtracted
+        from the data. Both the Gaussian islands and residuals are regular
+        ndarrays,  where masked (unfitted) regions have been filled with
+        0-values. The Gaussian islands and residuals arrays have nonzero values
+        for the pixel posiions of the corresponding island, i.e. for the
+        corresponding contiguous region of the observational image (with mean
+        background subtracted), which was segmented at the level of the analysis
+        threshold.
     """
 
     if fixed is None:
@@ -1039,7 +1045,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     try:
         gauss_island_masked = \
             np.ma.array(gaussian(*gauss_arg)(*np.indices(data.shape)),
-                           mask=data.mask)
+                        mask=data.mask)
         gauss_resid_masked = data - gauss_island_masked
         gauss_island_filled = gauss_island_masked.filled(fill_value=0.)
         gauss_resid_filled = gauss_resid_masked.filled(fill_value=0.)
