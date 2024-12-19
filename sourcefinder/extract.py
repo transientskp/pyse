@@ -1337,9 +1337,25 @@ class Detection(object):
         """
         Return source properties suitable for database storage.
 
-        We manually add ew_sys_err, ns_sys_err
+        We manually add ew_sys_err, ns_sys_err.
 
-        returns: a list of tuples containing all relevant fields
+        Parameters
+        ----------
+        ew_sys_err : float
+            East-West systematic error (usually in arc seconds) of the source
+            positions, i.e. a bias correction for converting a raw source
+            catalog to a user catalog. See, e.g., the NVSS paper, below
+            equations 27 (section 5.2.3).
+        ns_sys_err : float
+            North-South systematic error (usually in arc seconds) of the source
+            positions, i.e. a bias correction for converting a raw source
+            catalog to a user catalog. See, e.g., the NVSS paper, below
+            equations 27 (section 5.2.3).
+
+        Returns
+        -------
+        list of tuples
+            A list of tuples containing all relevant fields.
         """
         return [
             self.ra.value,
