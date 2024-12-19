@@ -409,21 +409,28 @@ class ParamSet(MutableMapping):
         return list(self.measurements.keys())
 
     def compute_bounds(self, data_shape):
-        """ Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance
-        on runaway solutions. The bounds are largely based on moments
-        estimation, so it only makes sense to impose bounds if moments
-        estimation was successful.
-
-        Args:
-            data_shape: (int32, int32) or (int64, int64) tuple describing the
-                        shape of the rectangular area (slice) encompassing the
-                        island used for the fit. Used to set bounds for the
-                        position of the source in the fitting process.
-
-        Creates dict of (float, float, bool) tuples, i.e. for a maximum of six
-        Gaussian fit parameters a (lower_bound, upper_bound, bool) tuple. The
-        boolean entry is used to loosen a bound when a fit becomes unfeasible,
-        see the documentation on scipy.optimize.Bounds.
+        """
+        Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance on 
+        runaway solutions. The bounds are largely based on moments estimation,
+        so it only makes sense to impose bounds if moments estimation was 
+        successful.
+        
+        Parameters
+        ----------
+        data_shape : tuple of (int32, int32) or (int64, int64)
+            Shape of the rectangular area (slice) encompassing the island used
+            for the fit. This shape is used to set bounds for the position of 
+            the source in the fitting process, i.e. the position is bounded to
+            be within this shape.
+        
+        Returns
+        -------
+        dict of (float, float, bool) tuples
+            Bounds for a maximum of six Gaussian fit parameters, less if "fixed"
+            is not None. Each 3-tuple has lower_bound (float), upper_bound 
+            (float) and boolean elements. If the boolean is True, a bound will
+            be loosened when the fit becomes unfeasible.  See the documentation
+            on scipy.optimize.Bounds for details.
         """
         if hasattr(self["peak"], "value"):
             self.bounds["peak"] = (0.5 * self["peak"].value,
@@ -473,12 +480,32 @@ class ParamSet(MutableMapping):
         return self
 
     def calculate_errors(self, noise, correlation_lengths, threshold):
-        """Calculate positional errors
-
-        Uses _condon_formulae() if this object is based on a Gaussian fit,
-        _error_bars_from_moments() if it's based on moments.
         """
+        Calculate positional errors for the source parameters.
 
+        This method uses the Condon formulae if the object is based on a
+        Gaussian fit, or error bars from moments if it's based on moments.
+
+        Parameters
+        ----------
+        noise : float
+            The noise level at the position of the island pixel with the
+            highest spectral brightness.
+        correlation_lengths : tuple of floats
+            Tuple describing over which distance (in pixels) noise should be
+            considered correlated, along both principal axes of the Gaussian
+            profile of the restoring beam.
+        threshold : float
+            The threshold for island segmentation expressed as the rms noise at
+            the position of the island's pixel with the highest spectral
+            brightness times the analysis threshold.
+
+        Returns
+        -------
+        False or an updated ParamSet instance
+        False if neighter Gaussian fitting nor moments calculation was
+        successful.
+        """
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
         else:
@@ -491,16 +518,34 @@ class ParamSet(MutableMapping):
                 threshold = 0
             return self._error_bars_from_moments(noise, correlation_lengths,
                                                  threshold)
+        else:
+            return False
 
     def _condon_formulae(self, noise, correlation_lengths):
-        """Returns the errors on parameters from Gaussian fits according to
+        """
+        Returns the errors on parameters from Gaussian fits according to
         the Condon (PASP 109, 166 (1997)) formulae.
-
+    
         These formulae are not perfect, but we'll use them for the
         time being.  (See Refregier and Brown (astro-ph/9803279v1) for
         a more rigorous approach.) It also returns the corrected peak.
         The peak is corrected for the overestimate due to the local
         noise gradient.
+    
+        Parameters
+        ----------
+        noise : float
+            The noise level at the position of the island pixel with the
+            highest spectral brightness.
+        correlation_lengths : tuple of floats
+            Tuple describing over which distance (in pixels) noise should be
+            considered correlated, along both principal axes of the Gaussian
+            profile of the restoring beam.
+    
+        Returns
+        -------
+        ParamSet
+            The updated ParamSet instance with calculated errors.
         """
         peak = self['peak'].value
         flux = self['flux'].value
@@ -596,8 +641,28 @@ class ParamSet(MutableMapping):
 
     def _error_bars_from_moments(self, noise, correlation_lengths,
                                  threshold):
-        """Provide reasonable error estimates from the moments"""
+        """
+        Provide reasonable error estimates from the moments.
 
+        Parameters
+        ----------
+        noise : float
+            The noise level at the position of the island pixel with the
+            highest spectral brightness.
+        correlation_lengths : tuple of floats
+            Tuple describing over which distance (in pixels) noise should be
+            considered correlated, along both principal axes of the Gaussian
+            profile of the restoring beam.
+        threshold : float
+            The threshold for island segmentation expressed as the rms noise at
+            the position of the island's pixel with the highest spectral
+            brightness times the analysis threshold.
+
+        Returns
+        -------
+        ParamSet
+            The updated ParamSet instance with calculated errors.
+        """
         # The formulae below should give some reasonable estimate of the
         # errors from moments, should always be higher than the errors from
         # Gauss fitting.
@@ -687,7 +752,20 @@ class ParamSet(MutableMapping):
         return self
 
     def deconvolve_from_clean_beam(self, beam):
-        """Deconvolve with the clean beam"""
+        """
+        Deconvolve with the clean beam.
+
+        Parameters
+        ----------
+        beam : tuple of floats
+            The clean beam parameters as the semi-major and semi-minor axes
+            in pixel coordinates and the position angle in radians.
+
+        Returns
+        -------
+        ParamSet
+            The updated ParamSet instance with deconvolved parameters.
+        """
 
         # If the fitted axes are larger than the clean beam
         # (=restoring beam) axes, the axes and position angle
@@ -801,7 +879,6 @@ class ParamSet(MutableMapping):
 
 def source_profile_and_errors(data, threshold, rms, noise, beam,
                               fudge_max_pix_factor, beamsize,
-                              correlation_lengths, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
