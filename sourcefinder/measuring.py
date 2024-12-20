@@ -38,30 +38,32 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     Parameters
     ----------
     data : np.ma.MaskedArray or np.ndarray
-        Actual 2D image data.
-
+        A rectangular region of 2D observational image data, typically with
+        the mean background subtracted. Units: spectral brightness, usually
+        Jy/beam.
     fudge_max_pix_factor : float
         Correct for the underestimation of the peak by taking the maximum
-        pixel value.
-
+        pixel value. This factor is slightly larger than 1.
     beam : 3-tuple
         tuple of 3 floats: (semimajor axis, semiminor axis, theta).
         The axes are in units of pixels and theta, the position angle of the
         major axis wrt the positive y-axis, is in radians.
-
     beamsize : float
-        The FWHM size of the clean beam.
-
+        The FWHM size of the clean beam in square pixels.
     threshold : float, default: 0
         Source parameters like the semimajor and semiminor axes derived
         from moments can be underestimated if one does not take account of
-        the threshold that was used to segment the source islands.
+        the threshold that was used to segment the source islands. This
+        threshold is typically the value of the analysisthresholdmap at the
+        position of the island pixel with the highest spectral brightness.
 
     Returns
     -------
     dict
-        Dictionary containing peak, total, x barycenter, y barycenter,
-        semimajor axis, semiminor axis, and theta.
+        Dictionary with seven items, i.e. peak spectral brightness, flux
+        density, barycenter position in x and y, i.e. in pixel coordinates,
+        semimajor and semiminor axes in pixel units and the position angle
+        of the semi-major axis measured east from local north in radians.
 
     Raises
     ------
