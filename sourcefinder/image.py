@@ -165,14 +165,7 @@ class ImageData(object):
     def backmap(self):
         """Mean background map"""
         if not hasattr(self, "_user_backmap"):
-            means_interpolated = self._interpolate(self.grids['bg'],
-                                                   self.grids['indices'])
-            # np.savez_compressed(os.path.join(DATAPATH,
-            #                     "kappa_sigma_clipping",
-            #                     "means_interpolated_206-215-t0002.fits"),
-            #                     data=means_interpolated,
-            #                     mask=means_interpolated.mask)
-            return means_interpolated
+            return self._interpolate(self.grids['bg'], self.grids['indices'])
         else:
             return self._user_backmap
 
@@ -181,15 +174,8 @@ class ImageData(object):
         """root-mean-squares map, i.e. the standard deviation of the local
         background noise, interpolated across the image."""
         if not hasattr(self, "_user_noisemap"):
-            stds_interpolated = self._interpolate(self.grids['rms'],
-                                                  self.grids['indices'],
-                                                  roundup=True)
-            # np.savez_compressed(os.path.join(DATAPATH,
-            #                      "kappa_sigma_clipping",
-            #                      "stds_interpolated_206-215-t0002.fits"),
-            #                      data=stds_interpolated.data,
-            #                      mask=stds_interpolated.mask)
-            return stds_interpolated
+            return self._interpolate(self.grids['rms'], self.grids['indices'],
+                                     roundup=True)
         else:
             return self._user_noisemap
 
