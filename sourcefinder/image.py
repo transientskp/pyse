@@ -16,7 +16,7 @@ from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
-from scipy.interpolate import interp1d, RegularGridInterpolator
+from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import cached_property
@@ -167,11 +167,11 @@ class ImageData(object):
         if not hasattr(self, "_user_backmap"):
             means_interpolated = self._interpolate(self.grids['bg'],
                                                    self.grids['indices'])
-            # np.savez_compressed(os.path.join(DATAPATH,
-            #                     "kappa_sigma_clipping",
-            #                     "means_interpolated_deconvolved.fits"),
-            #                     data=means_interpolated,
-            #                     mask=means_interpolated.mask)
+            np.savez_compressed(os.path.join(DATAPATH,
+                                "kappa_sigma_clipping",
+                                "means_interpolated_206-215-t0002.fits"),
+                                data=means_interpolated,
+                                mask=means_interpolated.mask)
             return means_interpolated
         else:
             return self._user_backmap
@@ -184,11 +184,11 @@ class ImageData(object):
             stds_interpolated = self._interpolate(self.grids['rms'],
                                                   self.grids['indices'],
                                                   roundup=True)
-            # np.savez_compressed(os.path.join(DATAPATH,
-            #                      "kappa_sigma_clipping",
-            #                      "stds_interpolated_deconvolved.fits"),
-            #                     data=stds_interpolated.data,
-            #                     mask=stds_interpolated.mask)
+            np.savez_compressed(os.path.join(DATAPATH,
+                                 "kappa_sigma_clipping",
+                                 "stds_interpolated_206-215-t0002.fits"),
+                                 data=stds_interpolated.data,
+                                 mask=stds_interpolated.mask)
             return stds_interpolated
         else:
             return self._user_noisemap

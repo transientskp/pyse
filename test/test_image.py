@@ -608,3 +608,9 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                          "Shapes of rms grids do not match")
 
         self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
+
+        interp_means = self.img.backmap
+
+        interp_stds = self.img.rmsmap
+
+
