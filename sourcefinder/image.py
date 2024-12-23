@@ -411,7 +411,7 @@ class ImageData(object):
             y_sought = np.linspace(-0.5, -0.5 + grid.shape[1], my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            primary_interpolation = interp1d(y_initial, grid, kind='linear',
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
                                              assume_sorted=True, axis=1,
                                              copy=False, bounds_error=False,
                                              fill_value=(grid[:, 0],
@@ -420,7 +420,7 @@ class ImageData(object):
             transposed = primary_interpolation(y_sought).T
 
             perpendicular_interpolation = interp1d(x_initial, transposed,
-                                                   kind='linear',
+                                                   kind='slinear',
                                                    assume_sorted=True,
                                                    axis=1, copy=False,
                                                    bounds_error=False,
