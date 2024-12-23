@@ -386,8 +386,6 @@ class ImageData(object):
                 grid = f_grid
 
         # Bicubic spline interpolation
-        xratio = float(my_xdim) / self.back_size_x
-        yratio = float(my_ydim) / self.back_size_y
 
         # Inspired by https://stackoverflow.com/questions/13242382/
         # resampling-a-numpy-array-representing-an-image
@@ -408,12 +406,12 @@ class ImageData(object):
                                     endpoint=True, dtype=np.float32)
             y_initial = np.linspace(0., grid.shape[1]-1, grid.shape[1],
                                     endpoint=True, dtype=np.float32)
-            x_sought = np.linspace(-0.5, -0.5 + xratio, my_xdim,
+            x_sought = np.linspace(-0.5, -0.5 + grid.shape[0], my_xdim,
                                    endpoint=True, dtype=np.float32)
-            y_sought = np.linspace(-0.5, -0.5 + yratio, my_ydim,
+            y_sought = np.linspace(-0.5, -0.5 + grid.shape[1], my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
+            primary_interpolation = interp1d(y_initial, grid, kind='linear',
                                              assume_sorted=True, axis=1,
                                              copy=False, bounds_error=False,
                                              fill_value=(grid[:, 0],
@@ -422,7 +420,7 @@ class ImageData(object):
             transposed = primary_interpolation(y_sought).T
 
             perpendicular_interpolation = interp1d(x_initial, transposed,
-                                                   kind='slinear',
+                                                   kind='linear',
                                                    assume_sorted=True,
                                                    axis=1, copy=False,
                                                    bounds_error=False,
@@ -434,8 +432,8 @@ class ImageData(object):
         else:
             # This condition is there to make sure we actually have some
             # unmasked patch of the image to fill.
-            slicex = slice(-0.5, -0.5 + xratio, 1j * my_xdim)
-            slicey = slice(-0.5, -0.5 + yratio, 1j * my_ydim)
+            slicex = slice(-0.5, -0.5 + grid.shape[0], 1j * my_xdim)
+            slicey = slice(-0.5, -0.5 + grid.shape[1], 1j * my_ydim)
 
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
