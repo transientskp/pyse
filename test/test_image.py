@@ -578,7 +578,13 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                                  "_1000.npy")),
                    os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("std_grid_image_206-215-t0002.fits_radius" +
-                                 "_1000.npy")))
+                                 "_1000.npy")),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("means_interpolated_206-215-t0002.fits_" +
+                                 "radius_1000.npz")),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("stds_interpolated_206-215-t0002.fits_" +
+                                 "radius_1000.npz")))
     def test_sigma_clip_AARTFAAC_TBB_MASKED(self):
         grid = self.img.grids
 
@@ -611,8 +617,9 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
 
     def test_interpolation_AARTFAAC_TBB_MASKED(self):
         # Load ground truth data for interpolated background means.
-        with np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                     "means_interpolated_206-215-t0002.fits.npz")) as npz:
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                      "means_interpolated_206-215-t0002.fits_radius_1000.npz"))
+              as npz):
             interp_means_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_means = self.img.backmap
@@ -626,7 +633,8 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
         # Load ground truth data for interpolated background standard
         # deviations.
         with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "stds_interpolated_206-215-t0002.fits.npz")) as npz):
+                      "stds_interpolated_206-215-t0002.fits_radius_1000.npz"))
+              as npz):
             interp_stds_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_stds = self.img.rmsmap
