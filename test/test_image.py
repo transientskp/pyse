@@ -609,8 +609,32 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
 
         self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
 
+    def test_interpolation_AARTFAAC_TBB_MASKED(self):
+        # Load ground truth data for interpolated background means.
+        with np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                     "means_interpolated_206-215-t0002.fits.npz")) as npz:
+            interp_means_ground_truth = np.ma.MaskedArray(**npz)
+
         interp_means = self.img.backmap
 
+        # Check the shapes are the same
+        self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
+                         "Shapes of mean grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth))
+
+        # Load ground truth data for interpolated background standard
+        # deviations.
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                      "stds_interpolated_206-215-t0002.fits.npz")) as npz):
+            interp_stds_ground_truth = np.ma.MaskedArray(**npz)
+
         interp_stds = self.img.rmsmap
+
+        # Check the shapes are the same
+        self.assertEqual(interp_stds.shape, interp_stds_ground_truth.shape,
+                         "Shapes of rms grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
 
 
