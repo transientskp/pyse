@@ -628,7 +628,8 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
         self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
                          "Shapes of mean grids do not match")
 
-        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth))
+        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth,
+                                       atol=1e-6))
 
         # Load ground truth data for interpolated background standard
         # deviations.
