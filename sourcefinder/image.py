@@ -427,33 +427,24 @@ class ImageData(object):
             y_sought = np.linspace(-0.5, -0.5 + yratio, my_ydim,
                                    endpoint=True, dtype=np.float32)
 
-            # primary_interpolation = interp1d(y_initial, grid, kind='slinear',
-            #                                  assume_sorted=True, axis=1,
-            #                                  copy=False, bounds_error=False,
-            #                                  fill_value=(grid[:, 0],
-            #                                              grid[:, -1]))
+            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
+                                             assume_sorted=True, axis=1,
+                                             copy=False, bounds_error=False,
+                                             fill_value=(grid[:, 0],
+                                                         grid[:, -1]))
 
-            # transposed = primary_interpolation(y_sought).T
+            transposed = primary_interpolation(y_sought).T
 
-            # perpendicular_interpolation = interp1d(x_initial, transposed,
-            #                                        kind='slinear',
-            #                                        assume_sorted=True,
-            #                                        axis=1, copy=False,
-            #                                        bounds_error=False,
-            #                                        fill_value=(transposed[:, 0],
-            #                                                    transposed[:, -1]))
-
-            interpolator = RegularGridInterpolator((x_initial, y_initial),
-                                                   grid, method='slinear',
+            perpendicular_interpolation = interp1d(x_initial, transposed,
+                                                   kind='slinear',
+                                                   assume_sorted=True,
+                                                   axis=1, copy=False,
                                                    bounds_error=False,
-                                                   fill_value=None)
-            # Generate sparse meshgrid
-            xx, yy = np.meshgrid(x_sought, y_sought, indexing='ij',
-                                 sparse=True)
+                                                   fill_value=(transposed[:, 0],
+                                                               transposed[:, -1]))
 
-            # my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
-            #     perpendicular_interpolation(x_sought).T
-            my_map[inds[0]:inds[1], inds[2]:inds[3]] = interpolator((xx, yy))
+            my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
+                perpendicular_interpolation(x_sought).T
         else:
             # This condition is there to make sure we actually have some
             # unmasked patch of the image to fill.
