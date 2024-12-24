@@ -10,7 +10,7 @@ from scipy.ndimage import distance_transform_edt
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
-from numba import njit, prange
+from numba import njit, prange, guvectorize
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
@@ -314,7 +314,7 @@ def nearest_nonzero(some_arr, rms):
 # “The make_subimages function has been generated using ChatGPT 4.0.
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
-@njit(parallel=True, cache=True)
+@njit(parallel=True)
 def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     """
     Reshape the image data such that it is suitable for guvectorized
@@ -375,3 +375,79 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
             b[i, j, :count] = unmasked_values[:count]
 
     return b, c
+
+
+# “The interp_per_row function has been generated using ChatGPT 4.0.
+# Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
+# Define the row-wise interpolation function with guvectorize.
+@guvectorize( 
+    ["void(float32[:], float32[:], float32[:], float32[:])"], 
+    "(n),(n),(k)->(k)", 
+    target="parallel", nopython=True, cache=True)
+def interp_per_row(grid_row, y_initial, y_sought, interp_row):
+    """
+    Interpolate one row of the grid along the second dimension (y-axis).
+
+    Parameters:
+    - grid_row: 1D array representing a single row of the grid.
+    - y_initial: Original grid coordinates along the y-axis.
+    - y_sought: Target coordinates for interpolation along the y-axis.
+    - interp_row: Output array to store the interpolated row.
+    """
+    interp_row[:] = np.interp(y_sought, y_initial, grid_row)
+
+
+# “The two_step_interp function has been generated using ChatGPT 4.0.
+# Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
+def two_step_interp(grid, new_xdim, new_ydim):
+    """
+    Perform two-step interpolation on a grid to upsample it to new dimensions.
+    This function proivdes fast pieceswise bilinear interpolation in two steps:
+    1) Interpolation across columns, i.e. per row of the input grid. Each row
+    of the input grid is handled independently.
+    2) Transpose the result.
+    3) Again, interpolate across columns.
+    This method was inspired by a comment from "tiago" in this SO discussion:
+    https://stackoverflow.com/questions/14530556/
+    resampling-a-numpy-array-representing-an-image
+
+    Parameters
+    ----------
+    grid : numpy.ndarray
+        The input 2D array to be upsampled.
+    new_xdim : int
+        The desired number of rows in the upsampled grid.
+    new_ydim : int
+        The desired number of columns in the upsampled grid.
+
+    Returns
+    -------
+    numpy.ndarray
+        The upsampled grid with dimensions (new_xdim, new_ydim).
+    """
+    # Define the main function for upsampling
+    # Original grid coordinates
+    x_initial = np.linspace(0, grid.shape[0] - 1, grid.shape[0],
+                            dtype=np.float32)
+    y_initial = np.linspace(0, grid.shape[1] - 1, grid.shape[1],
+                            dtype=np.float32)
+
+    # Target grid coordinates
+    x_sought = np.linspace(-0.5, grid.shape[0] - 0.5, new_xdim,
+                           dtype=np.float32)
+    y_sought = np.linspace(-0.5, grid.shape[1] - 0.5, new_ydim,
+                           dtype=np.float32)
+
+    # Step 1: Interpolation per row.
+    interp_rows = np.empty((grid.shape[0], new_ydim),
+                           dtype=np.float32)
+    interp_per_row(grid, y_initial, y_sought, interp_rows)
+
+    # Step 2: Interpolation along columns (reuse interpolate_rows)
+    interp_cols = np.empty((new_xdim, new_ydim),
+                           dtype=np.float32)
+    interp_per_row(interp_rows.T, x_initial, x_sought, interp_cols.T)
+
+    return interp_cols
