@@ -27,7 +27,6 @@ except ImportError:
     from scipy import ndimage
 from numba import guvectorize, float32, int32
 import os
-from test.conftest import DATAPATH
 
 
 def timeit(method):

@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
 
