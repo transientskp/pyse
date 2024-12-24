@@ -29,7 +29,8 @@ def derivative(f, sigma, sigma_meas, D, eps=1e-8):
     """
     Approximate the derivative of f at sigma using finite differences.
     """
-    return (f(sigma + eps, sigma_meas, D) - f(sigma, sigma_meas, D)) / eps
+    delta = eps * sigma
+    return (f(sigma + delta, sigma_meas, D) - f(sigma, sigma_meas, D)) / delta
 
 
 # “This 'newton_1d_safeguard_sigma' function has been generated using

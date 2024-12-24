@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
 
@@ -497,11 +497,15 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
                    os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "std_grid_deconvolved.fits.npy"))
+                                "std_grid_deconvolved.fits.npy"),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                "means_interpolated_deconvolved.fits.npz"),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                "stds_interpolated_deconvolved.fits.npz"))
     def test_sigma_clip_deconvolved(self):
         grid = self.img.grids
 
-        mean_grid = grid["bg"]
+        mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
         mean_ground_truth_grid = (
@@ -528,6 +532,35 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
 
         self.assertTrue(np.allclose(std_grid, std_ground_truth_grid, rtol=1e-3))
 
+    def test_interpolation_deconvolved(self):
+        # Load ground truth data for interpolated background means.
+        with np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                     "means_interpolated_deconvolved.fits.npz")) as npz:
+            interp_means_ground_truth = np.ma.MaskedArray(**npz)
+
+        interp_means = self.img.backmap
+
+        # Check the shapes are the same
+        self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
+                         "Shapes of mean grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth,
+                                       atol=1e-7))
+
+        # Load ground truth data for interpolated background standard
+        # deviations.
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                      "stds_interpolated_deconvolved.fits.npz")) as npz):
+            interp_stds_ground_truth = np.ma.MaskedArray(**npz)
+
+        interp_stds = self.img.rmsmap
+
+        # Check the shapes are the same
+        self.assertEqual(interp_stds.shape, interp_stds_ground_truth.shape,
+                         "Shapes of rms grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
+
 
 # The TestBackgroundCharacteristicsComplex class has been generated using
 # ChatGPT 4.0. All AI-output has been verified for correctness,
@@ -545,11 +578,17 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                                  "_1000.npy")),
                    os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("std_grid_image_206-215-t0002.fits_radius" +
-                                 "_1000.npy")))
+                                 "_1000.npy")),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("means_interpolated_206-215-t0002.fits_" +
+                                 "radius_1000.npz")),
+                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
+                                ("stds_interpolated_206-215-t0002.fits_" +
+                                 "radius_1000.npz")))
     def test_sigma_clip_AARTFAAC_TBB_MASKED(self):
         grid = self.img.grids
 
-        mean_grid = grid["bg"]
+        mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
         mean_ground_truth_grid = (
@@ -575,3 +614,36 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                          "Shapes of rms grids do not match")
 
         self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
+
+    def test_interpolation_AARTFAAC_TBB_MASKED(self):
+        # Load ground truth data for interpolated background means.
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                      "means_interpolated_206-215-t0002.fits_radius_1000.npz"))
+              as npz):
+            interp_means_ground_truth = np.ma.MaskedArray(**npz)
+
+        interp_means = self.img.backmap
+
+        # Check the shapes are the same
+        self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
+                         "Shapes of mean grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth,
+                                       atol=1e-7))
+
+        # Load ground truth data for interpolated background standard
+        # deviations.
+        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
+                      "stds_interpolated_206-215-t0002.fits_radius_1000.npz"))
+              as npz):
+            interp_stds_ground_truth = np.ma.MaskedArray(**npz)
+
+        interp_stds = self.img.rmsmap
+
+        # Check the shapes are the same
+        self.assertEqual(interp_stds.shape, interp_stds_ground_truth.shape,
+                         "Shapes of rms grids do not match")
+
+        self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
+
+
