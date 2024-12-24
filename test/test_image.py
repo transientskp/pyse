@@ -505,7 +505,7 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
     def test_sigma_clip_deconvolved(self):
         grid = self.img.grids
 
-        mean_grid = grid["bg"]
+        mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
         mean_ground_truth_grid = (
@@ -588,7 +588,7 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
     def test_sigma_clip_AARTFAAC_TBB_MASKED(self):
         grid = self.img.grids
 
-        mean_grid = grid["bg"]
+        mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
         mean_ground_truth_grid = (

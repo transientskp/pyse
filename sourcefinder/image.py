@@ -164,7 +164,7 @@ class ImageData(object):
     def backmap(self):
         """Mean background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['bg'], self.grids['indices'])
+            return self._interpolate(self.grids['mean'], self.grids['indices'])
         else:
             return self._user_backmap
 
@@ -329,7 +329,7 @@ class ImageData(object):
             mean_grid = np.empty((0, 0), dtype=np.float32)
             rms_grid = np.empty((0, 0), dtype=np.float32)
 
-        return {'bg': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
+        return {'mean': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
 
     @timeit
     def _interpolate(self, grid, inds, roundup=False):
