@@ -16,7 +16,6 @@ from sourcefinder import stats
 from sourcefinder import utils
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
-from scipy.interpolate import interp1d
 import psutil
 from multiprocessing import Pool
 from functools import cached_property
@@ -385,56 +384,16 @@ class ImageData(object):
             else:
                 grid = f_grid
 
-        # Bicubic spline interpolation
-
-        # Inspired by https://stackoverflow.com/questions/13242382/
-        # resampling-a-numpy-array-representing-an-image
-        # Should be much faster than scipy.ndimage.map_coordinates.
-        # scipy.ndimage.zoom should also be an option for speedup, but zoom did
-        # not reproduce the exact same output as map_coordinates.
-        # Used fitsdiff to check that it gives the exact same output as the
-        # original code up to and including --relative-tolerance=1e-15 for
-        # INTERPOLATE_ORDER=1.
-        # Achieving this resemblance was quite involved and the
-        # fill_value is essential in interp1d. However, for some unit tests,
-        # grid.shape=(1,1) and then it will break with "ValueError: x and y
-        # arrays must have at least 2 entries". So in that case
-        # map_coordinates should be used.
-
-        if INTERPOLATE_ORDER == 1 and grid.shape[0] > 1 and grid.shape[1] > 1:
-            x_initial = np.linspace(0., grid.shape[0]-1, grid.shape[0],
-                                    endpoint=True, dtype=np.float32)
-            y_initial = np.linspace(0., grid.shape[1]-1, grid.shape[1],
-                                    endpoint=True, dtype=np.float32)
-            x_sought = np.linspace(-0.5, -0.5 + grid.shape[0], my_xdim,
-                                   endpoint=True, dtype=np.float32)
-            y_sought = np.linspace(-0.5, -0.5 + grid.shape[1], my_ydim,
-                                   endpoint=True, dtype=np.float32)
-
-            primary_interpolation = interp1d(y_initial, grid, kind='slinear',
-                                             assume_sorted=True, axis=1,
-                                             copy=False, bounds_error=False,
-                                             fill_value=(grid[:, 0],
-                                                         grid[:, -1]))
-
-            transposed = primary_interpolation(y_sought).T
-
-            perpendicular_interpolation = interp1d(x_initial, transposed,
-                                                   kind='slinear',
-                                                   assume_sorted=True,
-                                                   axis=1, copy=False,
-                                                   bounds_error=False,
-                                                   fill_value=(transposed[:, 0],
-                                                               transposed[:, -1]))
-
+        if INTERPOLATE_ORDER == 1:
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
-                perpendicular_interpolation(x_sought).T
+                utils.two_step_interp(grid, my_xdim, my_ydim)
         else:
             # This condition is there to make sure we actually have some
             # unmasked patch of the image to fill.
             slicex = slice(-0.5, -0.5 + grid.shape[0], 1j * my_xdim)
             slicey = slice(-0.5, -0.5 + grid.shape[1], 1j * my_ydim)
 
+            # Bicubic spline interpolation
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
                                         mode='nearest',
