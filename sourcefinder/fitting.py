@@ -684,13 +684,13 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             else:
                 initial.append(params[param])
 
-    def residuals(params):
+    def residuals(parameters):
         """
         Error function to be used in chi-squared fitting.
 
         Parameters
         ----------
-        params : np.ndarray
+        parameters : np.ndarray
             Fitting parameters.
 
         Returns
@@ -700,11 +700,11 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             actual pixels. (pixel_resids is a 2d-array, but the .compressed()
             makes it 1d.)
         """
-        paramlist = list(params)
+        paramlist = list(parameters)
         gaussian_args = []
-        for param in FIT_PARAMS:
-            if param in fixed:
-                gaussian_args.append(fixed[param])
+        for parameter in FIT_PARAMS:
+            if parameter in fixed:
+                gaussian_args.append(fixed[parameter])
             else:
                 gaussian_args.append(paramlist.pop(0))
 
@@ -721,13 +721,13 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
 
         return pixel_resids.compressed()
 
-    def jacobian_values(params):
+    def jacobian_values(parameters):
         """
         The Jacobian of an anisotropic 2D Gaussian at the pixel positions.
 
         Parameters
         ----------
-        params : np.ndarray
+        parameters : np.ndarray
             Fitting parameters.
 
         Returns
@@ -744,11 +744,11 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             results in a column of only zeroes.
 
         """
-        paramlist = list(params)
+        paramlist = list(parameters)
         gaussian_args = []
-        for param in FIT_PARAMS:
-            if param in fixed:
-                gaussian_args.append(fixed[param])
+        for parameter in FIT_PARAMS:
+            if parameter in fixed:
+                gaussian_args.append(fixed[parameter])
             else:
                 gaussian_args.append(paramlist.pop(0))
 
