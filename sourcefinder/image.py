@@ -496,8 +496,8 @@ class ImageData(object):
             raise ValueError("Labelled map is wrong shape")
 
         return self._pyse(
-            det * self.rmsmap, anl * self.rmsmap, deblend_nthresh, force_beam,
-            labelled_data=labelled_data, labels=labels
+            det * self.rmsmap, anl, anl * self.rmsmap, deblend_nthresh,
+            force_beam, labelled_data=labelled_data, labels=labels
         )
 
     def reverse_se(self, det, anl):
@@ -626,7 +626,7 @@ class ImageData(object):
         # See, e.g., Hopkins et al., AJ 123, 1086 (2002).
         if not anl:
             anl = fdr_threshold
-        return self._pyse(fdr_threshold * self.rmsmap, anl * self.rmsmap,
+        return self._pyse(fdr_threshold * self.rmsmap, anl, anl * self.rmsmap,
                           deblend_nthresh, force_beam)
 
     @staticmethod
@@ -1104,9 +1104,9 @@ class ImageData(object):
         npix[0] = int32(segmented_island.sum())
 
     def _pyse(
-            self, detectionthresholdmap, analysisthresholdmap,
-            deblend_nthresh, force_beam, labelled_data=None,
-            labels=np.array([], dtype=np.int32)):
+            self, detectionthresholdmap, analysis_threshold,
+            analysisthresholdmap, deblend_nthresh, force_beam,
+            labelled_data=None, labels=np.array([], dtype=np.int32)):
         """
         Run Python-based source extraction on this image.
     
@@ -1117,12 +1117,19 @@ class ImageData(object):
             (self.rawdata). The detection threshold map imposes an extra
             threshold for source detection and is therefore higher than the
             analysis threshold map.
+        analysis_threshold: float
+            Analysis threshold, as a multiple of the rms noise. Should be larger
+            than 2 in all sensible cases, or source measurements could be
+            compromised by pixel values at the edges of islands that cannot be
+            attributed to cosmic sources.
         analysisthresholdmap : np.ma.MaskedArray
             2D array of floats with the same shape as the observational image
-            (self.rawdata). The analysis threshold map imposes the primary
-            threshold for source detection. It is lower (or equal) than the
-            detection threshold map, or else we would be left with too few
-            pixels for proper source shape measurements, in some cases.
+            (self.rawdata). analysisthresholdmap imposes the primary threshold
+            for source detection. All the pixels within the island that exceed
+            this will be used when measuring the source. It is lower (or equal)
+            than detectionthresholdmap, or else we would be left with too few
+            pixels for proper source shape measurements, in some cases. This
+            map is computed as analysis_threshold * self.rmsmap.
         deblend_nthresh : int
             Number of subthresholds for deblending. 0 disables.
         force_beam : bool
@@ -1163,8 +1170,6 @@ class ImageData(object):
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
-                analysis_threshold = (analysisthresholdmap[chunk] /
-                                      self.rmsmap[chunk]).max()
                 # In selected_data only the pixels with the "correct"
                 # (see above) labels are retained. Other pixel values are
                 # set to -(bignum).
