@@ -9,12 +9,12 @@ import scipy.optimize
 from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
-from numba import guvectorize, float64, float32, int32
+from numba import guvectorize, float64, float32, int32, njit
 from sourcefinder.stats import newton_raphson_root_finder
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
-
+@njit
 def find_true_peak(peak, T, epsilon, msq, maxpix):
     """
     This function represents equation 2.67 from Spreeuw's thesis.
