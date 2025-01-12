@@ -24,21 +24,51 @@ def find_true_std(sigma, clipped_std, clip_limit):
 # “This 'derivative' function has been generated using ChatGPT 4.0.
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
+# @njit
+# def derivative(f, sigma, sigma_meas, D, eps=1e-8):
+#     """
+#     Approximate the derivative of f at sigma using finite differences.
+#     """
+#     delta = eps * sigma
+#     return (f(sigma + delta, sigma_meas, D) - f(sigma, sigma_meas, D)) / delta
+
+
+# “This derivative' function has been generated using
+# ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
 @njit
-def derivative(f, sigma, sigma_meas, D, eps=1e-8):
+def derivative(f, x, eps=1e-8, *args):
     """
     Approximate the derivative of f at sigma using finite differences.
+
+    Parameters
+    ----------
+    f : function
+        The function for which the derivative is to be approximated.
+    x : float
+        The value of the first argument of f at which the derivative is to be
+        approximated.
+    eps : float, default: 1e-8
+        A small value for finite difference approximation.
+    *args : tuple
+        Additional arguments for the function `f`.
+
+    Returns
+    -------
+    float
+        The approximate derivative of f at x.
+
     """
-    delta = eps * sigma
-    return (f(sigma + delta, sigma_meas, D) - f(sigma, sigma_meas, D)) / delta
+    delta = eps * x
+    return (f(x + delta, *args) - f(x, *args)) / delta
 
 
 # “This 'newton_1d_safeguard_sigma' function has been generated using
 # ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 @njit
-def newton_raphson_root_finder(f, sigma0, sigma_meas, D, min_sigma, max_sigma,
-                               tol=1e-8, max_iter=100):
+def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
+                               tol=1e-8, max_iter=100, *args):
     """
     Solve the transcendental equation for sigma using Newton's method with
     interval safeguards.
@@ -50,18 +80,16 @@ def newton_raphson_root_finder(f, sigma0, sigma_meas, D, min_sigma, max_sigma,
         sigma, sigma_meas, and D.
     sigma0 : float
         Initial guess for the value of sigma.
-    sigma_meas : float
-        Measured sigma value, used in the equation.
-    D : float
-        The parameter D in the transcendental equation.
     min_sigma : float
         Minimum bound for sigma.
     max_sigma : float
         Maximum bound for sigma.
-    tol : float, optional
-        The tolerance for convergence. The default is 1e-8.
-    max_iter : int, optional
-        The maximum number of iterations. The default is 100.
+    tol : float, default: 1e-8
+        The tolerance for convergence.
+    max_iter : int, default: 100
+        The maximum number of iterations.
+    *args : tuple
+        Additional arguments for the function `f`.
 
     Returns
     -------
@@ -90,14 +118,17 @@ def newton_raphson_root_finder(f, sigma0, sigma_meas, D, min_sigma, max_sigma,
     
     sigma = sigma0
     for i in range(max_iter):
-        f_val = f(sigma, sigma_meas, D)
+        # Compute function value
+        f_val = f(sigma, *args)
 
-        df_val = derivative(f, sigma, sigma_meas, D)
+        # Compute numerical derivative
+        f_deriv = derivative(f, sigma, *args, eps=tol)
 
-        if np.abs(df_val) < tol:  # avoid division by zero
+        if np.abs(f_deriv) < tol:  # avoid division by zero
             raise ValueError("Derivative near zero, method fails.")
 
-        delta_sigma = -f_val / df_val
+        # Update sigma using Newton-Raphson method.
+        delta_sigma = -f_val / f_deriv
         sigma += delta_sigma
 
         # Apply safeguard to keep sigma within the interval
@@ -147,7 +178,9 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
                 # correct for that.
                 std[0], iterations = (
                     newton_raphson_root_finder(find_true_std, regular_std,
-                                               regular_std, limit, 0, limit))
+                                               0, limit,
+                                               regular_std, limit, tol=1e-8,
+                                               max_iter=100))
             else:
                 std[0] = regular_std
 
