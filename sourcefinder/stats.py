@@ -178,9 +178,8 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
                 # correct for that.
                 std[0], iterations = (
                     newton_raphson_root_finder(find_true_std, regular_std,
-                                               0, limit,
-                                               regular_std, limit, tol=1e-8,
-                                               max_iter=100))
+                                               0, limit,1e-8,100, regular_std,
+                                               limit))
             else:
                 std[0] = regular_std
 

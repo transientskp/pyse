@@ -14,6 +14,7 @@ from sourcefinder.stats import newton_raphson_root_finder
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
+
 @njit
 def find_true_peak(peak, T, epsilon, msq, maxpix):
     """
@@ -149,9 +150,9 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
                 peak = newton_raphson_root_finder(find_true_peak, basevalue,
                                                   low_bound, upp_bound,
+                                                  1e-8, 100,
                                                   threshold, epsilon,
-                                                  semiminor_tmp, basevalue,
-                                                  tol=1e-8, max_iter=100)
+                                                  semiminor_tmp, basevalue)
                 # The corrections below for the semi-major and semi-minor axes are
                 # to compensate for the underestimate of these quantities
                 # due to the cutoff at the threshold.
