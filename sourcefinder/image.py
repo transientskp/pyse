@@ -43,10 +43,6 @@ def timeit(method):
     return timed
 
 
-def gather(*args):
-    return list(args)
-
-
 logger = logging.getLogger(__name__)
 
 #
@@ -64,6 +60,7 @@ STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
 # Vectorized processing of source islands is much faster, but excludes Gaussian
 # fits, therefore slightly less accurate.
 VECTORIZED = False
+RMS_FILTER = 0.001
 
 
 class ImageData(object):
@@ -478,14 +475,14 @@ class ImageData(object):
 
         if (type(bgmap).__name__ == 'ndarray' or
                 type(bgmap).__name__ == 'MaskedArray'):
-            if bgmap.shape != self.backmap.shape:
+            if bgmap.shape != self.data.shape:
                 raise IndexError("Background map has wrong shape")
             else:
                 self.backmap = bgmap
 
         if (type(noisemap).__name__ == 'ndarray' or
                                        type(noisemap).__name__ == 'MaskedArray'):
-            if noisemap.shape != self.rmsmap.shape:
+            if noisemap.shape != self.data.shape:
                 raise IndexError("Noisemap has wrong shape")
             if noisemap.min() < 0:
                 raise ValueError("RMS noise cannot be negative")
@@ -944,12 +941,17 @@ class ImageData(object):
         # The third filter attempts to exclude those regions of the image
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
-        RMS_FILTER = 0.001
 
-        clipped_data = np.ma.where(
-            (self.data_bgsubbed > analysisthresholdmap) &
-            (self.rmsmap >= (RMS_FILTER * self.grids["rms"].mean())), 1, 0
-        ).filled(fill_value=0)
+        if RMS_FILTER:
+            clipped_data = np.ma.where(
+                (self.data_bgsubbed > analysisthresholdmap) &
+                (self.rmsmap >= (RMS_FILTER * self.grids["rms"].mean())), 1, 0
+            ).filled(fill_value=0)
+        else:
+            clipped_data = np.ma.where(
+                self.data_bgsubbed > analysisthresholdmap, 1, 0
+            ).filled(fill_value=0)
+
         labelled_data, num_labels = ndimage.label(clipped_data,
                                                   STRUCTURING_ELEMENT)
 
