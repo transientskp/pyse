@@ -451,3 +451,86 @@ def two_step_interp(grid, new_xdim, new_ydim):
     interp_per_row(interp_rows.T, x_initial, x_sought, interp_cols.T)
 
     return interp_cols
+
+
+# “This 'newton_raphson_root_finder' function has been generated using
+# ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
+# completeness, adapted where needed, and approved by the author.”
+@njit
+def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
+                               tol=1e-8, max_iter=100, *args):
+    """
+    Solve the transcendental equation for sigma using Newton's method with
+    interval safeguards.
+
+    Parameters
+    ----------
+    f : function
+        The function to find the root of. It should take three parameters:
+        sigma, sigma_meas, and D.
+    sigma0 : float
+        Initial guess for the value of sigma.
+    min_sigma : float
+        Minimum bound for sigma.
+    max_sigma : float
+        Maximum bound for sigma.
+    tol : float, default: 1e-8
+        The tolerance for convergence.
+    max_iter : int, default: 100
+        The maximum number of iterations.
+    *args : tuple
+        Additional arguments for the function `f`.
+
+    Returns
+    -------
+    sigma : float
+        The value of sigma that solves the equation, constrained within the
+        bounds [min_sigma, max_sigma].
+    i : int
+        The number of iterations performed. If convergence was reached, this
+        is the iteration count. If max iterations were reached, this is equal
+        to max_iter.
+
+    Raises
+    ------
+    ValueError
+        If the derivative of the function is near zero, causing a division by
+        zero error.
+
+    Notes
+    -----
+    The method employs Newton's method for root-finding, with safeguards to
+    ensure that sigma stays within the bounds [min_sigma, max_sigma]. The
+    method terminates when the absolute change in sigma is smaller than the
+    specified tolerance `tol` or when the maximum number of iterations is
+    reached. If the derivative is too small (near zero), a ValueError is raised.
+    """
+
+    sigma = sigma0
+    for i in range(max_iter):
+        # Evaulate function at current sigma
+        f_val = f(sigma, *args)
+
+        # Compute numerical derivative
+        delta = tol * sigma
+        f_deriv = (f(sigma + delta, *args) - f_val) / delta
+
+        if np.abs(f_deriv) < tol:  # avoid division by zero
+            raise ValueError("Derivative near zero, method fails.")
+
+        # Update sigma using Newton-Raphson method.
+        delta_sigma = -f_val / f_deriv
+        sigma += delta_sigma
+
+        # Apply safeguard to keep sigma within the interval
+        # [min_sigma, max_sigma]
+        if sigma < min_sigma:
+            sigma = min_sigma
+        elif sigma > max_sigma:
+            sigma = max_sigma
+
+        if np.abs(delta_sigma) < tol:
+            return sigma, i  # root found, return solution and iterations
+
+    return sigma, max_iter  # max iterations reached, return last estimate
+
