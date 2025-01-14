@@ -10,7 +10,7 @@ from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
 from numba import guvectorize, float64, float32, int32, njit
-from sourcefinder.stats import newton_raphson_root_finder
+from sourcefinder.utils import newton_raphson_root_finder
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -148,11 +148,13 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
                     low_bound = 1.5 * peak
                     upp_bound = 0.5 * peak
 
-                peak = newton_raphson_root_finder(find_true_peak, basevalue,
-                                                  low_bound, upp_bound,
-                                                  1e-8, 100,
-                                                  threshold, epsilon,
-                                                  semiminor_tmp, basevalue)
+                # The number of iterations used for the root finder is also
+                # returned, but not used here.
+                peak, _ = newton_raphson_root_finder(find_true_peak, basevalue,
+                                                     low_bound, upp_bound,
+                                                     1e-8, 100,
+                                                     threshold, epsilon,
+                                                     semiminor_tmp, basevalue)
                 # The corrections below for the semi-major and semi-minor axes are
                 # to compensate for the underestimate of these quantities
                 # due to the cutoff at the threshold.
