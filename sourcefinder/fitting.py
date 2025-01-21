@@ -274,7 +274,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     maxi : float
         Peak pixel value within the island. Units: spectral brightness, 
-        typically Jy/beam. To clarify: source_island[maxposs] == maxi.
+        typically Jy/beam. To clarify: source_island[maxpos] == maxi.
 
     fudge_max_pix_factor : float
         Correction factor for underestimation of the peak by considering the 
