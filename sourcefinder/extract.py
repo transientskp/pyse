@@ -275,6 +275,7 @@ class ParamSet(MutableMapping):
         # More metadata about the fit: only valid for Gaussian fits:
         self.chisq = None
         self.reduced_chisq = None
+        self.sig = None
 
     def __getitem__(self, item):
         return self.measurements[item]
@@ -546,10 +547,6 @@ class ParamSet(MutableMapping):
         # replaced by noise**2 since the threshold should not affect
         # the error from the (corrected) maximum pixel method,
         # while it is part of the expression for rho_sq above.
-        # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-        #                clean_bias_error ** 2 + noise ** 2 +
-        #                utils.maximum_pixel_method_variance(
-        #                    beam[0], beam[1], beam[2]) * peak ** 2)
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                        clean_bias_error ** 2 + noise ** 2 +
                        max_pix_variance_factor * peak ** 2)
@@ -828,7 +825,7 @@ def source_profile_and_errors(data, threshold, noise,
 
     # Calculate residuals
     # NB this works even if Gaussian fitting fails, we generate the model from
-    # the moments-fit parameters.
+    # the moments parameters.
     gauss_arg = (param["peak"].value,
                  param["xbar"].value,
                  param["ybar"].value,
@@ -1718,9 +1715,10 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # array. In this way Numba can infer the shape of the output array.
     fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs, thresholds,
-                             local_noise_levels, maxis, fudge_max_pix_factor,
-                             max_pix_variance_factor, np.array(beam),
-                             beamsize, np.array(correlation_lengths), 0, 0,
+                             local_noise_levels, maxposs, maxis,
+                             fudge_max_pix_factor, max_pix_variance_factor,
+                             np.array(beam), beamsize,
+                             np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)
 
