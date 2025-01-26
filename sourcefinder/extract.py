@@ -210,7 +210,7 @@ class Island(object):
         try:
             measurement, gauss_island, gauss_residual = \
                 source_profile_and_errors(self.data, self.threshold(),
-                                          self.noise(), self.beam,
+                                          self.rms, self.noise(), self.beam,
                                           fudge_max_pix_factor,
                                           max_pix_variance_factor, beamsize,
                                           correlation_lengths, fixed=fixed)
@@ -681,7 +681,7 @@ class ParamSet(MutableMapping):
         return self
 
 
-def source_profile_and_errors(data, threshold, noise,
+def source_profile_and_errors(data, threshold, rms, noise,
                               beam, fudge_max_pix_factor, max_pix_variance_factor,
                               beamsize, correlation_lengths, fixed=None):
     """Return a number of measurable properties with errorbars
@@ -706,7 +706,11 @@ def source_profile_and_errors(data, threshold, noise,
         threshold (float): Threshold used for selecting pixels for the
             source (ie, building an island)
 
-        noise (float): Noise level in data
+        rms (np.ndarray or np.ma.MaskedArray): noise levels at pixel positions
+            corresponding to the data array, determined from the interpolated
+            grid of standard deviations of the background pixels.
+
+        noise (float): rms (noise level) at the maximum pixel position
 
         beam (tuple): beam parameters (semimaj,semimin,theta)
 
@@ -847,7 +851,7 @@ def source_profile_and_errors(data, threshold, noise,
         gauss_resid_filled = gauss_resid_masked
 
     param.chisq, param.reduced_chisq = fitting.goodness_of_fit(
-        gauss_resid_masked, noise, correlation_lengths)
+        gauss_resid_masked, rms, correlation_lengths)
 
     return param, gauss_island_filled, gauss_resid_filled
 
