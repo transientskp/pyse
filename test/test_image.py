@@ -339,7 +339,8 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         else:
             known_result = np.array(known_result_moments, dtype=np.float32)
         self.assertEqual(r.size, known_result.size)
-        self.assertTrue(np.allclose(r, known_result, rtol=1e-4, equal_nan=True))
+        self.assertTrue(np.allclose(r, known_result, rtol=1e-4, atol=0,
+                                    equal_nan=True))
 
     @requires_data(GRB120422A)
     def testForceSourceShape(self):
