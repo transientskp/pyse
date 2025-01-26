@@ -298,35 +298,48 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         at around 5 or 6 sigma detection level."""
 
         ew_sys_err, ns_sys_err = 0.0, 0.0
-        known_result = (
-            136.89603241069054, 14.022184792492785,  # RA, DEC
-            5.341819139061954e-4, 1.3428186757078464e-3,  # Err, Err
-            7.226590529214518e-4, 1.0918184742211533e-4,  # Peak flux, err
-            6.067963179204716e-4, 1.7037685531724465e-4,
-            # Integrated flux, err
-            6.192259965962862, 25.516190123153514,
-            # Significance level, Beam semimajor-axis width (arcsec)
-            10.718798843620489, 178.62899212789304,
-            # Beam semiminor-axis width (arcsec), Beam parallactic angle
-            ew_sys_err, ns_sys_err,
-            5.181697175052841,  # error_radius
-            1,  # fit_type
-            0.59184643302,  # chisq
-            0.67199741142,  # reduced chisq
-        )
+
+        known_result_fit = \
+            [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
+             5.06084005e-04, 1.29061600e-03,  # Err, err
+             7.24671176e-04, 1.04806706e-04,  # Peak spectral brightness, err
+             6.03179622e-04, 1.62549622e-04,  # Flux density, err
+             6.44646215e+00, 2.55194168e+01,
+             # Significance level, beam semimajor-axis width (arcsec)
+             1.06461773e+01, 1.78499710e+02,
+             # Beam semiminor-axis width (arcsec), beam position angle (deg)
+             0.00000000e+00, 0.00000000e+00,  # ew_sys_err, ns_sys_err
+             4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
+             6.03417635e-01, 6.67105734e-01]  # chisq, reduced chisq
+
+        known_result_moments = \
+            [1.3689603e+02, 1.4022377e+01,  # RA (deg), DEC (deg)
+             5.5378844e-04, 1.1825778e-03,  # Err, err
+             7.3612988e-04, 1.1431403e-04,  # Peak spectral brightness, err
+             6.0276804e-04, 1.6508212e-04,  # Flux density, err
+             6.4464622e+00, 2.4559519e+01,
+             # Significance level, beam semimajor-axis width (arcsec)
+             1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
+             # Beam position angle (deg).
+             0.0000000e+00, 0.0000000e+00,  # ew_sys_err, ns_sys_err
+             4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
+             8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
+
         self.image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
 
         results = self.image.extract(det=5, anl=3)
         results = [result.serialize(ew_sys_err, ns_sys_err) for result in
                    results]
-        # Our modified kappa,sigma clipper gives a slightly lower noise
-        # which catches an extra noise peak at the 5 sigma level.
         self.assertEqual(len(results), 2)
-        r = results[1]
-        self.assertEqual(len(r), len(known_result))
-        for i in range(len(r)):
-            self.assertAlmostEqual(r[i], known_result[i], places=0)
+        r = np.array(results[1], dtype=np.float32)
+        # Check if we derived source parameters from a fit or from moments.
+        if r[-3] == 1:
+            known_result = np.array(known_result_fit, dtype=np.float32)
+        else:
+            known_result = np.array(known_result_moments, dtype=np.float32)
+        self.assertEqual(r.size, known_result.size)
+        self.assertTrue(np.allclose(r, known_result, atol=1e-5))
 
     @requires_data(GRB120422A)
     def testForceSourceShape(self):
