@@ -308,7 +308,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.06461773e+01, 1.78499710e+02,
              # Beam semiminor-axis width (arcsec), beam position angle (deg)
-             0.00000000e+00, 0.00000000e+00,  # ew_sys_err, ns_sys_err
+             ew_sys_err, ns_sys_err,
              4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
              6.03417635e-01, 6.67105734e-01]  # chisq, reduced chisq
 
@@ -321,7 +321,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
              # Beam position angle (deg).
-             0.0000000e+00, 0.0000000e+00,  # ew_sys_err, ns_sys_err
+             ew_sys_err, ns_sys_err,
              4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
              8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
 
