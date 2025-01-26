@@ -745,7 +745,8 @@ class ImageData(object):
 
         try:
             measurement, _, _ = extract.source_profile_and_errors(
-                fitme, threshold_at_pixel, self.rmsmap[int(x), int(y)],
+                fitme, threshold_at_pixel, self.rmsmap[chunk],
+                self.rmsmap[int(x), int(y)],
                 self.beam, self.fudge_max_pix_factor,
                 self.max_pix_variance_factor,
                 self.beamsize, self.correlation_lengths, fixed=fixed)
@@ -1265,7 +1266,9 @@ class ImageData(object):
                 chunk = slices[label - 1]
 
                 param = extract.ParamSet()
-                param.sig = maxis[count] / self.rmsmap.data[tuple(maxposs[count])]
+                param.sig = sig[count]
+                param.chisq = chisq[count]
+                param.reduced_chisq = reduced_chisq[count]
 
                 param["peak"] = Uncertain(moments_of_sources[count, 0, 0],
                                           moments_of_sources[count, 1, 0])
