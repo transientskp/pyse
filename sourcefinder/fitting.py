@@ -1017,10 +1017,6 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
     of datapoints less than 1! As a result, it doesn't really make sense to try
     and apply the 'degrees-of-freedom' correction, as this would likely result
     in a negative ``reduced_chisq`` value.
-    
-    Finally, note that when called from extract.source_profile_and_errors, the
-    noise-estimate at the peak-pixel is supplied, so will typically over-estimate
-    the noise and hence under-estimate the chi-squared values.
     """
     gauss_resid_normed = (masked_residuals / noise).compressed()
     chisq = np.sum(gauss_resid_normed * gauss_resid_normed)
