@@ -143,12 +143,12 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
                 # Set limits for the root finder similar to the bounds for
                 # Gaussian fits.
-                if peak > 0:
-                    low_bound = 0.5 * peak
-                    upp_bound = 1.5 * peak
+                if basevalue > 0:
+                    low_bound = 0.5 * basevalue
+                    upp_bound = 1.5 * basevalue
                 else:
-                    low_bound = 1.5 * peak
-                    upp_bound = 0.5 * peak
+                    low_bound = 1.5 * basevalue
+                    upp_bound = 0.5 * basevalue
 
                 # The number of iterations used for the root finder is also
                 # returned, but not used here.
@@ -443,13 +443,12 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                 # position.
                 for i in (posx==rounded_barycenter[0]).nonzero()[0]:
                     if posy[i] == rounded_barycenter[1]:
-                        baseindex = i
-                        basevalue = source_island[baseindex]
+                        basevalue = source_island[i]
                         break
             else:
                 # The rounded barycenter position is not in source_island, so we
                 # revert to the maximum pixel position, which is always included.
-                basepos = maxpos[0], maxpos[1]
+                basepos = maxpos[0] - chunkpos[0], maxpos[1] - chunkpos[1]
                 # In this case we do not need to figure out the source_island
                 # index corresponding to the maximum pixel position, because
                 # maxi, the maximum pixel value has already been provided, as an
@@ -472,12 +471,12 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
                 # Set limits for the root finder similar to the bounds for
                 # Gaussian fits.
-                if peak > 0:
-                    low_bound = 0.5 * peak
-                    upp_bound = 1.5 * peak
+                if basevalue > 0:
+                    low_bound = 0.5 * basevalue
+                    upp_bound = 1.5 * basevalue
                 else:
-                    low_bound = 1.5 * peak
-                    upp_bound = 0.5 * peak
+                    low_bound = 1.5 * basevalue
+                    upp_bound = 0.5 * basevalue
 
                 # The number of iterations used for the root finder is also
                 # returned, but not used here.
