@@ -230,20 +230,38 @@ def calculate_correlation_lengths(semimajor, semiminor):
 
 
 def calculate_beamsize(semimajor, semiminor):
-    """Calculate the beamsize based on the semi major and minor axes"""
+    """
+    Calculate the beamsize based on the semi-major and minor axes.
+
+    Parameters
+    ----------
+    semimajor : float
+        The semi-major axis length in pixels.
+    semiminor : float
+        The semi-minor axis length in pixels.
+
+    Returns
+    -------
+    float
+        The calculated beamsize.
+    """    
+    
 
     return np.pi * semimajor * semiminor
 
 
 def fudge_max_pix(semimajor, semiminor, theta):
-    """Estimate peak flux correction at pixel of maximum flux
+    """Estimate peak spectral brightness correction at pixel of maximum spectral
+    brightness.
 
     Previously, we adopted Rengelink's correction for the
     underestimate of the peak of the Gaussian by the maximum pixel
     method: fudge_max_pix = 1.06. See the WENSS paper
-    (1997A&AS..124..259R) or his thesis.  (The peak of the Gaussian
+    (1997A&AS..124..259R) or his thesis.  The peak of the Gaussian
     is, of course, never at the exact center of the pixel, that's why
-    the maximum pixel method will always underestimate it.)
+    the maximum pixel method will underestimate it, when averaged over an
+    ensemble. This effect is smaller when the clean beam is more densely 
+    sampled.
 
     But, instead of just taking 1.06 one can make an estimate of the
     overall correction by assuming that the true peak is at a random
@@ -252,17 +270,26 @@ def fudge_max_pix(semimajor, semiminor, theta):
     so strictly speaking only accurate for unresolved sources.
     After some investigation, it turns out that this method requires not only
     unresolved sources, but also a circular beam shape. With the general
-    elliptical beam, the peak source pixel may be located more than half a
+    elliptical beam, the peak pixel may be located more than half a
     pixel away from the true peak. In that case the integral below will not
     suffice as a correction. Calculating an overall correction for an ensemble
     of sources will, in the case of an elliptical beam shape, become much
     more involved.
-    """
+    
+    Parameters
+    ----------
+    semimajor : float
+        The semi-major axis length in pixels.
+    semiminor : float
+        The semi-minor axis length in pixels.
+    theta : float
+        The position angle of the major axis in radians.
 
-    # scipy.integrate.dblquad: Computes a double integral
-    # from the scipy docs:
-    #   Return the double (definite) integral of f1(y,x) from x=a..b
-    #   and y=f2(x)..f3(x).
+    Returns
+    -------
+    correction: float
+        The estimated peak spectral brightness correction.
+    """
 
     log20 = np.log(2.0)
     cos_theta = np.cos(theta)
@@ -291,7 +318,22 @@ def flatten(nested_list):
     it into a list, like this::
 
         flattened = list(flatten(nested)).
+
+    Parameters
+    ----------
+    nested_list : list
+        A list that may contain other lists or tuples.
+
+    Yields
+    ------
+    element
+        The next element in the flattened list.
+
+    Notes
+    -----
+        The keyword "yield" is used; i.e. a generator object is returned.
     """
+
     for elem in nested_list:
         if isinstance(elem, (tuple, list, np.ndarray)):
             for i in flatten(elem):
