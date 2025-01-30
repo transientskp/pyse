@@ -603,10 +603,6 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     # replaced by noise**2 since the threshold should not affect
     # the error from the (corrected) maximum pixel method,
     # while it is part of the expression for rho_sq above.
-    # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-    #                clean_bias_error ** 2 + noise ** 2 +
-    #                utils.maximum_pixel_method_variance(
-    #                    beam[0], beam[1], beam[2]) * peak ** 2)
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                    clean_bias_error ** 2 + noise ** 2)
     errorpeak = np.sqrt(errorpeaksq)
@@ -619,7 +615,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     """Deconvolve from the clean beam"""
 
-    # If the fitted axes are smaller than the clean beam
+    # If the fitted axes are larger than the clean beam
     # (=restoring beam) axes, the axes and position angle
     # can be deconvolved from it.
     fmaj = 2. * smaj
