@@ -79,10 +79,10 @@ class L15_12hConstCor(unittest.TestCase):
         self.assertEqual(len(self.results), 5)
 
     @requires_data(corrected_fits)
-    def testFluxes(self):
-        # All sources in this image are supposed to have the same flux.
-        # But they don't, because the simulation is broken, so this test
-        # checks they fall in a vaguely plausible range.
+    def testBrightnesses(self):
+        # All sources in this image are supposed to have the same peak spectral
+        # brightness. But they don't, because the simulation is broken, so this
+        # test checks they fall in a vaguely plausible range.
         for mysource in self.results:
             self.assertTrue(mysource.peak.value > 0.35)
             self.assertTrue(mysource.peak.value < 0.60)

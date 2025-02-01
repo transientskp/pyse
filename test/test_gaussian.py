@@ -3,7 +3,7 @@ Tests for elliptical Gaussian fitting code in the TKP pipeline.
 """
 import unittest
 
-import numpy
+import numpy as np
 
 from sourcefinder.extract import source_profile_and_errors
 from sourcefinder.fitting import moments, fitgaussian, FIT_PARAMS
@@ -21,14 +21,14 @@ class SimpleGaussTest(unittest.TestCase):
     """Generic, easy-to-fit elliptical Gaussian"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 20
         self.theta = 0
-        self.mygauss = numpy.ma.array(
+        self.mygauss = np.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -69,14 +69,14 @@ class NegativeGaussTest(SimpleGaussTest):
     """Negative Gaussian"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = -10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 20
         self.theta = 0
-        self.mygauss = numpy.ma.array(
+        self.mygauss = np.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -92,14 +92,14 @@ class CircularGaussTest(SimpleGaussTest):
     """Circular Gaussian: it makes no sense to measure a rotation angle"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 40
         self.theta = 0
-        self.mygauss = numpy.ma.array(
+        self.mygauss = np.ma.array(
             gaussian(self.height, self.x, self.y, self.maj, self.min,
                      self.theta)(Xin, Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -118,14 +118,14 @@ class NarrowGaussTest(SimpleGaussTest):
     """Only 1 pixel wide"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 1
         self.theta = 0
-        self.mygauss = numpy.ma.array(gaussian(
+        self.mygauss = np.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -138,14 +138,14 @@ class RotatedGaussTest(SimpleGaussTest):
     """Rotated by an angle < pi/2"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 20
-        self.theta = numpy.pi / 4
-        self.mygauss = numpy.ma.array(gaussian(
+        self.theta = np.pi / 4
+        self.mygauss = np.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -161,14 +161,14 @@ class RotatedGaussTest2(SimpleGaussTest):
     """Rotated by an angle > pi/2; theta becomes negative"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 40
         self.min = 20
-        self.theta = 3 * numpy.pi / 4
-        self.mygauss = numpy.ma.array(gaussian(
+        self.theta = 3 * np.pi / 4
+        self.mygauss = np.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -177,10 +177,10 @@ class RotatedGaussTest2(SimpleGaussTest):
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
-        self.assertAlmostEqual(self.moments["theta"], self.theta - numpy.pi)
+        self.assertAlmostEqual(self.moments["theta"], self.theta - np.pi)
 
     def testFitAngle(self):
-        self.assertAlmostEqual(self.fit["theta"], self.theta - numpy.pi)
+        self.assertAlmostEqual(self.fit["theta"], self.theta - np.pi)
 
 
 class AxesSwapGaussTest(SimpleGaussTest):
@@ -188,14 +188,14 @@ class AxesSwapGaussTest(SimpleGaussTest):
     change the angle"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.height = 10
         self.x = 250
         self.y = 250
         self.maj = 20
         self.min = 40
         self.theta = 0
-        self.mygauss = numpy.ma.array(gaussian(
+        self.mygauss = np.ma.array(gaussian(
             self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
                                                                          Yin))
         self.beamsize = calculate_beamsize(self.maj, self.min)
@@ -209,8 +209,8 @@ class AxesSwapGaussTest(SimpleGaussTest):
         # Presumably there's some numerical quirk causing different,
         # but equivalent, convergence in the optimization.
         if theta < 0:
-            theta = theta + numpy.pi
-        self.assertAlmostEqual(theta, numpy.pi / 2)
+            theta = theta + np.pi
+        self.assertAlmostEqual(theta, np.pi / 2)
 
     def testFitAngle(self):
         theta = self.fit["theta"]
@@ -218,8 +218,8 @@ class AxesSwapGaussTest(SimpleGaussTest):
         # Presumably there's some numerical quirk causing different,
         # but equivalent, convergence in the optimization.
         if theta < 0:
-            theta = theta + numpy.pi
-        self.assertAlmostEqual(theta, numpy.pi / 2)
+            theta = theta + np.pi
+        self.assertAlmostEqual(theta, np.pi / 2)
 
     def testMomentSize(self):
         self.assertAlmostEqual(self.moments["semiminor"], self.maj, 5)
@@ -235,8 +235,8 @@ class RandomGaussTest(unittest.TestCase):
     measure moments, though -- things should be fairly evenly distributed."""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
-        self.mygauss = numpy.random.random(Xin.shape)
+        Xin, Yin = np.indices((500, 500))
+        self.mygauss = np.random.random(Xin.shape)
         self.beamsize = calculate_beamsize(beam[0], beam[1])
         self.fudge_max_pix_factor = fudge_max_pix(beam[0], beam[1], beam[2])
 
@@ -251,14 +251,14 @@ class NoisyGaussTest(unittest.TestCase):
     """Test calculation of chi-sq and fitting in presence of (artificial) noise"""
 
     def setUp(self):
-        Xin, Yin = numpy.indices((500, 500))
+        Xin, Yin = np.indices((500, 500))
         self.peak = 10
         self.xbar = 250
         self.ybar = 250
         self.semimajor = 40
         self.semiminor = 20
         self.theta = 0
-        self.mygauss = numpy.ma.array(
+        self.mygauss = np.ma.array(
             gaussian(self.peak, self.xbar, self.ybar,
                      self.semimajor, self.semiminor, self.theta)(Xin, Yin))
         self.beamsize = calculate_beamsize(self.semimajor, self.semiminor)
@@ -287,7 +287,7 @@ class NoisyGaussTest(unittest.TestCase):
 
     def test_noisy_background(self):
         # Use a fixed random state seed, so unit-test is reproducible:
-        rstate = numpy.random.RandomState(42)
+        rstate = np.random.RandomState(42)
         pixel_noise = 0.5
         self.mygauss += rstate.normal(scale=pixel_noise,
                                       size=len(self.mygauss.ravel())).reshape(
@@ -310,11 +310,15 @@ class NoisyGaussTest(unittest.TestCase):
         self.fit_w_errs, _, _ = source_profile_and_errors(
             data=self.mygauss,
             threshold=0.,
+            rms=np.ones(self.mygauss.shape) * pixel_noise,
             noise=pixel_noise,
             beam=(self.semimajor, self.semiminor, self.theta),
-            fudge_max_pix_factor=fudge_max_pix(self.semimajor, self.semiminor, self.theta),
-            max_pix_variance_factor=maximum_pixel_method_variance(self.semimajor, self.semiminor, self.theta),
-            correlation_lengths=calculate_correlation_lengths(self.semimajor, self.semiminor),
+            fudge_max_pix_factor=fudge_max_pix(self.semimajor, self.semiminor,
+                                               self.theta),
+            max_pix_variance_factor=maximum_pixel_method_variance(
+                self.semimajor, self.semiminor, self.theta),
+            correlation_lengths=calculate_correlation_lengths(
+                self.semimajor, self.semiminor),
             beamsize=calculate_beamsize(self.semimajor, self.semiminor)
         )
 
