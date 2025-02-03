@@ -266,11 +266,18 @@ class ParamSet(MutableMapping):
         # parameterset have come from: we set them to True if & when moments
         # and/or Gaussian fitting succeeds.
         self.moments = False
-        # Gaussian fits are preferable performed with bounds for better
+        # Gaussian fits are preferably performed with bounds for better
         # stability, but to establish those bounds in a meaningful manner
         # moments estimation is required, i.e. self.moments = True.
         self.bounds = {}
         self.gaussian = False
+
+        # It is instructive to keep a record of the minimal cross-section of
+        # the island, i.e. is its minimal width large enough for at least a
+        # proper moments computation? Set thin_detection to True as default.
+        # Will be set to False before the start of a source measurement if the
+        # island is wide enough.
+        self.thin_detection = True
 
         # More metadata about the fit: only valid for Gaussian fits:
         self.chisq = None
@@ -376,11 +383,15 @@ class ParamSet(MutableMapping):
 
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
-        elif self.moments:
+        elif self.moments or self.thin_detection:
+            # If thin_detection == True, error_bars_from_moments probably
+            # gives a better estimate of the true errors than errors from
+            # Gaussian fits, since they are generally larger. May still be
+            # underestimating the true errors, though.
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, max_pix_variance_factor, correlation_lengths,
-                                                 threshold)
+            return self._error_bars_from_moments(noise, max_pix_variance_factor,
+                                                 correlation_lengths, threshold)
         else:
             return False
 
@@ -779,6 +790,7 @@ def source_profile_and_errors(data, threshold, rms, noise,
         "semiminor": beam[1],
         "theta": beam[2]
     })
+
     # data_as_ones is constructed to help determine if the island has enough
     # width for Gauss fitting.
     try:
@@ -793,6 +805,7 @@ def source_profile_and_errors(data, threshold, rms, noise,
     minimum_width = min(max_along_x, max_along_y)
 
     if minimum_width > 2:
+        param.thin_detection = False
         # If the island or subisland has thickness of more than 2 in both
         # dimensions we can properly compute moments and fit a Gaussian with
         # six free parameters.
