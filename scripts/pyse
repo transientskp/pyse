@@ -89,10 +89,10 @@ def csv(sourcelist):
     output = StringIO()
     print_(
         u"ra, ra_err, dec, dec_err, smaj, smaj_err, smin, smin_err, pa, pa_err, "
-        "int_flux, int_flux_err, pk_flux, pk_flux_err",
+        "int_flux, int_flux_err, pk_flux, pk_flux_err, x, y, snr, reduced_chisq",
         file=output)
     for source in sourcelist:
-        print_(u"%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f" % (
+        print_(u"%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f" % (
             source.ra,
             source.ra.error,
             source.dec,
@@ -107,6 +107,10 @@ def csv(sourcelist):
             source.flux.error,
             source.peak,
             source.peak.error,
+            source.x,
+            source.y,
+            source.sig,
+            source.reduced_chisq,
         ), file=output)
     return output.getvalue()
 
