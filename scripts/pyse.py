@@ -87,30 +87,18 @@ def csv(sourcelist):
     """
     output = StringIO()
     print(
-        u"ra, ra_err, dec, dec_err, smaj, smaj_err, smin, smin_err, pa, pa_err, "
-        "int_flux, int_flux_err, pk_flux, pk_flux_err, x, y, snr, reduced_chisq",
-        file=output)
+        "ra, ra_err, dec, dec_err, smaj, smaj_err, smin, smin_err, pa, pa_err,"
+        " int_flux, int_flux_err, pk_flux, pk_flux_err, x, y, snr, "
+        "reduced_chisq", file=output)
     for source in sourcelist:
-        print(u"%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f" % (
-            source.ra,
-            source.ra.error,
-            source.dec,
-            source.dec.error,
-            source.smaj_asec,
-            source.smaj_asec.error,
-            source.smin_asec,
-            source.smin_asec.error,
-            source.theta_celes,
-            source.theta_celes.error,
-            source.flux,
-            source.flux.error,
-            source.peak,
-            source.peak.error,
-            source.x,
-            source.y,
-            source.sig,
-            source.reduced_chisq,
-        ), file=output)
+        values = (
+            source.ra, source.ra.error, source.dec, source.dec.error,
+            source.smaj_asec, source.smaj_asec.error, source.smin_asec,
+            source.smin_asec.error, source.theta_celes,
+            source.theta_celes.error, source.flux, source.flux.error,
+            source.peak, source.peak.error, source.x, source.y, source.sig,
+            source.reduced_chisq)
+        print(", ".join(f"{float(v):.6f}" for v in values), file=output)
     return output.getvalue()
 
 
