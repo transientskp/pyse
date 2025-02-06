@@ -34,7 +34,6 @@ from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.utility.cli import parse_monitoringlist_positions
 from sourcefinder.utils import generate_result_maps
-from six import print_
 
 def regions(sourcelist):
     """
@@ -42,14 +41,14 @@ def regions(sourcelist):
     sources in sourcelist.
     """
     output = StringIO()
-    print_(u"# Region file format: DS9 version 4.1", file=output)
-    print_(
+    print(u"# Region file format: DS9 version 4.1", file=output)
+    print(
         u"global color=green dashlist=8 3 width=1 font=\"helvetica 10 normal\" select=1 highlite=1 dash=0 fixed=0 edit=1 move=1 delete=1 include=1 source=1",
         file=output)
-    print_(u"image", file=output)
+    print(u"image", file=output)
     for source in sourcelist:
         # NB, here we convert from internal 0-origin indexing to DS9 1-origin indexing
-        print_(u"ellipse(%f, %f, %f, %f, %f)" % (
+        print(u"ellipse(%f, %f, %f, %f, %f)" % (
             source.x.value + 1.0,
             source.y.value + 1.0,
             source.smaj.value * 2,
@@ -64,12 +63,12 @@ def skymodel(sourcelist, ref_freq=73800000):
     Return a string containing a skymodel from the extracted sources for use in self-calibration.
     """
     output = StringIO()
-    print_(
+    print(
         u"#(Name, Type, Ra, Dec, I, Q, U, V, MajorAxis, MinorAxis, Orientation, "
         "ReferenceFrequency='60e6', SpectralIndex='[0.0]') = format",
         file=output)
     for source in sourcelist:
-        print_(u"%s, GAUSSIAN, %s, %s, %f, 0, 0, 0, %f, %f, %f, %f, [0]" % (
+        print(u"%s, GAUSSIAN, %s, %s, %f, 0, 0, 0, %f, %f, %f, %f, [0]" % (
             u"ra:%fdec:%f" % (source.ra, source.dec),
             u"%fdeg" % (source.ra,),
             u"%fdeg" % (source.dec,),
@@ -87,12 +86,12 @@ def csv(sourcelist):
     Return a string containing a csv from the extracted sources.
     """
     output = StringIO()
-    print_(
+    print(
         u"ra, ra_err, dec, dec_err, smaj, smaj_err, smin, smin_err, pa, pa_err, "
         "int_flux, int_flux_err, pk_flux, pk_flux_err, x, y, snr, reduced_chisq",
         file=output)
     for source in sourcelist:
-        print_(u"%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f" % (
+        print(u"%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f" % (
             source.ra,
             source.ra.error,
             source.dec,
@@ -121,19 +120,19 @@ def summary(filename, sourcelist):
     sourcelist.
     """
     output = StringIO()
-    print_(u"** %s **\n" % (filename), file=output)
+    print(u"** %s **\n" % (filename), file=output)
     for source in sourcelist:
-        print_(u"RA: %s, dec: %s" % (str(source.ra), str(source.dec)),
+        print(u"RA: %s, dec: %s" % (str(source.ra), str(source.dec)),
               file=output)
-        print_(u"Error radius (arcsec): %s" % (str(source.error_radius)),
+        print(u"Error radius (arcsec): %s" % (str(source.error_radius)),
               file=output)
-        print_(u"Semi-major axis (arcsec): %s" % (str(source.smaj_asec)),
+        print(u"Semi-major axis (arcsec): %s" % (str(source.smaj_asec)),
               file=output)
-        print_(u"Semi-minor axis (arcsec): %s" % (str(source.smin_asec)),
+        print(u"Semi-minor axis (arcsec): %s" % (str(source.smin_asec)),
               file=output)
-        print_(u"Position angle: %s" % (str(source.theta_celes)), file=output)
-        print_(u"Flux: %s" % (str(source.flux)), file=output)
-        print_(u"Peak: %s\n" % (str(source.peak)), file=output)
+        print(u"Position angle: %s" % (str(source.theta_celes)), file=output)
+        print(u"Flux: %s" % (str(source.flux)), file=output)
+        print(u"Peak: %s\n" % (str(source.peak)), file=output)
     return output.getvalue()
 
 
@@ -402,11 +401,11 @@ def run_sourcefinder(files, options):
         if options.csv:
             with open(imagename + ".csv", 'w') as csvfile:
                 csvfile.write(csv(sr))
-                print_(summary(filename, sr), end=u' ', file=output)
+                print(summary(filename, sr), end=u' ', file=output)
     return output.getvalue()
 
 
 if __name__ == "__main__":
     logging.basicConfig()
     options, files = handle_args()
-    print_(run_sourcefinder(files, options), end=u' ')
+    print(run_sourcefinder(files, options), end=u' ')
