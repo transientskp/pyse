@@ -196,20 +196,19 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
 
 
 @guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32,
-               int32, float32, float32, int32[:], float32, float64, float64,
+               int32, float32, float32, int32[:], float32, float64,
                float64[:], float64, float64[:], float64, float64, float32[:, :],
                float32[:, :], float32[:, :], float32[:, :], float32[:],
                float32[:], float32[:])],
-             ('(n), (n), (m), (n), (n), (), (), (), (), (m), (), (), (), (k),' +
+             ('(n), (n), (m), (n), (n), (), (), (), (), (m), (), (), (k),' +
               '(), (m), (), (), (q, r), (q, r), (l, p) -> (l, p), (), (), ()'),
              nopython=True)
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxpos, maxi,
-                     fudge_max_pix_factor, max_pix_variance_factor, beam,
-                     beamsize, correlation_lengths, clean_bias_error,
-                     frac_flux_cal_error, Gaussian_islands_map,
-                     Gaussian_residuals_map, dummy, computed_moments,
-                     significance, chisq, reduced_chisq):
+                     fudge_max_pix_factor, beam, beamsize, correlation_lengths,
+                     clean_bias_error, frac_flux_cal_error,
+                     Gaussian_islands_map, Gaussian_residuals_map, dummy,
+                     computed_moments, significance, chisq, reduced_chisq):
     """
     Calculate source properties using moments.
 
@@ -279,10 +278,6 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     fudge_max_pix_factor : float
         Correction factor for underestimation of the peak by considering the 
         maximum pixel value.
-
-    max_pix_variance_factor : float
-        Additional variance induced by the maximum pixel method, beyond the 
-        background noise.
 
     beam : np.ndarray
         Array of three floats: [semimajor axis, semiminor axis, theta]. 
@@ -626,8 +621,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     #                utils.maximum_pixel_method_variance(
     #                    beam[0], beam[1], beam[2]) * peak ** 2)
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-                   clean_bias_error ** 2 + noise ** 2 +
-                   max_pix_variance_factor * peak ** 2)
+                   clean_bias_error ** 2 + noise ** 2)
     errorpeak = np.sqrt(errorpeaksq)
 
     help1 = (errorsmaj / smaj) ** 2
