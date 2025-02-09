@@ -194,47 +194,6 @@ def fudge_max_pix(semimajor, semiminor, theta):
     return correction
 
 
-def maximum_pixel_method_variance(semimajor, semiminor, theta):
-    """Estimate variance for peak flux at pixel position of maximum
-
-    When we use the maximum pixel method, with a correction
-    fudge_max_pix, there should be no bias, unless the peaks of the
-    Gaussians are not randomly distributed, but relatively close to
-    the centres of the pixels due to selection effects from detection
-    thresholds.
-
-    Disregarding the latter effect and noise, we can compute the
-    variance of the maximum pixel method by integrating (the true
-    flux-the average true flux)^2 = (the true flux-fudge_max_pix)^2
-    over the pixel area and dividing by the pixel area ( = 1).  This
-    is just equal to integral of the true flux^2 over the pixel area
-    - fudge_max_pix^2.
-    """
-
-    # scipy.integrate.dblquad: Computes a double integral
-    # from the scipy docs:
-    #   Return the double (definite) integral of f1(y,x) from x=a..b
-    #   and y=f2(x)..f3(x).
-
-    log20 = np.log(2.0)
-    cos_theta = np.cos(theta)
-    sin_theta = np.sin(theta)
-
-    def landscape(y, x):
-        return np.exp(2.0 * log20 * (
-                      math.pow(((cos_theta * x + sin_theta * y) / semiminor),
-                                  2) +
-                      math.pow(((cos_theta * y - sin_theta * x) / semimajor),
-                                  2)))
-
-    (result, abserr) = scipy.integrate.dblquad(landscape, -0.5, 0.5,
-                                               lambda ymin: -0.5,
-                                               lambda ymax: 0.5)
-    variance = result - math.pow(fudge_max_pix(semimajor, semiminor, theta), 2)
-
-    return variance
-
-
 def flatten(nested_list):
     """Flatten a nested list
 
