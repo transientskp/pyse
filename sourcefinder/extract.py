@@ -204,16 +204,16 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize,
-            correlation_lengths, fixed=None):
+    def fit(self, fudge_max_pix_factor, beamsize, correlation_lengths,
+            fixed=None):
         """Fit the position"""
         try:
             measurement, gauss_island, gauss_residual = \
                 source_profile_and_errors(self.data, self.threshold(),
                                           self.rms, self.noise(), self.beam,
                                           fudge_max_pix_factor,
-                                          max_pix_variance_factor, beamsize,
-                                          correlation_lengths, fixed=fixed)
+                                          beamsize, correlation_lengths,
+                                          fixed=fixed)
         except ValueError:
             # Fitting failed
             logger.error("Moments & Gaussian fitting failed at %s" % (
@@ -374,7 +374,7 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
+    def calculate_errors(self, noise, correlation_lengths, threshold):
         """Calculate positional errors
 
         Uses _condon_formulae() if this object is based on a Gaussian fit,
@@ -390,8 +390,8 @@ class ParamSet(MutableMapping):
             # underestimating the true errors, though.
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, max_pix_variance_factor,
-                                                 correlation_lengths, threshold)
+            return self._error_bars_from_moments(noise, correlation_lengths,
+                                                 threshold)
         else:
             return False
 
@@ -486,7 +486,7 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def _error_bars_from_moments(self, noise, max_pix_variance_factor, correlation_lengths,
+    def _error_bars_from_moments(self, noise, correlation_lengths,
                                  threshold):
         """Provide reasonable error estimates from the moments"""
 
@@ -559,8 +559,7 @@ class ParamSet(MutableMapping):
         # the error from the (corrected) maximum pixel method,
         # while it is part of the expression for rho_sq above.
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-                       clean_bias_error ** 2 + noise ** 2 +
-                       max_pix_variance_factor * peak ** 2)
+                       clean_bias_error ** 2 + noise ** 2)
         errorpeak = np.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
@@ -692,9 +691,9 @@ class ParamSet(MutableMapping):
         return self
 
 
-def source_profile_and_errors(data, threshold, rms, noise,
-                              beam, fudge_max_pix_factor, max_pix_variance_factor,
-                              beamsize, correlation_lengths, fixed=None):
+def source_profile_and_errors(data, threshold, rms, noise, beam,
+                              fudge_max_pix_factor, beamsize,
+                              correlation_lengths, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
@@ -727,10 +726,6 @@ def source_profile_and_errors(data, threshold, rms, noise,
 
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
-
-        max_pix_variance_factor(float): Take account of additional variance
-                                        induced by the maximum pixel method,
-                                        on top of the background noise.
 
         beamsize(float): The FWHM size of the clean beam
 
@@ -837,7 +832,7 @@ def source_profile_and_errors(data, threshold, rms, noise,
 
     param["flux"] = (np.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
-    param.calculate_errors(noise, max_pix_variance_factor, correlation_lengths, threshold)
+    param.calculate_errors(noise, correlation_lengths, threshold)
     param.deconvolve_from_clean_beam(beam)
 
     # Calculate residuals
@@ -1425,7 +1420,6 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                                                         indices,
                                                         labelled_data, labels, wcs,
                                                         fudge_max_pix_factor,
-                                                        max_pix_variance_factor,
                                                         beam, beamsize,
                                                         correlation_lengths,
                                                         eps_ra, eps_dec):
@@ -1523,10 +1517,6 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                  statistical correction, so on average correct over a large
                  ensemble of unresolved sources, when a circular restoring beam
                  is appropriate.
-
-    :param max_pix_variance_factor: float to take account of the additional
-             uncertainty introduced by fudge_max_pix. Can probably be removed
-             since its effect is negligible in all sensible cases.
 
     :param beam: tuple of 3 floats describing the restoring beam in terms of
                  its semi-major and semi-minor axes (in pixels) and the position
@@ -1733,8 +1723,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxposs, maxis,
-                             fudge_max_pix_factor, max_pix_variance_factor,
-                             np.array(beam), beamsize,
+                             fudge_max_pix_factor, np.array(beam), beamsize,
                              np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)
