@@ -8,7 +8,7 @@ import numpy as np
 from sourcefinder.extract import source_profile_and_errors
 from sourcefinder.fitting import moments, fitgaussian, FIT_PARAMS
 from sourcefinder.gaussian import gaussian
-from sourcefinder.utils import fudge_max_pix, calculate_beamsize, maximum_pixel_method_variance, \
+from sourcefinder.utils import fudge_max_pix, calculate_beamsize, \
     calculate_correlation_lengths
 
 # The units that are tested often require information about the resolution element:
@@ -315,8 +315,6 @@ class NoisyGaussTest(unittest.TestCase):
             beam=(self.semimajor, self.semiminor, self.theta),
             fudge_max_pix_factor=fudge_max_pix(self.semimajor, self.semiminor,
                                                self.theta),
-            max_pix_variance_factor=maximum_pixel_method_variance(
-                self.semimajor, self.semiminor, self.theta),
             correlation_lengths=calculate_correlation_lengths(
                 self.semimajor, self.semiminor),
             beamsize=calculate_beamsize(self.semimajor, self.semiminor)
