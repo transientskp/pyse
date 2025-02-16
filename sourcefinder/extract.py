@@ -428,7 +428,6 @@ class ParamSet(MutableMapping):
 
         rho1 = np.sqrt(rho_sq1)
         rho2 = np.sqrt(rho_sq2)
-        rho3 = np.sqrt(rho_sq3)
 
         denom1 = np.sqrt(2. * np.log(2.)) * rho1
         denom2 = np.sqrt(2. * np.log(2.)) * rho2
@@ -462,8 +461,14 @@ class ParamSet(MutableMapping):
         if errortheta > np.pi:
             errortheta = np.pi
 
-        peak += -noise ** 2 / peak + self.clean_bias
+        # Formula (34) of the NVSS paper, without the general fitting bias,
+        # since we don't observe that. On the contrary, there may be peak
+        # fitting bias, but that has the opposite sign, i.e. fitted peaks are
+        # systematically biased too low, but more investigation is needed to
+        # quantify that effect.
+        peak += self.clean_bias
 
+        # Formula (37) of the NVSS paper.
         errorpeaksq = ((self.frac_flux_cal_error * peak) ** 2 +
                        self.clean_bias_error ** 2 +
                        2. * peak ** 2 / rho_sq3)
@@ -473,11 +478,17 @@ class ParamSet(MutableMapping):
         help1 = (errorsmaj / smaj) ** 2
         help2 = (errorsmin / smin) ** 2
         help3 = theta_B * theta_b / (4. * smaj * smin)
+
+        # Since we recomputed the peak spectral brightness following formula
+        # (34) from the NVSS paper, we also need to recompute the flux density
+        # following formula (35) of that paper.
+        flux *= peak / self['peak'].value
+
         errorflux = np.abs(flux) * np.sqrt(
             errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
         self['peak'] = Uncertain(peak, errorpeak)
-        self['flux'].error = errorflux
+        self['flux'] = Uncertain(flux, errorflux)
         self['xbar'].error = errorx
         self['ybar'].error = errory
         self['semimajor'].error = errorsmaj
@@ -707,7 +718,8 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
 
     Args:
 
-        data (np.ndarray): array of pixel values, can be a masked
+        data: np.ma.Maskedarray or np.ndarray
+            Array of pixel values, can be a masked
             array, which is necessary for proper Gauss fitting,
             because the pixels below the threshold in the corners and
             along the edges should not be included in the fitting
@@ -778,13 +790,16 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
 
     param.update({
         "peak": peak,
-        "flux": peak,
+        "flux": total,
         "xbar": xbar,
         "ybar": ybar,
         "semimajor": beam[0],
         "semiminor": beam[1],
         "theta": beam[2]
     })
+
+    if fixed:
+        param.update(fixed)
 
     # data_as_ones is constructed to help determine if the island has enough
     # width for Gauss fitting.
@@ -805,11 +820,14 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
         # dimensions we can properly compute moments and fit a Gaussian with
         # six free parameters.
         try:
-            # We can compute moments and possibly try fitting if the island has a
-            # thickness of more than 2 in both dimensions.
-            param.update(fitting.moments(data, fudge_max_pix_factor, beamsize,
-                                         moments_threshold))
-            param.moments = True
+            # We can compute moments and possibly try fitting if the island has
+            # a thickness of more than 2 in both dimensions.
+            param.update(fitting.moments(data, fudge_max_pix_factor, beam,
+                                         beamsize, moments_threshold))
+            if moments_threshold and not fixed:
+                # A complete moments computation is only possible if we have
+                # imposed a non-zero threshold and no parameters are fixed.
+                param.moments = True
         except ValueError:
             logger.warning('Moments computations failed, use defaults.')
         try:
