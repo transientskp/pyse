@@ -775,7 +775,7 @@ class ImageData(object):
 
         Parameters
         ----------
-        positions : tuple
+        positions : list of tuples
             List of (RA, Dec) tuples. Positions to be fit, in decimal degrees.
         boxsize : int
             Length of the square section of the image to use for the fit.
