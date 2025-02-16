@@ -26,7 +26,7 @@ def find_true_peak(peak, T, epsilon, msq, maxpix):
                                                       (peak / T - 1))
 
 
-def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
+def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     """
     Calculate source positional values using moments.
 
@@ -38,11 +38,19 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
     ----------
     data : np.ma.MaskedArray or np.ndarray
         Actual 2D image data.
+
     fudge_max_pix_factor : float
         Correct for the underestimation of the peak by taking the maximum
         pixel value.
+
+    beam : 3-tuple
+        3-tuple of floats: (semimajor axis, semiminor axis, theta).
+        The axes are in units of pixels and theta, the position angle of the
+        major axis wrt the positive y-axis, is in radians.
+
     beamsize : float
         The FWHM size of the clean beam.
+
     threshold : float, default: 0
         Source parameters like the semimajor and semiminor axes derived
         from moments can be underestimated if one does not take account of
@@ -74,7 +82,7 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
             or np.isnan(working2)):
         raise ValueError("Unable to estimate Gauss shape")
 
-    maxpos = np.unravel_index(np.abs(data).argmax(), data.shape)
+    maxpos = np.unravel_index(data.argmax(), data.shape)
 
     # Are we fitting a -ve or +ve Gaussian?
     if data.mean() >= 0:
@@ -171,16 +179,29 @@ def moments(data, fudge_max_pix_factor, beamsize, threshold=0):
             ratio = threshold / peak
             semimajor_tmp /= (1.0 + np.log(ratio) * ratio / (1.0 - ratio))
             semiminor_tmp = beamsize ** 2 / (np.pi ** 2 * semimajor_tmp)
+        try:
+            semimajor = math.sqrt(semimajor_tmp)
+            semiminor = math.sqrt(semiminor_tmp)
+            if semiminor == 0:
+                # A semi-minor axis exactly zero gives all kinds of problems.
+                # For instance wrt conversion to celestial coordinates.
+                # This is a quick fix.
+                semiminor = beamsize / (np.pi * semimajor)
 
-        semimajor = math.sqrt(semimajor_tmp)
-        semiminor = math.sqrt(semiminor_tmp)
+        # In all cases where we hit a math domain error, we can use the clean
+        # beam parameters to derive reasonable estimates for the Gaussian shape
+        # parameters.
+        except ValueError:
+            semimajor = beam[0]
+            semiminor = beam[1]
+            theta = beam[2]
 
     else:
-        # This is the case when the island (or more likely subisland) has
-        # a size of only one pixel.
-        theta = 0.
-        semiminor = np.sqrt(beamsize / np.pi)
-        semimajor = np.sqrt(beamsize / np.pi)
+        # This is the case when the island (or more likely subisland) has a size
+        # of only one pixel.
+        semimajor = beam[0]
+        semiminor = beam[1]
+        theta = beam[2]
 
     # NB: a dict should give us a bit more flexibility about arguments;
     # however, all those here are ***REQUIRED***.
@@ -280,8 +301,9 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         maximum pixel value.
 
     beam : np.ndarray
-        Array of three floats: [semimajor axis, semiminor axis, theta]. 
-        Units: pixels.
+        Array of three floats: (semimajor axis, semiminor axis, theta).
+        The axes are in units of pixels and theta, the position angle of the
+        major axis wrt the positive y-axis, is in radians.
 
     beamsize : float
         FWHM size of the clean beam. Units: pixels.
@@ -758,7 +780,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
 
     Parameters
     ----------
-    pixels : np.ma.MaskedArray
+    pixels : np.ma.MaskedArray or np.ndarray
         Pixel values (with bad pixels masked)
     params : dict
         Initial fit parameters (possibly estimated using the moments() function)
