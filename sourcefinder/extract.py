@@ -790,7 +790,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
 
     param.update({
         "peak": peak,
-        "flux": total,
+        "flux": np.pi * peak * beam[0] * beam[1] / beamsize,
         "xbar": xbar,
         "ybar": ybar,
         "semimajor": beam[0],
