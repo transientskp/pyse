@@ -256,12 +256,14 @@ class RandomGaussTest(unittest.TestCase):
     def setUp(self):
         Xin, Yin = np.indices((500, 500))
         self.mygauss = np.random.random(Xin.shape)
+        self.beam = (beam[0], beam[1], beam[2])
         self.beamsize = calculate_beamsize(beam[0], beam[1])
         self.fudge_max_pix_factor = fudge_max_pix(beam[0], beam[1], beam[2])
 
     def testMoments(self):
         try:
-            moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+            moments(self.mygauss, self.fudge_max_pix_factor, self.beam,
+                    self.beamsize, 0)
         except:
             self.fail('Moments method failed to run.')
 
