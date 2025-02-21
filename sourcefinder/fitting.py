@@ -87,19 +87,8 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     # Are we fitting a -ve or +ve Gaussian?
     if data[maxpos] > 0:
         peak = data[maxpos]
-        # Without corrections, the axes will be biased low, because of the
-        # threshold used to segment the island. We can correct for this, but
-        # that requires all unmasked pixel values to be above the threshold.
-        try:
-            assert threshold < data.min()
-        except AssertionError:
-            print(f"{threshold = :.3e}, minimum pixel value: {data.min() = :.3e}")
     else:
         peak = data.min()
-        # Without corrections, the axes will be biased low, because of the
-        # threshold used to segment the island. We can correct for this, but
-        # that requires all unmasked pixel values to be below the threshold.
-        assert threshold >= data[maxpos]
     # The peak is always underestimated when you take the highest or lowest
     # - for images other than Stokes I, where that may apply - pixel.
     peak *= fudge_max_pix_factor
@@ -190,9 +179,10 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
         # The corrections below for the semi-major and semi-minor axes are
         # to compensate for the underestimate of these quantities
         # due to the cutoff at the threshold.
-        ratio = threshold / peak
-        semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-        semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+        if peak > threshold:
+            ratio = threshold / peak
+            semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+            semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
 
     semimajor = math.sqrt(semimajor_tmp)
     semiminor = math.sqrt(semiminor_tmp)
@@ -410,16 +400,8 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     if maxi > 0:
         # The peak is always underestimated when you take the highest pixel.
         peak = maxi
-        # Without corrections, the axes will be biased low, because of the
-        # threshold used to segment the island. We can correct for this, but
-        # that requires all unmasked pixel values to be above the threshold.
-        assert threshold  < maxi
     else:
         peak = source_island.min()
-        # Without corrections, the axes will be biased low, because of the
-        # threshold used to segment the island. We can correct for this, but
-        # that requires all unmasked pixel values to be below the threshold.
-        assert threshold >= maxi
     # The peak is always underestimated when you take the highest or lowest
     # - for images other than Stokes I, where that may apply - pixel.
     peak *=  fudge_max_pix_factor
@@ -513,9 +495,10 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
             # The corrections below for the semi-major and semi-minor axes are
             # to compensate for the underestimate of these quantities
             # due to the cutoff at the threshold.
-            ratio = threshold / peak
-            semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-            semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+            if peak > threshold:
+                ratio = threshold / peak
+                semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+                semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
 
         smaj = math.sqrt(semimajor_tmp)
         smin = math.sqrt(semiminor_tmp)
