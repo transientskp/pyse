@@ -19,10 +19,7 @@ from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
 
-try:
-    import ndimage
-except ImportError:
-    from scipy import ndimage
+from scipy import ndimage
 from numba import guvectorize, float32, int32
 import os
 
