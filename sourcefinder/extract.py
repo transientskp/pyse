@@ -326,51 +326,50 @@ class ParamSet(MutableMapping):
         boolean entry is used to loosen a bound when a fit becomes unfeasible,
         see the documentation on scipy.optimize.Bounds.
         """
-        if self.moments:
-            if hasattr(self["peak"], "value"):
-                self.bounds["peak"] = (0.5 * self["peak"].value,
-                                       1.5 * self["peak"].value, False)
-            else:
-                self.bounds["peak"] = (0.5 * self["peak"], 1.5 * self["peak"],
-                                       False)
-            # Accommodate for negative heights. The "bounds" argument in
-            # scipy.optimize.least-squares demands that the lower bound is
-            # smaller than the upper bound and with the (0.5, 1.5) fractions
-            # this does not work out well for negative heights. Background:
-            # only to be expected in images from visibilities from polarization
-            # products other than Stokes I.
-            if self.bounds["peak"][0] > self.bounds["peak"][1]:
-                true_upper = self.bounds["peak"][0]
-                true_lower = self.bounds["peak"][1]
-                self.bounds["peak"] = (true_lower, true_upper, False)
+        if hasattr(self["peak"], "value"):
+            self.bounds["peak"] = (0.5 * self["peak"].value,
+                                   1.5 * self["peak"].value, False)
+        else:
+            self.bounds["peak"] = (0.5 * self["peak"], 1.5 * self["peak"],
+                                   False)
+        # Accommodate for negative heights. The "bounds" argument in
+        # scipy.optimize.least-squares demands that the lower bound is
+        # smaller than the upper bound and with the (0.5, 1.5) fractions
+        # this does not work out well for negative heights. Background:
+        # only to be expected in images from visibilities from polarization
+        # products other than Stokes I.
+        if self.bounds["peak"][0] > self.bounds["peak"][1]:
+            true_upper = self.bounds["peak"][0]
+            true_lower = self.bounds["peak"][1]
+            self.bounds["peak"] = (true_lower, true_upper, False)
 
-            if hasattr(self["semimajor"], "value"):
-                self.bounds["semimajor"] = (0.5 * self["semimajor"].value,
-                                            1.5 * self["semimajor"].value,
-                                            False)
-            else:
-                self.bounds["semimajor"] = (0.5 * self["semimajor"],
-                                            1.5 * self["semimajor"], False)
+        if hasattr(self["semimajor"], "value"):
+            self.bounds["semimajor"] = (0.5 * self["semimajor"].value,
+                                        1.5 * self["semimajor"].value,
+                                        False)
+        else:
+            self.bounds["semimajor"] = (0.5 * self["semimajor"],
+                                        1.5 * self["semimajor"], False)
 
-            if hasattr(self["semiminor"], "value"):
-                self.bounds["semiminor"] = (0.5 * self["semiminor"].value,
-                                            1.5 * self["semiminor"].value,
-                                            False)
-            else:
-                self.bounds["semiminor"] = (0.5 * self["semiminor"],
-                                            1.5 * self["semiminor"], False)
+        if hasattr(self["semiminor"], "value"):
+            self.bounds["semiminor"] = (0.5 * self["semiminor"].value,
+                                        1.5 * self["semiminor"].value,
+                                        False)
+        else:
+            self.bounds["semiminor"] = (0.5 * self["semiminor"],
+                                        1.5 * self["semiminor"], False)
 
-            self.bounds["xbar"] = (0., data_shape[0], False)
-            self.bounds["ybar"] = (0., data_shape[1], False)
-            # The upper bound for theta is a bit odd, one would expect
-            # np.pi/2 here, but that will yield imperfect fits in
-            # cases where the axes are aligned with the coordinate axes,
-            # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
-            # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
-            # margin needs to be applied.
-            # keep_feasibly is True here to accommodate for a fitting process
-            # where the margin is exceeded.
-            self.bounds["theta"] = (-np.pi/2, np.pi, True)
+        self.bounds["xbar"] = (0., data_shape[0], False)
+        self.bounds["ybar"] = (0., data_shape[1], False)
+        # The upper bound for theta is a bit odd, one would expect
+        # np.pi/2 here, but that will yield imperfect fits in
+        # cases where the axes are aligned with the coordinate axes,
+        # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
+        # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
+        # margin needs to be applied.
+        # keep_feasibly is True here to accommodate for a fitting process
+        # where the margin is exceeded.
+        self.bounds["theta"] = (-np.pi/2, np.pi, True)
 
         return self
 
@@ -383,7 +382,7 @@ class ParamSet(MutableMapping):
 
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
-        elif self.moments or self.thin_detection:
+        else:
             # If thin_detection == True, error_bars_from_moments probably
             # gives a better estimate of the true errors than errors from
             # Gaussian fits, since they are generally larger. May still be
@@ -392,8 +391,6 @@ class ParamSet(MutableMapping):
                 threshold = 0
             return self._error_bars_from_moments(noise, correlation_lengths,
                                                  threshold)
-        else:
-            return False
 
     def _condon_formulae(self, noise, correlation_lengths):
         """Returns the errors on parameters from Gaussian fits according to
@@ -815,23 +812,29 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     minimum_width = min(max_along_x, max_along_y)
 
     if minimum_width > 2:
+        # We can realistically compute moments and perform Gaussian fits if
+        # the island has a thickness of more than 2 in both dimensions.
         param.thin_detection = False
-        # If the island or subisland has thickness of more than 2 in both
-        # dimensions we can properly compute moments and fit a Gaussian with
-        # six free parameters.
+        if not fixed:
+            # Moments can only be computed if no parameters are fixed.
+            try:
+                param.update(fitting.moments(data, fudge_max_pix_factor, beam,
+                                             beamsize, moments_threshold))
+                if moments_threshold:
+                    # A complete moments computation is only possible if we have
+                    # imposed a non-zero threshold (and no parameters are fixed).
+                    param.moments = True
+            except ValueError:
+                logger.warning('Moments computations failed, use defaults.')
         try:
-            # We can compute moments and possibly try fitting if the island has
-            # a thickness of more than 2 in both dimensions.
-            param.update(fitting.moments(data, fudge_max_pix_factor, beam,
-                                         beamsize, moments_threshold))
-            if moments_threshold and not fixed:
-                # A complete moments computation is only possible if we have
-                # imposed a non-zero threshold and no parameters are fixed.
-                param.moments = True
-        except ValueError:
-            logger.warning('Moments computations failed, use defaults.')
-        try:
-            param.compute_bounds(data.shape)
+            if not fixed:
+                # It only makes sense to compute bounds for parameters that are
+                # not fixed. Furthermore, when imposing bounds for any remaining
+                # parameters that are not fixed, these bounds will hamper the
+                # fitting process. E.g. when the position of the source is
+                # fixed, the + and - 50% bounds derived from the peak pixel
+                # value could be too tight.
+                param.compute_bounds(data.shape)
             gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
                                                 bounds=param.bounds)
             param.update(gaussian_soln)
@@ -843,10 +846,6 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
         logger.debug("Unable to estimate gaussian parameters from moments."
                      " Proceeding with defaults %s""",
                      str(param))
-
-    if fixed and not param.gaussian:
-        # moments can't handle fixed params
-        raise ValueError("fit failed with given fixed parameters")
 
     param["flux"] = (np.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
