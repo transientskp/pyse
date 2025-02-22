@@ -383,10 +383,11 @@ class ParamSet(MutableMapping):
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
         else:
-            # If thin_detection == True, error_bars_from_moments probably
+            # If thin_detection == True, _error_bars_from_moments probably
             # gives a better estimate of the true errors than errors from
-            # Gaussian fits, since they are generally larger. May still be
-            # underestimating the true errors, though.
+            # Gaussian fits, i.e. from _condon_formulae, since they are
+            # generally larger. _error_bars_from_moments could still be
+            # underestimating the true errors in case of thin detections.
             if not threshold:
                 threshold = 0
             return self._error_bars_from_moments(noise, correlation_lengths,
@@ -824,17 +825,10 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
                     # A complete moments computation is only possible if we have
                     # imposed a non-zero threshold (and no parameters are fixed).
                     param.moments = True
+                    param.compute_bounds(data.shape)
             except ValueError:
                 logger.warning('Moments computations failed, use defaults.')
         try:
-            if not fixed:
-                # It only makes sense to compute bounds for parameters that are
-                # not fixed. Furthermore, when imposing bounds for any remaining
-                # parameters that are not fixed, these bounds will hamper the
-                # fitting process. E.g. when the position of the source is
-                # fixed, the + and - 50% bounds derived from the peak pixel
-                # value could be too tight.
-                param.compute_bounds(data.shape)
             gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
                                                 bounds=param.bounds)
             param.update(gaussian_soln)
