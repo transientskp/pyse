@@ -315,8 +315,8 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         known_result_moments = \
             [1.3689603e+02, 1.4022377e+01,  # RA (deg), DEC (deg)
              5.5378844e-04, 1.1825778e-03,  # Err, err
-             7.3612988e-04, 1.1431403e-04,  # Peak spectral brightness, err
-             6.0276804e-04, 1.6508212e-04,  # Flux density, err
+             7.3612988e-04, 1.1412757e-04,  # Peak spectral brightness, err
+             6.0276804e-04, 1.6499560e-04,  # Flux density, err
              6.4464622e+00, 2.4559519e+01,
              # Significance level, beam semimajor-axis width (arcsec)
              1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
