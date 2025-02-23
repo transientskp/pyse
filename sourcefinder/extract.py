@@ -775,12 +775,15 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     # We can always find the maximum pixel value and derive the barycenter
     # position. The other three Gaussian parameters we can copy from the clean
     # beam.
+
+    peak = data.max()
     # Are we fitting a -ve or +ve Gaussian?
-    if data.mean() >= 0:
-        # The peak is always underestimated when you take the highest pixel.
-        peak = data.max() * fudge_max_pix_factor
-    else:
+    if peak <= 0:
         peak = data.min()
+    # The peak is always underestimated when you take the highest (or lowest)
+    # pixel.
+    peak *= fudge_max_pix_factor
+
     total = data.sum()
     x, y = np.indices(data.shape)
     xbar = float((x * data).sum() / total)
