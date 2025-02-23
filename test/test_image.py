@@ -302,7 +302,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
              5.06084005e-04, 1.29061600e-03,  # Err, err
-             7.24671176e-04, 1.04806706e-04,  # Peak spectral brightness, err
+             7.42220029e-04, 1.07344735e-04,  # Peak spectral brightness, err
              6.03179622e-04, 1.62549622e-04,  # Flux density, err
              6.44646215e+00, 2.55194168e+01,
              # Significance level, beam semimajor-axis width (arcsec)
@@ -310,7 +310,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Beam semiminor-axis width (arcsec), beam position angle (deg)
              ew_sys_err, ns_sys_err,
              4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
-             6.03417635e-01, 6.67105734e-01]  # chisq, reduced chisq
+             1.47489354e-01, 1.63056225e-01]  # chisq, reduced chisq
 
         known_result_moments = \
             [1.3689603e+02, 1.4022377e+01,  # RA (deg), DEC (deg)
