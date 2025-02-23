@@ -8,7 +8,7 @@ import numpy as np
 from sourcefinder.extract import source_profile_and_errors
 from sourcefinder.fitting import moments, fitgaussian, FIT_PARAMS
 from sourcefinder.gaussian import gaussian
-from sourcefinder.utils import fudge_max_pix, calculate_beamsize, maximum_pixel_method_variance, \
+from sourcefinder.utils import fudge_max_pix, calculate_beamsize, \
     calculate_correlation_lengths
 
 # The units that are tested often require information about the resolution element:
@@ -25,15 +25,18 @@ class SimpleGaussTest(unittest.TestCase):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 20
+        self.smaj = 40
+        self.smin = 20
         self.theta = 0
         self.mygauss = np.ma.array(
-            gaussian(self.height, self.x, self.y, self.maj, self.min,
+            gaussian(self.height, self.x, self.y, self.smaj, self.smin,
                      self.theta)(Xin, Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testHeight(self):
@@ -51,12 +54,12 @@ class SimpleGaussTest(unittest.TestCase):
         self.assertAlmostEqual(self.fit["ybar"], self.y)
 
     def testMomentSize(self):
-        self.assertAlmostEqual(self.moments["semimajor"], self.maj, 3)
-        self.assertAlmostEqual(self.moments["semiminor"], self.min, 3)
+        self.assertAlmostEqual(self.moments["semimajor"], self.smaj, 3)
+        self.assertAlmostEqual(self.moments["semiminor"], self.smin, 3)
 
     def testFitSize(self):
-        self.assertAlmostEqual(self.fit["semimajor"], self.maj)
-        self.assertAlmostEqual(self.fit["semiminor"], self.min)
+        self.assertAlmostEqual(self.fit["semimajor"], self.smaj)
+        self.assertAlmostEqual(self.fit["semiminor"], self.smin)
 
     def testMomentAngle(self):
         self.assertAlmostEqual(self.moments["theta"], self.theta)
@@ -73,15 +76,18 @@ class NegativeGaussTest(SimpleGaussTest):
         self.height = -10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 20
+        self.smaj = 40
+        self.smin = 20
         self.theta = 0
         self.mygauss = np.ma.array(
-            gaussian(self.height, self.x, self.y, self.maj, self.min,
+            gaussian(self.height, self.x, self.y, self.smaj, self.smin,
                      self.theta)(Xin, Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beam,
+                               self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testHeight(self):
@@ -96,15 +102,18 @@ class CircularGaussTest(SimpleGaussTest):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 40
+        self.smaj = 40
+        self.smin = 40
         self.theta = 0
         self.mygauss = np.ma.array(
-            gaussian(self.height, self.x, self.y, self.maj, self.min,
+            gaussian(self.height, self.x, self.y, self.smaj, self.smin,
                      self.theta)(Xin, Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -122,15 +131,18 @@ class NarrowGaussTest(SimpleGaussTest):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 1
+        self.smaj = 40
+        self.smin = 1
         self.theta = 0
         self.mygauss = np.ma.array(gaussian(
-            self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
+            self.height, self.x, self.y, self.smaj, self.smin, self.theta)(Xin,
                                                                          Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
 
@@ -142,15 +154,17 @@ class RotatedGaussTest(SimpleGaussTest):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 20
+        self.smaj = 40
+        self.smin = 20
         self.theta = np.pi / 4
         self.mygauss = np.ma.array(gaussian(
-            self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
+            self.height, self.x, self.y, self.smaj, self.smin, self.theta)(Xin,
                                                                          Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -165,15 +179,17 @@ class RotatedGaussTest2(SimpleGaussTest):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 40
-        self.min = 20
+        self.smaj = 40
+        self.smin = 20
         self.theta = 3 * np.pi / 4
         self.mygauss = np.ma.array(gaussian(
-            self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
+            self.height, self.x, self.y, self.smaj, self.smin, self.theta)(Xin,
                                                                          Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin, self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -192,15 +208,18 @@ class AxesSwapGaussTest(SimpleGaussTest):
         self.height = 10
         self.x = 250
         self.y = 250
-        self.maj = 20
-        self.min = 40
+        self.smaj = 20
+        self.smin = 40
         self.theta = 0
         self.mygauss = np.ma.array(gaussian(
-            self.height, self.x, self.y, self.maj, self.min, self.theta)(Xin,
+            self.height, self.x, self.y, self.smaj, self.smin, self.theta)(Xin,
                                                                          Yin))
-        self.beamsize = calculate_beamsize(self.maj, self.min)
-        self.fudge_max_pix_factor = fudge_max_pix(self.maj, self.min, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.beam = (self.smaj, self.smin, self.theta)
+        self.beamsize = calculate_beamsize(self.smaj, self.smin)
+        self.fudge_max_pix_factor = fudge_max_pix(self.smaj, self.smin,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
         self.fit = fitgaussian(self.mygauss, self.moments)
 
     def testMomentAngle(self):
@@ -222,12 +241,12 @@ class AxesSwapGaussTest(SimpleGaussTest):
         self.assertAlmostEqual(theta, np.pi / 2)
 
     def testMomentSize(self):
-        self.assertAlmostEqual(self.moments["semiminor"], self.maj, 5)
-        self.assertAlmostEqual(self.moments["semimajor"], self.min, 5)
+        self.assertAlmostEqual(self.moments["semiminor"], self.smaj, 5)
+        self.assertAlmostEqual(self.moments["semimajor"], self.smin, 5)
 
     def testFitSize(self):
-        self.assertAlmostEqual(self.fit["semiminor"], self.maj)
-        self.assertAlmostEqual(self.fit["semimajor"], self.min)
+        self.assertAlmostEqual(self.fit["semiminor"], self.smaj)
+        self.assertAlmostEqual(self.fit["semimajor"], self.smin)
 
 
 class RandomGaussTest(unittest.TestCase):
@@ -237,12 +256,14 @@ class RandomGaussTest(unittest.TestCase):
     def setUp(self):
         Xin, Yin = np.indices((500, 500))
         self.mygauss = np.random.random(Xin.shape)
+        self.beam = (beam[0], beam[1], beam[2])
         self.beamsize = calculate_beamsize(beam[0], beam[1])
         self.fudge_max_pix_factor = fudge_max_pix(beam[0], beam[1], beam[2])
 
     def testMoments(self):
         try:
-            moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+            moments(self.mygauss, self.fudge_max_pix_factor, self.beam,
+                    self.beamsize, 0)
         except:
             self.fail('Moments method failed to run.')
 
@@ -261,9 +282,12 @@ class NoisyGaussTest(unittest.TestCase):
         self.mygauss = np.ma.array(
             gaussian(self.peak, self.xbar, self.ybar,
                      self.semimajor, self.semiminor, self.theta)(Xin, Yin))
+        self.beam = (self.semimajor, self.semiminor, self.theta)
         self.beamsize = calculate_beamsize(self.semimajor, self.semiminor)
-        self.fudge_max_pix_factor = fudge_max_pix(self.semimajor, self.semiminor, self.theta)
-        self.moments = moments(self.mygauss, self.fudge_max_pix_factor, self.beamsize, 0)
+        self.fudge_max_pix_factor = fudge_max_pix(self.semimajor, self.semiminor,
+                                                  self.theta)
+        self.moments = moments(self.mygauss, self.fudge_max_pix_factor,
+                               self.beam, self.beamsize, 0)
 
     def test_tiny_pixel_offset(self):
         pixel_noise = 0.0001
@@ -315,8 +339,6 @@ class NoisyGaussTest(unittest.TestCase):
             beam=(self.semimajor, self.semiminor, self.theta),
             fudge_max_pix_factor=fudge_max_pix(self.semimajor, self.semiminor,
                                                self.theta),
-            max_pix_variance_factor=maximum_pixel_method_variance(
-                self.semimajor, self.semiminor, self.theta),
             correlation_lengths=calculate_correlation_lengths(
                 self.semimajor, self.semiminor),
             beamsize=calculate_beamsize(self.semimajor, self.semiminor)

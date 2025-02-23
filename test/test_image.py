@@ -120,7 +120,7 @@ class TestFitFixedPositions(unittest.TestCase):
         fit. A cropped image helps to meet GH's disk quota."""
         sample_coord = [[61.42263448, 63.33334492]]
         results = self.cropped_image.fit_fixed_positions(sample_coord, 32.4687)
-        self.assertAlmostEqual(results[0].peak.value, -0.00364, delta=1e-5)
+        self.assertAlmostEqual(results[0].peak.value, -0.00053898)
 
     def testLowFitThreshold(self):
         """
@@ -302,7 +302,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
              5.06084005e-04, 1.29061600e-03,  # Err, err
-             7.24671176e-04, 1.04806706e-04,  # Peak spectral brightness, err
+             7.42220029e-04, 1.07344735e-04,  # Peak spectral brightness, err
              6.03179622e-04, 1.62549622e-04,  # Flux density, err
              6.44646215e+00, 2.55194168e+01,
              # Significance level, beam semimajor-axis width (arcsec)
@@ -310,13 +310,13 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Beam semiminor-axis width (arcsec), beam position angle (deg)
              ew_sys_err, ns_sys_err,
              4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
-             6.03417635e-01, 6.67105734e-01]  # chisq, reduced chisq
+             1.47489354e-01, 1.63056225e-01]  # chisq, reduced chisq
 
         known_result_moments = \
             [1.3689603e+02, 1.4022377e+01,  # RA (deg), DEC (deg)
              5.5378844e-04, 1.1825778e-03,  # Err, err
-             7.3612988e-04, 1.1431403e-04,  # Peak spectral brightness, err
-             6.0276804e-04, 1.6508212e-04,  # Flux density, err
+             7.3612988e-04, 1.1412757e-04,  # Peak spectral brightness, err
+             6.0276804e-04, 1.6499560e-04,  # Flux density, err
              6.4464622e+00, 2.4559519e+01,
              # Significance level, beam semimajor-axis width (arcsec)
              1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),

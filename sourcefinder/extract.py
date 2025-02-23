@@ -204,16 +204,16 @@ class Island(object):
         """Deviation"""
         return (self.data / self.rms_orig).max()
 
-    def fit(self, fudge_max_pix_factor, max_pix_variance_factor, beamsize,
-            correlation_lengths, fixed=None):
+    def fit(self, fudge_max_pix_factor, beamsize, correlation_lengths,
+            fixed=None):
         """Fit the position"""
         try:
             measurement, gauss_island, gauss_residual = \
                 source_profile_and_errors(self.data, self.threshold(),
                                           self.rms, self.noise(), self.beam,
                                           fudge_max_pix_factor,
-                                          max_pix_variance_factor, beamsize,
-                                          correlation_lengths, fixed=fixed)
+                                          beamsize, correlation_lengths,
+                                          fixed=fixed)
         except ValueError:
             # Fitting failed
             logger.error("Moments & Gaussian fitting failed at %s" % (
@@ -326,55 +326,54 @@ class ParamSet(MutableMapping):
         boolean entry is used to loosen a bound when a fit becomes unfeasible,
         see the documentation on scipy.optimize.Bounds.
         """
-        if self.moments:
-            if hasattr(self["peak"], "value"):
-                self.bounds["peak"] = (0.5 * self["peak"].value,
-                                       1.5 * self["peak"].value, False)
-            else:
-                self.bounds["peak"] = (0.5 * self["peak"], 1.5 * self["peak"],
-                                       False)
-            # Accommodate for negative heights. The "bounds" argument in
-            # scipy.optimize.least-squares demands that the lower bound is
-            # smaller than the upper bound and with the (0.5, 1.5) fractions
-            # this does not work out well for negative heights. Background:
-            # only to be expected in images from visibilities from polarization
-            # products other than Stokes I.
-            if self.bounds["peak"][0] > self.bounds["peak"][1]:
-                true_upper = self.bounds["peak"][0]
-                true_lower = self.bounds["peak"][1]
-                self.bounds["peak"] = (true_lower, true_upper, False)
+        if hasattr(self["peak"], "value"):
+            self.bounds["peak"] = (0.5 * self["peak"].value,
+                                   1.5 * self["peak"].value, False)
+        else:
+            self.bounds["peak"] = (0.5 * self["peak"], 1.5 * self["peak"],
+                                   False)
+        # Accommodate for negative heights. The "bounds" argument in
+        # scipy.optimize.least-squares demands that the lower bound is
+        # smaller than the upper bound and with the (0.5, 1.5) fractions
+        # this does not work out well for negative heights. Background:
+        # only to be expected in images from visibilities from polarization
+        # products other than Stokes I.
+        if self.bounds["peak"][0] > self.bounds["peak"][1]:
+            true_upper = self.bounds["peak"][0]
+            true_lower = self.bounds["peak"][1]
+            self.bounds["peak"] = (true_lower, true_upper, False)
 
-            if hasattr(self["semimajor"], "value"):
-                self.bounds["semimajor"] = (0.5 * self["semimajor"].value,
-                                            1.5 * self["semimajor"].value,
-                                            False)
-            else:
-                self.bounds["semimajor"] = (0.5 * self["semimajor"],
-                                            1.5 * self["semimajor"], False)
+        if hasattr(self["semimajor"], "value"):
+            self.bounds["semimajor"] = (0.5 * self["semimajor"].value,
+                                        1.5 * self["semimajor"].value,
+                                        False)
+        else:
+            self.bounds["semimajor"] = (0.5 * self["semimajor"],
+                                        1.5 * self["semimajor"], False)
 
-            if hasattr(self["semiminor"], "value"):
-                self.bounds["semiminor"] = (0.5 * self["semiminor"].value,
-                                            1.5 * self["semiminor"].value,
-                                            False)
-            else:
-                self.bounds["semiminor"] = (0.5 * self["semiminor"],
-                                            1.5 * self["semiminor"], False)
+        if hasattr(self["semiminor"], "value"):
+            self.bounds["semiminor"] = (0.5 * self["semiminor"].value,
+                                        1.5 * self["semiminor"].value,
+                                        False)
+        else:
+            self.bounds["semiminor"] = (0.5 * self["semiminor"],
+                                        1.5 * self["semiminor"], False)
 
-            self.bounds["xbar"] = (0., data_shape[0], False)
-            self.bounds["ybar"] = (0., data_shape[1], False)
-            # The upper bound for theta is a bit odd, one would expect
-            # np.pi/2 here, but that will yield imperfect fits in
-            # cases where the axes are aligned with the coordinate axes,
-            # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
-            # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
-            # margin needs to be applied.
-            # keep_feasibly is True here to accommodate for a fitting process
-            # where the margin is exceeded.
-            self.bounds["theta"] = (-np.pi/2, np.pi, True)
+        self.bounds["xbar"] = (0., data_shape[0], False)
+        self.bounds["ybar"] = (0., data_shape[1], False)
+        # The upper bound for theta is a bit odd, one would expect
+        # np.pi/2 here, but that will yield imperfect fits in
+        # cases where the axes are aligned with the coordinate axes,
+        # which, in turn, breaks the AxesSwapGaussTest.testFitHeight
+        # and AxesSwapGaussTest.testFitSize unit tests. Thus, some
+        # margin needs to be applied.
+        # keep_feasibly is True here to accommodate for a fitting process
+        # where the margin is exceeded.
+        self.bounds["theta"] = (-np.pi/2, np.pi, True)
 
         return self
 
-    def calculate_errors(self, noise, max_pix_variance_factor, correlation_lengths, threshold):
+    def calculate_errors(self, noise, correlation_lengths, threshold):
         """Calculate positional errors
 
         Uses _condon_formulae() if this object is based on a Gaussian fit,
@@ -383,17 +382,16 @@ class ParamSet(MutableMapping):
 
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
-        elif self.moments or self.thin_detection:
-            # If thin_detection == True, error_bars_from_moments probably
+        else:
+            # If thin_detection == True, _error_bars_from_moments probably
             # gives a better estimate of the true errors than errors from
-            # Gaussian fits, since they are generally larger. May still be
-            # underestimating the true errors, though.
+            # Gaussian fits, i.e. from _condon_formulae, since they are
+            # generally larger. _error_bars_from_moments could still be
+            # underestimating the true errors in case of thin detections.
             if not threshold:
                 threshold = 0
-            return self._error_bars_from_moments(noise, max_pix_variance_factor,
-                                                 correlation_lengths, threshold)
-        else:
-            return False
+            return self._error_bars_from_moments(noise, correlation_lengths,
+                                                 threshold)
 
     def _condon_formulae(self, noise, correlation_lengths):
         """Returns the errors on parameters from Gaussian fits according to
@@ -428,7 +426,6 @@ class ParamSet(MutableMapping):
 
         rho1 = np.sqrt(rho_sq1)
         rho2 = np.sqrt(rho_sq2)
-        rho3 = np.sqrt(rho_sq3)
 
         denom1 = np.sqrt(2. * np.log(2.)) * rho1
         denom2 = np.sqrt(2. * np.log(2.)) * rho2
@@ -462,8 +459,14 @@ class ParamSet(MutableMapping):
         if errortheta > np.pi:
             errortheta = np.pi
 
-        peak += -noise ** 2 / peak + self.clean_bias
+        # Formula (34) of the NVSS paper, without the general fitting bias,
+        # since we don't observe that. On the contrary, there may be peak
+        # fitting bias, but that has the opposite sign, i.e. fitted peaks are
+        # systematically biased too low, but more investigation is needed to
+        # quantify that effect.
+        peak += self.clean_bias
 
+        # Formula (37) of the NVSS paper.
         errorpeaksq = ((self.frac_flux_cal_error * peak) ** 2 +
                        self.clean_bias_error ** 2 +
                        2. * peak ** 2 / rho_sq3)
@@ -473,11 +476,17 @@ class ParamSet(MutableMapping):
         help1 = (errorsmaj / smaj) ** 2
         help2 = (errorsmin / smin) ** 2
         help3 = theta_B * theta_b / (4. * smaj * smin)
+
+        # Since we recomputed the peak spectral brightness following formula
+        # (34) from the NVSS paper, we also need to recompute the flux density
+        # following formula (35) of that paper.
+        flux *= peak / self['peak'].value
+
         errorflux = np.abs(flux) * np.sqrt(
             errorpeaksq / peak ** 2 + help3 * (help1 + help2))
 
         self['peak'] = Uncertain(peak, errorpeak)
-        self['flux'].error = errorflux
+        self['flux'] = Uncertain(flux, errorflux)
         self['xbar'].error = errorx
         self['ybar'].error = errory
         self['semimajor'].error = errorsmaj
@@ -486,7 +495,7 @@ class ParamSet(MutableMapping):
 
         return self
 
-    def _error_bars_from_moments(self, noise, max_pix_variance_factor, correlation_lengths,
+    def _error_bars_from_moments(self, noise, correlation_lengths,
                                  threshold):
         """Provide reasonable error estimates from the moments"""
 
@@ -559,8 +568,7 @@ class ParamSet(MutableMapping):
         # the error from the (corrected) maximum pixel method,
         # while it is part of the expression for rho_sq above.
         errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-                       clean_bias_error ** 2 + noise ** 2 +
-                       max_pix_variance_factor * peak ** 2)
+                       clean_bias_error ** 2 + noise ** 2)
         errorpeak = np.sqrt(errorpeaksq)
 
         help1 = (errorsmaj / smaj) ** 2
@@ -692,9 +700,9 @@ class ParamSet(MutableMapping):
         return self
 
 
-def source_profile_and_errors(data, threshold, rms, noise,
-                              beam, fudge_max_pix_factor, max_pix_variance_factor,
-                              beamsize, correlation_lengths, fixed=None):
+def source_profile_and_errors(data, threshold, rms, noise, beam,
+                              fudge_max_pix_factor, beamsize,
+                              correlation_lengths, fixed=None):
     """Return a number of measurable properties with errorbars
 
     Given an island of pixels it will return a number of measurable
@@ -708,7 +716,8 @@ def source_profile_and_errors(data, threshold, rms, noise,
 
     Args:
 
-        data (np.ndarray): array of pixel values, can be a masked
+        data: np.ma.Maskedarray or np.ndarray
+            Array of pixel values, can be a masked
             array, which is necessary for proper Gauss fitting,
             because the pixels below the threshold in the corners and
             along the edges should not be included in the fitting
@@ -727,10 +736,6 @@ def source_profile_and_errors(data, threshold, rms, noise,
 
         fudge_max_pix_factor(float): Correct for the underestimation of the peak
                                      by taking the maximum pixel value.
-
-        max_pix_variance_factor(float): Take account of additional variance
-                                        induced by the maximum pixel method,
-                                        on top of the background noise.
 
         beamsize(float): The FWHM size of the clean beam
 
@@ -770,12 +775,15 @@ def source_profile_and_errors(data, threshold, rms, noise,
     # We can always find the maximum pixel value and derive the barycenter
     # position. The other three Gaussian parameters we can copy from the clean
     # beam.
+
+    peak = data.max()
     # Are we fitting a -ve or +ve Gaussian?
-    if data.mean() >= 0:
-        # The peak is always underestimated when you take the highest pixel.
-        peak = data.max() * fudge_max_pix_factor
-    else:
+    if peak <= 0:
         peak = data.min()
+    # The peak is always underestimated when you take the highest (or lowest)
+    # pixel.
+    peak *= fudge_max_pix_factor
+
     total = data.sum()
     x, y = np.indices(data.shape)
     xbar = float((x * data).sum() / total)
@@ -783,13 +791,16 @@ def source_profile_and_errors(data, threshold, rms, noise,
 
     param.update({
         "peak": peak,
-        "flux": peak,
+        "flux": np.pi * peak * beam[0] * beam[1] / beamsize,
         "xbar": xbar,
         "ybar": ybar,
         "semimajor": beam[0],
         "semiminor": beam[1],
         "theta": beam[2]
     })
+
+    if fixed:
+        param.update(fixed)
 
     # data_as_ones is constructed to help determine if the island has enough
     # width for Gauss fitting.
@@ -805,20 +816,22 @@ def source_profile_and_errors(data, threshold, rms, noise,
     minimum_width = min(max_along_x, max_along_y)
 
     if minimum_width > 2:
+        # We can realistically compute moments and perform Gaussian fits if
+        # the island has a thickness of more than 2 in both dimensions.
         param.thin_detection = False
-        # If the island or subisland has thickness of more than 2 in both
-        # dimensions we can properly compute moments and fit a Gaussian with
-        # six free parameters.
+        if not fixed:
+            # Moments can only be computed if no parameters are fixed.
+            try:
+                param.update(fitting.moments(data, fudge_max_pix_factor, beam,
+                                             beamsize, moments_threshold))
+                if moments_threshold:
+                    # A complete moments computation is only possible if we have
+                    # imposed a non-zero threshold (and no parameters are fixed).
+                    param.moments = True
+                    param.compute_bounds(data.shape)
+            except ValueError:
+                logger.warning('Moments computations failed, use defaults.')
         try:
-            # We can compute moments and possibly try fitting if the island has a
-            # thickness of more than 2 in both dimensions.
-            param.update(fitting.moments(data, fudge_max_pix_factor, beamsize,
-                                         moments_threshold))
-            param.moments = True
-        except ValueError:
-            logger.warning('Moments computations failed, use defaults.')
-        try:
-            param.compute_bounds(data.shape)
             gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
                                                 bounds=param.bounds)
             param.update(gaussian_soln)
@@ -831,13 +844,9 @@ def source_profile_and_errors(data, threshold, rms, noise,
                      " Proceeding with defaults %s""",
                      str(param))
 
-    if fixed and not param.gaussian:
-        # moments can't handle fixed params
-        raise ValueError("fit failed with given fixed parameters")
-
     param["flux"] = (np.pi * param["peak"] * param["semimajor"] *
                      param["semiminor"] / beamsize)
-    param.calculate_errors(noise, max_pix_variance_factor, correlation_lengths, threshold)
+    param.calculate_errors(noise, correlation_lengths, threshold)
     param.deconvolve_from_clean_beam(beam)
 
     # Calculate residuals
@@ -1425,7 +1434,6 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                                                         indices,
                                                         labelled_data, labels, wcs,
                                                         fudge_max_pix_factor,
-                                                        max_pix_variance_factor,
                                                         beam, beamsize,
                                                         correlation_lengths,
                                                         eps_ra, eps_dec):
@@ -1523,10 +1531,6 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                  statistical correction, so on average correct over a large
                  ensemble of unresolved sources, when a circular restoring beam
                  is appropriate.
-
-    :param max_pix_variance_factor: float to take account of the additional
-             uncertainty introduced by fudge_max_pix. Can probably be removed
-             since its effect is negligible in all sensible cases.
 
     :param beam: tuple of 3 floats describing the restoring beam in terms of
                  its semi-major and semi-minor axes (in pixels) and the position
@@ -1733,8 +1737,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxposs, maxis,
-                             fudge_max_pix_factor, max_pix_variance_factor,
-                             np.array(beam), beamsize,
+                             fudge_max_pix_factor, np.array(beam), beamsize,
                              np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)

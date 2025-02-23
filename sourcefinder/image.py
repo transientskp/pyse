@@ -19,10 +19,7 @@ from multiprocessing import Pool
 from functools import cached_property
 from functools import partial
 
-try:
-    import ndimage
-except ImportError:
-    from scipy import ndimage
+from scipy import ndimage
 from numba import guvectorize, float32, int32
 import os
 
@@ -102,8 +99,6 @@ class ImageData(object):
         # These three quantities are only dependent on the beam, so should be calculated
         # once the beam is known and not for each source separately.
         self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
-        self.max_pix_variance_factor = utils.maximum_pixel_method_variance(
-                           beam[0], beam[1], beam[2])
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
         self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
         self.clip = {}
@@ -748,7 +743,6 @@ class ImageData(object):
                 fitme, threshold_at_pixel, self.rmsmap[chunk],
                 self.rmsmap[int(x), int(y)],
                 self.beam, self.fudge_max_pix_factor,
-                self.max_pix_variance_factor,
                 self.beamsize, self.correlation_lengths, fixed=fixed)
         except ValueError:
             # Fit failed to converge
@@ -778,7 +772,7 @@ class ImageData(object):
 
         Parameters
         ----------
-        positions : tuple
+        positions : list of tuples
             List of (RA, Dec) tuples. Positions to be fit, in decimal degrees.
         boxsize : int
             Length of the square section of the image to use for the fit.
@@ -987,12 +981,12 @@ class ImageData(object):
                 slices)
 
     @staticmethod
-    def fit_islands(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
-                    correlation_lengths, fixed, island):
+    def fit_islands(fudge_max_pix_factor, beamsize, correlation_lengths,
+                    fixed, island):
         """This function was created to enable the use of 'partial' such that
         we can parallellize source measurements"""
-        return island.fit(fudge_max_pix_factor, max_pix_variance_factor, beamsize,
-                          correlation_lengths, fixed=fixed)
+        return island.fit(fudge_max_pix_factor, beamsize, correlation_lengths,
+                          fixed=fixed)
 
     # “The sliced_to_indices function has been accelerated by a factor 2.7
     # using ChatGPT 4.0.  Its AI-output has been verified for correctness,
@@ -1208,7 +1202,6 @@ class ImageData(object):
             with Pool(psutil.cpu_count()) as p:
                 fit_islands_partial = partial(ImageData.fit_islands,
                                               self.fudge_max_pix_factor,
-                                              self.max_pix_variance_factor,
                                               self.beamsize,
                                               self.correlation_lengths, fixed)
                 fit_results = p.map(fit_islands_partial, island_list)
@@ -1253,8 +1246,8 @@ class ImageData(object):
                     num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
-                    self.max_pix_variance_factor,  self.beam, self.beamsize,
-                    self.correlation_lengths, self.eps_ra, self.eps_dec)
+                    self.beam, self.beamsize, self.correlation_lengths,
+                    self.eps_ra, self.eps_dec)
 
             if self.islands:
                 self.Gaussian_islands = Gaussian_islands
