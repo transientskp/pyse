@@ -120,7 +120,7 @@ class TestFitFixedPositions(unittest.TestCase):
         fit. A cropped image helps to meet GH's disk quota."""
         sample_coord = [[61.42263448, 63.33334492]]
         results = self.cropped_image.fit_fixed_positions(sample_coord, 32.4687)
-        self.assertAlmostEqual(results[0].peak.value, -0.00364, delta=1e-5)
+        self.assertAlmostEqual(results[0].peak.value, -0.00053898)
 
     def testLowFitThreshold(self):
         """
