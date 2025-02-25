@@ -8,7 +8,7 @@ from sourcefinder.deconv import deconv
 from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
 from .gaussian import gaussian
-from . import fitting
+from . import measuring
 from . import utils
 import logging
 from collections.abc import MutableMapping
@@ -558,7 +558,7 @@ class ParamSet(MutableMapping):
         # The peak from "moments" is just the value of the maximum pixel
         # times a correction, fudge_max_pix, for the fact that the
         # centre of the Gaussian is not at the centre of the pixel.
-        # This correction is performed in fitting.py. The maximum pixel
+        # This correction is performed in measuring.py. The maximum pixel
         # method introduces a peak dependent error corresponding to the last
         # term in the expression below for errorpeaksq.
         # To this, we add, in quadrature, the errors corresponding
@@ -712,7 +712,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     In addition to handling the initial parameter estimation, and any fits
     which fail to converge, this function runs the goodness-of-fit
     calculations -
-    see :func:`sourcefinder.fitting.goodness_of_fit` for details.
+    see :func:`sourcefinder.measuring.goodness_of_fit` for details.
 
     Args:
 
@@ -754,7 +754,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
     Kwargs:
 
         fixed (dict): Parameters (and their values) to hold fixed while fitting.
-            Passed on to fitting.fitgaussian().
+            Passed on to measuring.fitgaussian().
 
     Returns:
         tuple: a populated ParamSet, an islands map and a residuals map.
@@ -822,17 +822,18 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
         if not fixed:
             # Moments can only be computed if no parameters are fixed.
             try:
-                param.update(fitting.moments(data, fudge_max_pix_factor, beam,
+                param.update(measuring.moments(data, fudge_max_pix_factor, beam,
                                              beamsize, moments_threshold))
                 if moments_threshold:
                     # A complete moments computation is only possible if we have
-                    # imposed a non-zero threshold (and no parameters are fixed).
+                    # imposed a non-zero threshold (and no parameters are
+                    # fixed).
                     param.moments = True
                     param.compute_bounds(data.shape)
             except ValueError:
                 logger.warning('Moments computations failed, use defaults.')
         try:
-            gaussian_soln = fitting.fitgaussian(data, param, fixed=fixed,
+            gaussian_soln = measuring.fitgaussian(data, param, fixed=fixed,
                                                 bounds=param.bounds)
             param.update(gaussian_soln)
             param.gaussian = True
@@ -872,7 +873,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
         gauss_island_filled = gauss_island_masked
         gauss_resid_filled = gauss_resid_masked
 
-    param.chisq, param.reduced_chisq = fitting.goodness_of_fit(
+    param.chisq, param.reduced_chisq = measuring.goodness_of_fit(
         gauss_resid_masked, rms, correlation_lengths)
 
     return param, gauss_island_filled, gauss_resid_filled
@@ -1331,7 +1332,7 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
                              npix, source, noise, xpos, ypos, min_width):
     """
     We want to copy the relevant source and noise data into input arrays for
-    fitting.moments_enhanced. Simultaneously calculate the minimum width of
+    measuring.moments_enhanced. Simultaneously calculate the minimum width of
     each island; when determining source properties this is an important
     integer, i.e. with sufficient width all six Gaussian parameters can be
     calculated in a robust manner.
@@ -1452,7 +1453,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     have to be transformed to celestial coordinates, which adds another 16
     numbers.
     This function is a duplicate of code elsewhere, in particular of
-    'fitting.moments' and 'extract.Detection._physical_coordinates' but with
+    'measuring.moments' and 'extract.Detection._physical_coordinates' but with
     a data layout suitable for vectorisation.
 
     :param eps_ra:
@@ -1638,12 +1639,12 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
 
         chisq(ndarray): np.float32 numbers representing chi-squared statistics
             reflecting an indication of the goodness-of-fit, equivalent to chisq
-            as calculated in fitting.goodness_of_fit.
+            as calculated in measuring.goodness_of_fit.
 
         reduced_chisq(ndarray): np.float32 numbers representing reduced
             chi-squared statistics reflecting an indication of the
             goodness-of-fit, equivalent to reduced_chisq as calculated in
-            fitting.goodness_of_fit.
+            measuring.goodness_of_fit.
 
     """
     # This is the conditional route to the fastest algorithm for source
@@ -1693,7 +1694,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         xpositions, ypositions, minimum_widths)
 
     # Make sure we get a single precision array of floats, which
-    # fitting.moments_enhanced expects.
+    # measuring.moments_enhanced expects.
     thresholds = analysisthresholddata[maxposs[:, 0], maxposs[:, 1]].astype(
                                       np.float32, copy=False)
 
@@ -1734,7 +1735,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     # So we will add a dummy array with shape corresponding
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
-    fitting.moments_enhanced(sources, noises, chunk_positions, xpositions,
+    measuring.moments_enhanced(sources, noises, chunk_positions, xpositions,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxposs, maxis,
                              fudge_max_pix_factor, np.array(beam), beamsize,
