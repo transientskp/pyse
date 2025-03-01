@@ -494,42 +494,46 @@ def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
     return sigma, max_iter  # max iterations reached, return last estimate
 
 
-# “The docstring of this 'replace_gaussian_args' function has been generated
-#  using ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy
-#  and completeness, adapted where needed, and approved by the author.”
-def replace_gaussian_args(initial_params, fixed_params, fit_params):
+def complement_gaussian_args(initial_params, fixed_params, fit_params):
     """
-    Prepares the arguments for Gaussian fitting, replacing initial parameter
-    values with fixed values where provided.
+    Complements initial parameters for Gaussian fitting, with fixed values.
+    The end result should be a list of six elements, corresponding to 'peak',
+    'xbar', 'ybar', 'semimajor', 'semiminor' and 'theta', in that order
 
     Parameters
     ----------
-    initial_params : iterable
-        A list or any iterable containing the initial values for the six
-        Gaussian parameters (peak, center_x, center_y, semi-major axis,
-        semi-minor axis, position angle).
+    initial_params : np.ndarray
+        A Numpy float array containing the initial values for at least one, but
+        a maximum of six Gaussian parameters: 'peak', 'xbar', 'ybar',
+        'semimajor', 'semiminor' and 'theta' , in that order.
     fixed_params : dict
-        A dictionary where the keys are parameter names ('peak', 'xbar', 'ybar',
-        'semimajor', 'semiminor' and 'theta') and the values are the fixed
-        values for those parameters.
+        A dictionary where the keys are zero, one or more of these parameter
+        names: 'peak', 'xbar', 'ybar', 'semimajor', 'semiminor' and 'theta'.
+        The values are the fixed values for those parameters. It must complement
+        initial_parms, such that the total number of parameters is six:
+        len(initial_params) + len(fixed_params) == 6.
     fit_params : tuple
-        A tuple of the parameters to be fitted. If a parameter is found in
-        `fixed_params`, its value is used from there; otherwise, the value is
-        taken from `initial_params`.
+        A tuple of the six Gaussian parameters to be fitted. If a parameter is
+        found in `fixed_params`, its value is used from there; otherwise, the
+        value is taken from `initial_params`.
+        Almost always this should be ('peak', 'xbar', 'ybar', 'semimajor',
+        'semiminor', 'theta').
+        len(fit_params) == 6.
 
     Returns
     -------
     gaussian_args : list
         A list of Gaussian fitting arguments, where each value corresponds to
         either a fixed value or an initial value from `initial_params`.
+        len(gaussian_args) == 6.
 
     Example
     -------
-    >>> initial = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
-    >>> fixed = {'center_x': 2.5, 'center_y': 3.5}
-    >>> fit_parameters = ('peak', 'center_x', 'center_y', 'semi-major axis',
-    ...                   'semi-minor axis', 'position angle')
-    >>> replace_gaussian_args(initial, fixed, fit_parameters)
+    >>> initial_parms = np.array([1.0, 4.0, 5.0, 6.0])
+    >>> fixed_parms = {'center_x': 2.5, 'center_y': 3.5}
+    >>> fit_parms = ('peak', 'center_x', 'center_y', 'semi-major axis',
+    ...               'semi-minor axis', 'position angle')
+    >>> complement_gaussian_args(initial_parms, fixed_parms, fit_parms)
     [1.0, 2.5, 3.5, 4.0, 5.0, 6.0]
     """
     paramlist = list(initial_params)
