@@ -11,7 +11,8 @@ from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
 from numba import guvectorize, float64, float32, int32, njit
-from sourcefinder.utils import newton_raphson_root_finder
+from sourcefinder.utils import (newton_raphson_root_finder,
+                                complement_gaussian_args)
 
 FIT_PARAMS = ('peak', 'xbar', 'ybar', 'semimajor', 'semiminor', 'theta')
 
@@ -789,8 +790,6 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     # Collect necessary values from parameter dict; only those which aren't
     # fixed.
     initial = []
-    # To avoid fits from derailing, it helps to set some reasonable bounds on
-    # the fitting results.
     for param in FIT_PARAMS:
         if param not in fixed:
             if hasattr(params[param], "value"):
@@ -814,14 +813,8 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             actual pixels. (pixel_resids is a 2d-array, but the .compressed()
             makes it 1d.)
         """
-        paramlist = list(parameters)
-        gaussian_args = []
-        for parameter in FIT_PARAMS:
-            if parameter in fixed:
-                gaussian_args.append(fixed[parameter])
-            else:
-                gaussian_args.append(paramlist.pop(0))
 
+        gaussian_args = complement_gaussian_args(parameters, fixed, FIT_PARAMS)
         # gaussian() returns a function which takes arguments x, y and returns
         # a Gaussian with parameters gaussian_args evaluated at that point.
         g = gaussian(*gaussian_args)
@@ -858,13 +851,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             results in a column of only zeroes.
 
         """
-        paramlist = list(parameters)
-        gaussian_args = []
-        for parameter in FIT_PARAMS:
-            if parameter in fixed:
-                gaussian_args.append(fixed[parameter])
-            else:
-                gaussian_args.append(paramlist.pop(0))
+        gaussian_args = complement_gaussian_args(parameters, fixed, FIT_PARAMS)
 
         # jac is a list of six functions corresponding to the six partial
         # derivatives of the 2D anisotropic Gaussian profile.
