@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 
 from sourcefinder.extract import source_profile_and_errors
-from sourcefinder.fitting import moments, fitgaussian, FIT_PARAMS
+from sourcefinder.measuring import moments, fitgaussian, FIT_PARAMS
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utils import fudge_max_pix, calculate_beamsize, \
     calculate_correlation_lengths
