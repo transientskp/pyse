@@ -498,9 +498,7 @@ class ParamSet(MutableMapping):
 
         Returns
         -------
-        False or an updated ParamSet instance
-        False if neighter Gaussian fitting nor moments calculation was
-        successful.
+        An updated ParamSet instance
         """
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
@@ -514,8 +512,6 @@ class ParamSet(MutableMapping):
                 threshold = 0
             return self._error_bars_from_moments(noise, correlation_lengths,
                                                  threshold)
-        else:
-            return False
 
     def _condon_formulae(self, noise, correlation_lengths):
         """
