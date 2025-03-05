@@ -893,7 +893,7 @@ class ImageData(object):
                    None, None, None, None, None, None)
 
         # At this point, we select all the data which is eligible for
-        # sourcefitting. We are actually using three separate filters, which
+        # source fitting. We are actually using three separate filters, which
         # exclude:
         #
         # 1. Anything which has been masked before we reach this point;
