@@ -1,5 +1,5 @@
 """
-Source fitting routines.
+Source measuring routines.
 """
 
 import math
@@ -343,11 +343,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     chisq : float
         Chi-squared statistic indicating goodness-of-fit, derived in the same 
-        way as in the `fitting.goodness_of_fit` method.
+        way as in the `measuring.goodness_of_fit` method.
 
     reduced_chisq : float
         Reduced chi-squared statistic indicating goodness-of-fit, derived in 
-        the same way as in the `fitting.goodness_of_fit` method.
+        the same way as in the `measuring.goodness_of_fit` method.
 
     Returns
     -------
@@ -591,18 +591,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     if errortheta > np.pi:
         errortheta = np.pi
 
-    # The peak from "moments" is just the value of the maximum pixel
-    # times a correction, fudge_max_pix, for the fact that the
-    # centre of the Gaussian is not at the centre of the pixel.
-    # This correction is performed in fitting.py. The maximum pixel
-    # method introduces a peak dependent error corresponding to the last
-    # term in the expression below for errorpeaksq.
-    # To this, we add, in quadrature, the errors corresponding
-    # to the first and last term of the rhs of equation 37 of the
-    # NVSS paper. The middle term in that equation 37 is heuristically
-    # replaced by noise**2 since the threshold should not affect
-    # the error from the (corrected) maximum pixel method,
-    # while it is part of the expression for rho_sq above.
+    # This should reflect the equivalent of equation 37 of the NVSS paper for
+    # moments calculations. The middle term in that equation 37 is heuristically
+    # replaced by noise**2 since the threshold should not affect the error from 
+    # the (corrected) maximum pixel method, while it is part of the expression 
+    # for rho_sq above.
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                    clean_bias_error ** 2 + noise ** 2)
     errorpeak = np.sqrt(errorpeaksq)
