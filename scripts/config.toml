@@ -1,0 +1,36 @@
+[tool.pyse.image]
+interpolate_order = 1
+median_filter = 0
+mf_threshold = 0
+rms_filter = 0.001
+deblend_mincont = 0.005
+structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+vectorized = false
+# sep
+# margin
+# radius
+# back_size_x
+# back_size_y
+# residuals
+# islands
+# eps_ra
+# eps_dec
+
+[tool.pyse.export]
+file_type = "csv"
+source_params = [
+  "ra",
+  "dec",
+  "peak",
+  "flux",
+  "sig",
+  "smaj_asec",
+  "smin_asec",
+  "theta_celes",
+  "ew_sys_err",
+  "ns_sys_err",
+  "error_radius",
+  "gaussian",
+  "chisq",
+  "reduced_chisq",
+]
