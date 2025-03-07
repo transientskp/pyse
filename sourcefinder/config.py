@@ -62,25 +62,23 @@ class _Validate:
                     assert isinstance(val, type_), f"type({val}) != {type_}"
 
 
-_mutable_defaults = {
-    "structuring_element": [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
-    "source_params": [
-        "ra",
-        "dec",
-        "peak",
-        "flux",
-        "sig",
-        "smaj_asec",
-        "smin_asec",
-        "theta_celes",
-        "ew_sys_err",
-        "ns_sys_err",
-        "error_radius",
-        "gaussian",
-        "chisq",
-        "reduced_chisq",
-    ],
-}
+_structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+_source_params = [
+    "ra",
+    "dec",
+    "peak",
+    "flux",
+    "sig",
+    "smaj_asec",
+    "smin_asec",
+    "theta_celes",
+    "ew_sys_err",
+    "ns_sys_err",
+    "error_radius",
+    "gaussian",
+    "chisq",
+    "reduced_chisq",
+]
 
 
 @dataclass(frozen=True)
@@ -91,7 +89,7 @@ class ImgConf(_Validate):
     rms_filter: float = 0.001
     deblend_mincont: float = 0.005
     structuring_element: list[list[int]] = field(
-        default_factory=lambda: _mutable_defaults["structuring_element"]
+        default_factory=lambda: _structuring_element
     )
     vectorized: bool = False
     sep: int | None = None
@@ -108,9 +106,7 @@ class ImgConf(_Validate):
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
     file_type: str = "csv"
-    source_params: list[str] = field(
-        default_factory=lambda: _mutable_defaults["source_params"]
-    )
+    source_params: list[str] = field(default_factory=lambda: _source_params)
 
 
 @dataclass(frozen=True)
