@@ -56,6 +56,13 @@ extra-dependencies = [
     "pytest-cov",
 ]
 
+[tool.hatch.envs.default_310]
+python = "3.10"
+extra-dependencies = [
+    "pytest",
+    "pytest-cov",
+]
+
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
