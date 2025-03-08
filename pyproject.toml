@@ -20,6 +20,7 @@ dependencies = [
     "python-dateutil",
     "pytz",
     "scipy",
+    "tomli; python_version < '3.11'",
     "numba",
     "numba-scipy",
     "sphinx"

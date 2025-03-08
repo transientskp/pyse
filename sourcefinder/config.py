@@ -4,7 +4,12 @@ from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import is_dataclass
 from pathlib import Path
-import tomllib
+
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib
+
 from types import UnionType
 from typing import get_args
 from typing import get_origin
