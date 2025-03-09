@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import is_dataclass
 from pathlib import Path
+import sys
 
-try:
+if sys.version_info >= (3, 11):
     import tomllib
-except ImportError:
+else:
     import tomli as tomllib
 
 from types import UnionType
