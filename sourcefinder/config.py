@@ -98,14 +98,14 @@ class ImgConf(_Validate):
     )
     vectorized: bool = False
     sep: int | None = None
-    margin: float | None = None
-    radius: float | None = None
-    back_size_x: float | None = None
-    back_size_y: float | None = None
-    residuals: float | None = None
-    islands: int | None = None
-    eps_ra: float | None = None
-    eps_dec: float | None = None
+    margin: int = 0
+    radius: float = 0.0
+    back_size_x: int = 32
+    back_size_y: int = 32
+    residuals: bool = False
+    islands: bool = False
+    eps_ra: float = 0.0
+    eps_dec: float = 0.0
 
 
 @dataclass(frozen=True)

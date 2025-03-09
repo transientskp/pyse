@@ -6,15 +6,14 @@ rms_filter = 0.001
 deblend_mincont = 0.005
 structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 vectorized = false
-# sep
-# margin
-# radius
-# back_size_x
-# back_size_y
-# residuals
-# islands
-# eps_ra
-# eps_dec
+margin = 0
+radius = 0.0
+back_size_x = 32
+back_size_y = 32
+residuals = false
+islands = false
+eps_ra = 0.0
+eps_dec = 0.0
 
 [tool.pyse.export]
 file_type = "csv"
