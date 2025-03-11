@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import asdict
 from dataclasses import astuple
 from dataclasses import dataclass
@@ -15,10 +16,10 @@ from types import UnionType
 from typing import get_args
 from typing import get_origin
 from typing import get_type_hints
-from typing import Mapping
 from typing import Container
 from typing import Type
 from typing import TypeVar
+from warnings import warn
 
 T = TypeVar("T")
 
@@ -31,41 +32,84 @@ def unguarded_is_dataclass(_type: Type[T], /) -> bool:
     return is_dataclass(_type)
 
 
-def validate_nested(value, type_):
-    origin_t = get_origin(type_)
-    args = get_args(origin_t)
-    if issubclass(origin_t, list):
-        assert isinstance(value, list), f"type({value}) != list"
-        if args:
-            for i in value:
-                validate_nested(i, args[0])
-    elif issubclass(origin_t, tuple):
-        assert isinstance(value, tuple), f"type({value}) != tuple"
-        for i, t in zip(value, args):
-            assert isinstance(i, t), f"type({i}) != {t}"
-    elif issubclass(origin_t, dict):
-        assert isinstance(value, dict)
-        for i in value.values():
-            assert isinstance(i, args[1]), f"type({i}) != {args[1]}"
+# map of types that maybe converted to match the expected type
+_compat_types = defaultdict(set, {int: {float}})
+
+
+def assert_t(key: str, value, *types: type):
+    """Assert value is of one of the types
+
+    `key` is the TOML configuration key the value is associated to.
+    It is used to generate a meaningful error message.
+
+    """
+    assert len(types) > 0, "need at least one type to assert"
+    msg = f"{key}: type({value!r}) "
+    if len(types) > 1:
+        msg += f"∉ {{{', '.join(map(str, types))}}}"
     else:
-        pass
+        msg += f"!= {types[0]}"
+
+    try:
+        assert isinstance(value, types), msg
+    except AssertionError:
+        # NOTE: check if types are compatible
+        if not _compat_types[type(value)].intersection(types):
+            raise
+
+
+def validate_nested(key: str, value, origin_t, args):
+    """Validate nested types allowed in TOML
+
+    `key` is the TOML configuration key being validated.  `value`
+    should be of type `origin_t[args]`.  It is passed to this function
+    separately to avoid recomputing the type again.
+
+    When the type is a `list`, the value is tested recursively.  On
+    recursive calls, the list index is appended to the key.  For
+    `dict`s, iterate over all key-value pairs and validated.
+
+    """
+    # NOTE: only support TOML types
+    if issubclass(origin_t, list):
+        assert_t(key, value, list)
+        # NOTE: unspecified type => Any; can't check
+        if not args:
+            return
+        for i, v in enumerate(value):
+            validate_types(f"{key}[{i}]", v, args[0])
+    elif issubclass(origin_t, dict):
+        assert_t(key, value, dict)
+        for k, v in value.items():
+            assert_t(f"{key}[{k!r}]", v, args[1])
+    else:
+        warn(f"{key}: unsupported type {origin_t[args]}, cannot validate")
+
+
+def validate_types(key: str, value, type_: type):
+    """Validate types, dispatch on generic or POD types
+
+    `key` is the TOML configuration key the value is associated to.
+    It is used to generate a meaningful error message.
+
+    """
+    match get_origin(type_):
+        case type() as origin_t if issubclass(origin_t, Container):
+            validate_nested(key, value, origin_t, get_args(type_))
+        case type() as origin_t if issubclass(origin_t, UnionType):
+            assert_t(key, value, *get_args(type_))
+        case type():
+            warn(f"{key}: unsupported type {type_}, cannot validate")
+        case None:
+            # NOTE: plain old data types
+            assert_t(key, value, type_)
 
 
 @dataclass(frozen=True)
 class _Validate:
     def __post_init__(self):
         for (key, type_), val in zip(get_type_hints(self).items(), astuple(self)):
-            match get_origin(type_):
-                case type() as origin_t:
-                    if issubclass(origin_t, Container):
-                        validate_nested(val, type_)
-                    elif issubclass(origin_t, UnionType):
-                        args = get_args(type_)
-                        assert isinstance(val, args), f"type({val}) != {args}"
-                    else:
-                        pass
-                case None:
-                    assert isinstance(val, type_), f"type({val}) != {type_}"
+            validate_types(key, val, type_)
 
 
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
