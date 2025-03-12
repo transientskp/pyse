@@ -144,9 +144,11 @@ class ImgConf(_Validate):
     rms_filter: float = 0.001
     # Min. fraction of island flux in deblended subisland
     deblend_mincont: float = 0.005
-    # Island connectiivty Vectorized processing of source islands is
-    # much faster, but excludes Gaussian fits, therefore slightly less
-    # accurate.
+    # The "structuring element" defines island connectivity as in 
+    # "4-connectivity" and "8-connectivity". These two are the only reasonable
+    # choices, since the structuring element must be centrosymmetric.
+    # The structuring element is applied in scipy.ndimage.label, so check its
+    # documentation for some background on its use.
     structuring_element: list[list[int]] = field(
         default_factory=lambda: _structuring_element
     )
