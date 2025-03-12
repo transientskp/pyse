@@ -809,8 +809,7 @@ class ImageData(object):
             return successful_fits, successful_ids
         return successful_fits
 
-    def label_islands(self, detectionthresholdmap, analysisthresholdmap,
-                      deblend_nthresh):
+    def label_islands(self, detectionthresholdmap, analysisthresholdmap):
         """
         Return a labelled array of pixels for fitting.
 
@@ -824,8 +823,6 @@ class ImageData(object):
             Analysis threshold map with shape (nrow, ncol), matching the shape
             of the observational image (self.rawdata). The values are of dtype
             np.float32.
-        deblend_nthresh : int
-            Number of thresholds for deblending.
 
         Returns
         -------
@@ -1110,9 +1107,7 @@ class ImageData(object):
         if labelled_data is None:
             (labels, labelled_data, num_islands, maxposs, maxis, npixs,
              indices, slices) =\
-                self.label_islands(detectionthresholdmap,
-                                   analysisthresholdmap, deblend_nthresh
-                                   )
+                self.label_islands(detectionthresholdmap, analysisthresholdmap)
 
         num_islands = len(labels)
 
