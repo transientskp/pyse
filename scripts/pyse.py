@@ -32,6 +32,7 @@ import numpy
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
+from sourcefinder.config import ImgConf
 from sourcefinder.utility.cli import parse_monitoringlist_positions
 from sourcefinder.utils import generate_result_maps
 
@@ -269,7 +270,7 @@ def get_sourcefinder_configuration(options):
     if options.residuals:
         configuration['residuals'] = True
 
-    return configuration
+    return ImgConf(**configuration)
 
 
 def get_beam(bmaj, bmin, bpa):
@@ -315,7 +316,7 @@ def run_sourcefinder(files, options):
             filename, counter + 1, len(files)))
         imagename = os.path.splitext(os.path.basename(filename))[0]
         ff = open_accessor(filename, beam=beam, plane=0)
-        imagedata = sourcefinder_image_from_accessor(ff, **configuration)
+        imagedata = sourcefinder_image_from_accessor(ff, conf=configuration)
 
         if options.mode == "fixed":
             sr = imagedata.fit_fixed_positions(options.fixed_coords,
