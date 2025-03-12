@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
+from sourcefinder.config import ImgConf
 from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
@@ -56,7 +57,8 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), margin=10)
+            FitsImage(GRB120422A), conf=ImgConf(margin=10)
+        )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
 
@@ -94,9 +96,12 @@ class TestFitFixedPositions(unittest.TestCase):
         # and completeness, adapted where needed, and approved.
         self.cropped_image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
-                os.path.join(DATAPATH,
-                             ('GRB201006A_final_2min_srcs-t0002-image-pb'
-                              '_cutout.fits'))), back_size_x=64, back_size_y=64)
+                os.path.join(
+                    DATAPATH, ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits")
+                )
+            ),
+            conf=ImgConf(back_size_x=64, back_size_y=64),
+        )
 
     def testSourceAtGivenPosition(self):
         posn = self.bright_src_posn
@@ -444,14 +449,18 @@ class TestMaskedBackground(unittest.TestCase):
         Background at forced fit is masked
         """
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
+            conf=ImgConf(radius=1.0),
+        )
         result = self.image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
 
     @requires_data(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
     def testMaskedBackgroundBlind(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
+            conf=ImgConf(radius=1.0),
+        )
         result = self.image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
 
@@ -504,9 +513,12 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
-                                     fitsfile.wcs,
-                                     back_size_x=128, back_size_y=51)
+        self.img = sfimage.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            ImgConf(back_size_x=128, back_size_y=51),
+        )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
@@ -583,9 +595,12 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                'image_206-215-t0002.fits'))
-        self.img = sfimage.ImageData(fitsfile.data, (0.208, 0.136, 15.619),
-                                     fitsfile.wcs, back_size_x=128,
-                                     back_size_y=128, radius=1000)
+        self.img = sfimage.ImageData(
+            fitsfile.data,
+            (0.208, 0.136, 15.619),
+            fitsfile.wcs,
+            ImgConf(back_size_x=128, back_size_y=128, radius=1000),
+        )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("mean_grid_image_206-215-t0002.fits_radius" +

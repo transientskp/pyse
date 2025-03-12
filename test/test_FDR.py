@@ -39,6 +39,7 @@ import os
 import unittest
 
 from sourcefinder import accessors
+from sourcefinder.config import ImgConf
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 
@@ -80,16 +81,24 @@ class test_maps(unittest.TestCase):
         # pixels, not to sources.
         # These are all arguments to make unit tests for our FDR implementation a bit
         # less strict as coded previously.
-        self.uncorr_image = image.ImageData(uncorr_map.data, uncorr_map.beam,
-                                            uncorr_map.wcs,
-                                            back_size_x = 2048, back_size_y = 2048)
-        self.corr_image = image.ImageData(corr_map.data, uncorr_map.beam,
-                                          uncorr_map.wcs,
-                                          back_size_x = 2048, back_size_y = 2048)
-        self.image_with_sources = image.ImageData(map_with_sources.data,
-                                                  map_with_sources.beam,
-                                                  map_with_sources.wcs,
-                                                  back_size_x=2048, back_size_y=2048)
+        self.uncorr_image = image.ImageData(
+            uncorr_map.data,
+            uncorr_map.beam,
+            uncorr_map.wcs,
+            ImgConf(back_size_x=2048, back_size_y=2048),
+        )
+        self.corr_image = image.ImageData(
+            corr_map.data,
+            uncorr_map.beam,
+            uncorr_map.wcs,
+            ImgConf(back_size_x=2048, back_size_y=2048),
+        )
+        self.image_with_sources = image.ImageData(
+            map_with_sources.data,
+            map_with_sources.beam,
+            map_with_sources.wcs,
+            ImgConf(back_size_x=2048, back_size_y=2048),
+        )
 
     def test_normal(self):
         self.number_detections_uncorr = len(self.uncorr_image.fd_extract(1e-2))
