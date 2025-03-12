@@ -12,6 +12,7 @@ from numba import guvectorize, float32, int32
 from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
+from sourcefinder.config import ImgConf
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
 import psutil
@@ -25,23 +26,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-#
-# Hard-coded configuration parameters; not user settable.
-#
-INTERPOLATE_ORDER = 1
-MEDIAN_FILTER = 0  # If non-zero, apply a median filter of size
-# MEDIAN_FILTER to the background and RMS grids prior
-# to interpolating.
-MF_THRESHOLD = 0  # If MEDIAN_FILTER is non-zero, only use the filtered
-# grid when the (absolute) difference between the raw
-# and filtered grids is larger than MF_THRESHOLD.
-DEBLEND_MINCONT = 0.005  # Min. fraction of island flux in deblended subisland
-STRUCTURING_ELEMENT = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]  # Island connectiivty
-# Vectorized processing of source islands is much faster, but excludes Gaussian
-# fits, therefore slightly less accurate.
-VECTORIZED = False
-RMS_FILTER = 0.001
-
 
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
@@ -50,9 +34,7 @@ class ImageData(object):
     facilities for source extraction and measurement, etc.
     """
 
-    def __init__(self, data, beam, wcs, margin=0, radius=0, back_size_x=32,
-                 back_size_y=32, residuals=False, islands=False, eps_ra =0,
-                 eps_dec=0):
+    def __init__(self, data, beam, wcs, conf: ImgConf = ImgConf()):
         """
         Initializes an ImageData object.
 
@@ -105,15 +87,11 @@ class ImageData(object):
         self.labels = {}
         self.freq_low = 1
         self.freq_high = 1
+        self._conf = conf
 
-        self.back_size_x = back_size_x
-        self.back_size_y = back_size_y
-        self.margin = margin
-        self.radius = radius
-        self.residuals = residuals
-        self.islands = islands
-        self.eps_ra = eps_ra
-        self.eps_dec = eps_dec
+    @property
+    def conf(self) -> ImgConf:
+        return self._conf
 
     ###########################################################################
     #                                                                         #
@@ -163,12 +141,12 @@ class ImageData(object):
         # * Any data outside a given radius from the centre of the image;
         # * Data which is "obviously" bad (equal to 0 or NaN).
         mask = np.zeros((self.xdim, self.ydim))
-        if self.margin:
+        if self.conf.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
-            margin_mask[self.margin:-self.margin, self.margin:-self.margin] = 0
+            margin_mask[self.conf.margin:-self.conf.margin, self.conf.margin:-self.conf.margin] = 0
             mask = np.logical_or(mask, margin_mask)
-        if self.radius:
-            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.radius)
+        if self.conf.radius:
+            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.conf.radius)
             mask = np.logical_or(mask, radius_mask)
         mask = np.logical_or(mask, np.isnan(self.rawdata))
         return np.ma.array(self.rawdata, mask=mask)
@@ -251,8 +229,8 @@ class ImageData(object):
         # respectively. If not, we need to select a frame within useful_chunk
         # that does have the appropriate dimensions. At the same time, it should
         # be as large as possible and centered within useful_chunk.
-        rem_row = np.mod(x_dim, self.back_size_x)
-        rem_col = np.mod(y_dim, self.back_size_y)
+        rem_row = np.mod(x_dim, self.conf.back_size_x)
+        rem_col = np.mod(y_dim, self.conf.back_size_y)
         start_offset_row, rem_rem_row = divmod(rem_row, 2)
         start_offset_col, rem_rem_col = divmod(rem_col, 2)
         end_offset_row = start_offset_row + rem_rem_row
@@ -267,8 +245,8 @@ class ImageData(object):
 
         # Before proceeding, check that our data has the size of at least
         # one subimage, for both dimensions.
-        if (centred_inds[1] - centred_inds[0] > self.back_size_x and
-            centred_inds[3] - centred_inds[2] > self.back_size_y):
+        if (centred_inds[1] - centred_inds[0] > self.conf.back_size_x and
+            centred_inds[3] - centred_inds[2] > self.conf.back_size_y):
 
             subimages, number_of_elements_for_each_subimage = \
                 utils.make_subimages(self.data.data[centred_inds[0]:
@@ -279,7 +257,7 @@ class ImageData(object):
                                                     centred_inds[1],
                                                     centred_inds[2]:
                                                     centred_inds[3]],
-                                     self.back_size_x, self.back_size_y)
+                                     self.conf.back_size_x, self.conf.back_size_y)
 
             mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
                                  dtype=np.float32)
@@ -348,16 +326,16 @@ class ImageData(object):
 
         my_xdim, my_ydim = inds[1] - inds[0], inds[3] - inds[2]
 
-        if MEDIAN_FILTER:
-            f_grid = ndimage.median_filter(grid, MEDIAN_FILTER)
-            if MF_THRESHOLD:
+        if self.conf.median_filter:
+            f_grid = ndimage.median_filter(grid, self.conf.median_filter)
+            if self.conf.mf_threshold:
                 grid = np.where(
-                    np.fabs(f_grid - grid) > MF_THRESHOLD, f_grid, grid
+                    np.fabs(f_grid - grid) > self.conf.mf_threshold, f_grid, grid
                 )
             else:
                 grid = f_grid
 
-        if INTERPOLATE_ORDER == 1:
+        if self.conf.interpolate_order == 1:
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
                 utils.two_step_interp(grid, my_xdim, my_ydim)
         else:
@@ -370,7 +348,7 @@ class ImageData(object):
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
                                         mode='nearest',
-                                        order=INTERPOLATE_ORDER))
+                                        order=self.conf.interpolate_order))
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -914,10 +892,10 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
 
-        if RMS_FILTER:
+        if self.conf.rms_filter:
             clipped_data = np.ma.where(
                 (self.data_bgsubbed > analysisthresholdmap) &
-                (self.rmsmap >= (RMS_FILTER * self.grids["rms"].mean())), 1, 0
+                (self.rmsmap >= (self.conf.rms_filter * self.grids["rms"].mean())), 1, 0
             ).filled(fill_value=0)
         else:
             clipped_data = np.ma.where(
@@ -925,7 +903,7 @@ class ImageData(object):
             ).filled(fill_value=0)
 
         labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  STRUCTURING_ELEMENT)
+                                                  self.conf.structuring_element)
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
@@ -1140,7 +1118,7 @@ class ImageData(object):
 
         results = containers.ExtractionResults()
 
-        if deblend_nthresh or force_beam or not VECTORIZED:
+        if deblend_nthresh or force_beam or not self.conf.vectorized:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -1164,16 +1142,16 @@ class ImageData(object):
                         detectionthresholdmap[chunk],
                         self.beam,
                         deblend_nthresh,
-                        DEBLEND_MINCONT,
-                        STRUCTURING_ELEMENT
+                        self.conf.deblend_mincont,
+                        self.conf.structuring_element
                     )
                 )
 
-            if self.islands:
+            if self.conf.islands:
                 self.Gaussian_islands = np.zeros(self.data.shape)
             # If required, we can save the 'leftovers' from the deblending and
             # fitting processes for later analysis. This needs setting up here:
-            if self.residuals:
+            if self.conf.residuals:
                 self.Gaussian_residuals = np.zeros(self.data.shape)
                 self.residuals_from_deblending = np.zeros(self.data.shape)
                 for island in island_list:
@@ -1211,8 +1189,8 @@ class ImageData(object):
                 try:
                     det = extract.Detection(measurement, self,
                                             chunk=island.chunk,
-                                            eps_ra=self.eps_ra,
-                                            eps_dec=self.eps_dec)
+                                            eps_ra=self.conf.eps_ra,
+                                            eps_dec=self.conf.eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
                         logger.warning('Bad fit from blind extraction at pixel coords:'
@@ -1223,10 +1201,10 @@ class ImageData(object):
                 except RuntimeError as e:
                     logger.error("Island not processed; unphysical?")
 
-                if self.islands:
+                if self.conf.islands:
                     self.Gaussian_islands[island.chunk] += Gauss_island
 
-                if self.residuals:
+                if self.conf.residuals:
                     self.residuals_from_deblending[island.chunk] -= (
                         island.data.filled(fill_value=0.))
                     self.Gaussian_residuals[island.chunk] += Gauss_residual
@@ -1243,12 +1221,12 @@ class ImageData(object):
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
                     self.beam, self.beamsize, self.correlation_lengths,
-                    self.eps_ra, self.eps_dec)
+                    self.conf.eps_ra, self.conf.eps_dec)
 
-            if self.islands:
+            if self.conf.islands:
                 self.Gaussian_islands = Gaussian_islands
 
-            if self.residuals:
+            if self.conf.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
             for count, label in enumerate(labels):
