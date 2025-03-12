@@ -83,8 +83,8 @@ class ImageData(object):
         self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
         self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
-        self.clip = {}
-        self.labels = {}
+        self.clip: dict[float, np.ndarray] = {}
+        self.labels: dict[float, tuple[np.ndarray, int]] = {}
         self.freq_low = 1
         self.freq_high = 1
         self._conf = conf
@@ -601,7 +601,7 @@ class ImageData(object):
         return (slice(x - ibr, x + ibr + 1),
                 slice(y - ibr, y + ibr + 1))
 
-    def fit_to_point(self, x, y, boxsize, threshold, fixed):
+    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float, fixed: str):
         """
         Fit an elliptical Gaussian to a specified point on the image.
 
@@ -696,14 +696,14 @@ class ImageData(object):
 
         # set argument for fixed parameters based on input string
         if fixed == 'position':
-            fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0}
+            _fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0}
         elif fixed == 'position+shape':
-            fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0,
+            _fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0,
                      'semimajor': self.beam[0],
                      'semiminor': self.beam[1],
                      'theta': self.beam[2]}
         elif fixed is None:
-            fixed = {}
+            _fixed = {}
         else:
             raise TypeError("Unkown fixed parameter")
 
@@ -717,7 +717,7 @@ class ImageData(object):
                 fitme, threshold_at_pixel, self.rmsmap[chunk],
                 self.rmsmap[int(x), int(y)],
                 self.beam, self.fudge_max_pix_factor,
-                self.beamsize, self.correlation_lengths, fixed=fixed)
+                self.beamsize, self.correlation_lengths, fixed=_fixed)
         except ValueError:
             # Fit failed to converge
             # Moments are not applicable when holding parameters fixed
