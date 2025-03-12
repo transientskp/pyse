@@ -449,15 +449,13 @@ class ImageData(object):
         if np.ma.max(self.data) == np.ma.min(self.data):
             raise RuntimeError("Bad data: Image data is flat")
 
-        if (type(bgmap).__name__ == 'ndarray' or
-                type(bgmap).__name__ == 'MaskedArray'):
+        if isinstance(bgmap, (np.ndarray, np.ma.MaskedArray)):
             if bgmap.shape != self.data.shape:
                 raise IndexError("Background map has wrong shape")
             else:
                 self.backmap = bgmap
 
-        if (type(noisemap).__name__ == 'ndarray' or
-                                       type(noisemap).__name__ == 'MaskedArray'):
+        if isinstance(noisemap, (np.ndarray, np.ma.MaskedArray)):
             if noisemap.shape != self.data.shape:
                 raise IndexError("Noisemap has wrong shape")
             if noisemap.min() < 0:
@@ -561,14 +559,12 @@ class ImageData(object):
         # Things will go terribly wrong in the line below if the interpolated
         # noise values get very close or below zero. Use INTERPOLATE_ORDER=1
         # or the roundup option.
-        if (type(bgmap).__name__ == 'ndarray' or
-                type(bgmap).__name__ == 'MaskedArray'):
+        if isinstance(bgmap, (np.ndarray, np.ma.MaskedArray)):
             if bgmap.shape != self.backmap.shape:
                 raise IndexError("Background map has wrong shape")
             else:
                 self.backmap = bgmap
-        if (type(noisemap).__name__ == 'ndarray' or
-                    type(noisemap).__name__ == 'MaskedArray'):
+        if isinstance(noisemap, (np.ndarray, np.ma.MaskedArray)):
             if noisemap.shape != self.rmsmap.shape:
                 raise IndexError("Noisemap has wrong shape")
             if noisemap.min() < 0:
