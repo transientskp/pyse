@@ -142,7 +142,6 @@ class ImgConf(_Validate):
         default_factory=lambda: _structuring_element
     )
     vectorized: bool = False
-    sep: int | None = None
     margin: int = 0
     radius: float = 0.0
     back_size_x: int = 32
