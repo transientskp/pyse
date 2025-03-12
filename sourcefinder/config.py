@@ -177,9 +177,9 @@ def read_conf(path: str | Path):
     conf = data.get("tool", {}).get("pyse", {})
     if not conf:
         match data:
-            case {"tool": {"pyse": dict()}, **rest}:
+            case {"tool": {"pyse": dict(), **_rest1}, **_rest2}:
                 raise KeyError("tool.pyse: empty section in config file")
-            case {"tool": dict(), **rest}:
+            case {"tool": dict(), **_rest}:
                 raise KeyError("tool.pyse: section for PySE missing in config file")
             case _:
                 raise KeyError("tool: top-level section missing in config file")
