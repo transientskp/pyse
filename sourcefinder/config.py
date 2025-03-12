@@ -134,10 +134,19 @@ _source_params = [
 @dataclass(frozen=True)
 class ImgConf(_Validate):
     interpolate_order: int = 1
+    # If non-zero, apply a median filter of size median_filter to the
+    # background and RMS grids prior to interpolating.
     median_filter: int = 0
+    # If median_filter is non-zero, only use the filtered grid when
+    # the (absolute) difference between the raw and filtered grids is
+    # larger than mf_threshold.
     mf_threshold: int = 0
     rms_filter: float = 0.001
+    # Min. fraction of island flux in deblended subisland
     deblend_mincont: float = 0.005
+    # Island connectiivty Vectorized processing of source islands is
+    # much faster, but excludes Gaussian fits, therefore slightly less
+    # accurate.
     structuring_element: list[list[int]] = field(
         default_factory=lambda: _structuring_element
     )
