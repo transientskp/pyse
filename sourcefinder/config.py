@@ -33,7 +33,7 @@ def unguarded_is_dataclass(_type: Type[T], /) -> bool:
 
 
 # map of types that maybe converted to match the expected type
-_compat_types = defaultdict(set, {int: {float}})
+_compat_types: defaultdict[type, set[type]] = defaultdict(set, {int: {float}})
 
 
 def assert_t(key: str, value, *types: type):
