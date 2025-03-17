@@ -81,7 +81,7 @@ def validate_nested(key: str, value, origin_t, args):
     elif issubclass(origin_t, dict):
         assert_t(key, value, dict)
         for k, v in value.items():
-            assert_t(f"{key}[{k!r}]", v, args[1])
+            validate_types(f"{key}[{k!r}]", v, args[1])
     else:
         warn(f"{key}: unsupported type {origin_t[args]}, cannot validate")
 
