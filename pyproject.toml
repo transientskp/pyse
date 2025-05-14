@@ -29,6 +29,9 @@ dependencies = [
 [project.urls]
 Homepage = "http://docs.transientskp.org/"
 
+[project.scripts]
+sourcefinder = "sourcefinder.cli:main"
+
 # here so that standalone setuptools_scm also works
 [tool.setuptools_scm]
 version_file = "sourcefinder/_version.py"
