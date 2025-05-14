@@ -19,17 +19,29 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     can deconvolve it from the fitted parameters to get the "real" underlying
     physical source shape, which is what this function returns.
 
-    Args:
-        fmaj (float): Fitted major axis
-        fmin (float): Fitted minor axis
-        fpa (float):  Fitted position angle of major axis
-        cmaj (float): Clean beam major axis
-        cmin (float): Clean beam minor axis
-        cpa (float):  Clean beam position angle of major axis
+    Parameters
+    ----------
+    fmaj : float
+        Fitted major axis.
+    fmin : float
+        Fitted minor axis.
+    fpa : float
+        Fitted position angle of the major axis.
+    cmaj : float
+        Clean beam major axis.
+    cmin : float
+        Clean beam minor axis.
+    cpa : float
+        Clean beam position angle of the major axis.
 
-    Returns:
-        tuple: real major axis, real minor axis, real position angle of major
-               axis, number of components which failed to deconvolve
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - real major axis (float)
+        - real minor axis (float)
+        - real position angle of the major axis (float)
+        - number of components which failed to deconvolve (int)
     """
     HALF_RAD = 90.0 / pi
     cmaj2 = cmaj * cmaj
