@@ -994,17 +994,17 @@ class ImageData(object):
         but finally relative to the upper left corner of the image, i.e. the
         [0, 0] position of the Numpy array with all the image pixel values.
         Also, derive the number of pixels of the island.
-    
+
         Parameters
         ----------
         some_image : np.ndarray
-            2D array with all the pixel values, typically 
+            2D array with all the pixel values, typically
             self.data_bgsubbed.data.
         inds : np.ndarray
             Array of four indices indicating the slice encompassing an island.
             Such a slice would typically be a pick from a list of slices from a
-            call to scipy.ndimage.find_objects. Since we are attempting 
-            vectorized processing here, the slice should have been replaced by 
+            call to scipy.ndimage.find_objects. Since we are attempting
+            vectorized processing here, the slice should have been replaced by
             its four coordinates through a call to slices_to_indices.
         labelled_data : np.ndarray
             Array with the same shape as some_image, with labelled islands with
@@ -1029,7 +1029,7 @@ class ImageData(object):
             label.
         npix : np.int32
             Integer indicating the number of pixels of the island.
-    
+
         Returns
         -------
         None
@@ -1058,7 +1058,7 @@ class ImageData(object):
             labelled_data=None, labels=np.array([], dtype=np.int32)):
         """
         Run Python-based source extraction on this image.
-    
+
         Parameters
         ----------
         detectionthresholdmap : np.ma.MaskedArray
@@ -1090,12 +1090,12 @@ class ImageData(object):
         labels : np.ndarray, optional, default=np.array([], dtype=np.int32)
             Array of integers representing the labels in the island map to use
             for fitting.
-    
+
         Returns
         -------
         .utility.containers.ExtractionResults
             Results of the source extraction.
-    
+
         Notes
         -----
         This is described in detail in the "LOFAR Transients Pipeline" article
@@ -1168,12 +1168,19 @@ class ImageData(object):
 
             # Iterate over the list of islands and measure the source in each,
             # appending it to the results list.
-            with Pool(psutil.cpu_count()) as p:
-                fit_islands_partial = partial(ImageData.fit_islands,
-                                              self.fudge_max_pix_factor,
-                                              self.beamsize,
-                                              self.correlation_lengths, fixed)
-                fit_results = p.map(fit_islands_partial, island_list)
+            fit_islands_partial = partial(
+                ImageData.fit_islands,
+                self.fudge_max_pix_factor,
+                self.beamsize,
+                self.correlation_lengths,
+                fixed
+            )
+
+            if self.conf.allow_multiprocessing:
+                with Pool(psutil.cpu_count()) as p:
+                    fit_results = p.map(fit_islands_partial, island_list)
+            else:
+                fit_results = [fit_islands_partial(island) for island in island_list]
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
