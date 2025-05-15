@@ -67,6 +67,16 @@ def mjd2datetime(mjd):
     Convert a Modified Julian Date to datetime via 'unix time' representation.
 
     NB 'unix time' is defined by the casacore/casacore package.
+
+    Parameters
+    ----------
+    mjd : float
+        Modified Julian Date to be converted.
+
+    Returns
+    -------
+    datetime.datetime
+        A datetime object representing the given Modified Julian Date.
     """
     q = quantity("%sd" % mjd)
     return datetime.datetime.fromtimestamp(q.to_unix_time())
