@@ -366,20 +366,33 @@ def dectodms(decdegs):
 
 def propagate_sign(val1, val2, val3):
     """
+    Determine the sign of the input values and ensure consistency.
+
     casacore (reasonably enough) demands that a minus sign (if required)
     comes at the start of the quantity. Thus "-0D30M" rather than "0D-30M".
     Python regards "-0" as equal to "0"; we need to split off a separate sign
     field.
 
     If more than one of our inputs is negative, it's not clear what the user
-    meant: we raise.
+    meant: we raise an exception.
 
-    Args:
-        val1(float): (,val2,val3) input values (hour/min/sec or deg/min/sec)
+    Parameters
+    ----------
+    val1 : float
+        First input value (hours or degrees).
+    val2 : float
+        Second input value (minutes).
+    val3 : float
+        Third input value (seconds).
 
-    Returns:
-        tuple: "+" or "-" string denoting sign,
-            val1, val2, val3 (numeric) denoting absolute values of inputs.
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - str: "+" or "-" string denoting the sign.
+        - float: Absolute value of `val1`.
+        - float: Absolute value of `val2`.
+        - float: Absolute value of `val3`.
     """
     signs = [x < 0 for x in (val1, val2, val3)]
     if signs.count(True) == 0:
@@ -392,15 +405,22 @@ def propagate_sign(val1, val2, val3):
 
 
 def hmstora(rah, ram, ras):
-    """Convert RA in hours, minutes, seconds format to decimal
-    degrees format.
+    """
+    Convert RA in hours, minutes, seconds format to decimal degrees format.
 
-    Keyword arguments:
-    rah,ram,ras -- RA values (h,m,s)
+    Parameters
+    ----------
+    rah : float
+        Right Ascension hours.
+    ram : float
+        Right Ascension minutes.
+    ras : float
+        Right Ascension seconds.
 
-    Return value:
-    radegs -- RA in decimal degrees
-
+    Returns
+    -------
+    float
+        RA in decimal degrees.
     """
     sign, rah, ram, ras = propagate_sign(rah, ram, ras)
     ra = quantity("%s%dH%dM%f" % (sign, rah, ram, ras)).get_value()
