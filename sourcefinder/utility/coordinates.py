@@ -750,8 +750,8 @@ def m(ra, dec, cra, cdec, incr):
 
 def lm_to_radec(ra0, dec0, l, m):
     """
-    Find the l direction cosine in a radio image, given the RA and Dec of the
-    field centre.
+    Find the l direction cosine of a source in a radio image, given the RA and
+    Dec of the field centre.
     
     Parameters
     ----------
@@ -760,9 +760,9 @@ def lm_to_radec(ra0, dec0, l, m):
     dec0 : float
         Declination of the field center, in decimal degrees.
     l : float
-        Direction cosine along the l-axis.
+        Direction cosine of the source along the l-axis.
     m : float
-        Direction cosine along the m-axis.
+        Direction cosine of the source along the m-axis.
     
     Returns
     -------
@@ -805,6 +805,28 @@ def lm_to_radec(ra0, dec0, l, m):
 
 
 def radec_to_lmn(ra0, dec0, ra, dec):
+    """
+    Convert equatorial coordinates (RA, Dec) to direction cosines (l, m, n).
+
+    Parameters
+    ----------
+    ra0 : float
+        Right Ascension of the reference point (in decimal degrees).
+    dec0 : float
+        Declination of the reference point (in decimal degrees).
+    ra : float
+        Right Ascension of the target point (in decimal degrees).
+    dec : float
+        Declination of the target point (in decimal degrees).
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - l (float): Direction cosine along the l-axis.
+        - m (float): Direction cosine along the m-axis.
+        - n (float): Direction cosine along the n-axis.
+    """
     l = math.cos(dec) * math.sin(ra - ra0)
     sind0 = math.sin(dec0)
     if sind0 != 0:
@@ -814,7 +836,7 @@ def radec_to_lmn(ra0, dec0, ra, dec):
     else:
         m = 0
     n = math.sqrt(1 - l ** 2 - m ** 2)
-    return (l, m, n)
+    return l, m, n
 
 
 def eq_to_gal(ra, dec):
