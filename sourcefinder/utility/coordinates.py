@@ -36,15 +36,20 @@ def julian_date(time=None, modified=False):
     """
     Calculate the Julian date at a given timestamp.
 
+    Parameters
+    ----------
+    time : datetime.datetime, default: None
+        Timestamp to calculate JD for. If not provided, the current UTC time
+        will be used.
+    modified : bool, default: False
+        If True, return the Modified Julian Date, which is the number of days
+        (including fractions) that have elapsed between the start of
+        17 November 1858 AD and the specified time.
 
-
-    Args:
-        time (datetime.datetime): Timestamp to calculate JD for.
-        modified (bool): If True, return the Modified Julian Date:
-            the number of days (including fractions) which have elapsed between
-            the start of 17 November 1858 AD and the specified time.
-    Returns:
-        float: Julian date value.
+    Returns
+    -------
+    float
+        Julian date value.
     """
     if not time:
         time = datetime.datetime.now(pytz.utc)
