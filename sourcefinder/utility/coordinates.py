@@ -188,12 +188,15 @@ def unix2julian(timestamp):
     Convert a Unix timestamp (number of seconds since 1 January 1970) to a
     modified Julian timestamp (number of seconds since 17 November 1858).
 
-    Args:
-        timestamp (numbers.Number): Number of seconds since the modified
-            Julian epoch.
+    Parameters
+    ----------
+    timestamp : numbers.Number
+        Number of seconds since the Unix epoch.
 
-    Returns:
-        numbers.Number: Number of seconds since the Unix epoch.
+    Returns
+    -------
+    numbers.Number
+        Number of seconds since the modified Julian epoch.
     """
     return timestamp + unix_epoch
 
