@@ -134,10 +134,18 @@ def jd2lst(jd, position=None):
     Converts a Julian Date into Local Apparent Sidereal Time in seconds at a
     given position. If position is None, we default to the reference position
     of CS002.
+    
+    Parameters
+    ----------
+    jd : float
+        Julian Date to be converted.
+    position : casacore measure, default: None
+        Position for Local Sidereal Time calculations.
 
-    Args:
-        jd (float): Julian Date
-        position (casacore measure): Position for LST calcs.
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     return mjd2lst(jd - 2400000.5, position)
 
