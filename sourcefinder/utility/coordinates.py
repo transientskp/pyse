@@ -93,7 +93,7 @@ def mjd2lst(mjd, position=None):
     mjd : float
         Modified Julian Date in days.
     position : casacore measure, default: None
-        Position for the calculation.
+        Position for the LST calculation.
 
     Returns
     -------
@@ -114,9 +114,17 @@ def mjds2lst(mjds, position=None):
     """
     As mjd2lst(), but takes an argument in seconds rather than days.
 
-    Args:
-        mjds (float):Modified Julian Date (in seconds)
-        position (casacore measure): Position for LST calcs
+    Parameters
+    ----------
+    mjds : float
+        Modified Julian Date (in seconds).
+    position : casacore measure, default: None
+        Position for Local Sidereal Time calculations.
+
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     return mjd2lst(mjds / SECONDS_IN_DAY, position)
 
