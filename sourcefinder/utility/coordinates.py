@@ -88,8 +88,17 @@ def mjd2lst(mjd, position=None):
     seconds at a given position. If position is None, we default to the
     reference position of CS002.
 
-    mjd -- Modified Julian Date (float, in days)
-    position -- Position (casacore measure)
+    Parameters
+    ----------
+    mjd : float
+        Modified Julian Date in days.
+    position : casacore measure, default: None
+        Position for the calculation.
+
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     dm = measures()
     position = position or dm.position(
