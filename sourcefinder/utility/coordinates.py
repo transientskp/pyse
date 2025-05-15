@@ -167,14 +167,18 @@ unix_epoch = quantity("1970-01-01T00:00:00").get_value('s')
 
 def julian2unix(timestamp):
     """
-    Convert a modifed julian timestamp (number of seconds since 17 November
+    Convert a modified Julian timestamp (number of seconds since 17 November
     1858) to Unix timestamp (number of seconds since 1 January 1970).
 
-    Args:
-        timestamp (numbers.Number): Number of seconds since the Unix epoch.
+    Parameters
+    ----------
+    timestamp : numbers.Number
+        Number of seconds since the Unix epoch.
 
-    Returns:
-        numbers.Number: Number of seconds since the modified Julian epoch.
+    Returns
+    -------
+    numbers.Number
+        Number of seconds since the modified Julian epoch.
     """
     return timestamp - unix_epoch
 
