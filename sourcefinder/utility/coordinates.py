@@ -202,26 +202,76 @@ def unix2julian(timestamp):
 
 
 def sec2deg(seconds):
-    """Seconds of time to degrees of arc"""
+    """
+    Convert seconds of time to degrees of arc.
+
+    Parameters
+    ----------
+    seconds : float
+        Time in seconds to be converted to degrees of arc.
+
+    Returns
+    -------
+    float
+        Equivalent value in degrees of arc.
+    """
     return 15.0 * seconds / 3600.0
 
 
 def sec2days(seconds):
-    """Seconds to number of days"""
+    """
+    Convert seconds to the equivalent number of days.
+
+    Parameters
+    ----------
+    seconds : float
+        Time duration in seconds.
+
+    Returns
+    -------
+    float
+        Equivalent time duration in days.
+    """
     return seconds / (24.0 * 3600)
 
 
 def sec2hms(seconds):
-    """Seconds to hours, minutes, seconds"""
+    """
+    Convert seconds to hours, minutes, and seconds.
+
+    Returns
+    -------
+    tuple
+        A tuple containing hours (int), minutes (int), and seconds (float).
+    """
     hours, seconds = divmod(seconds, 60 ** 2)
     minutes, seconds = divmod(seconds, 60)
-    return (int(hours), int(minutes), seconds)
+    return int(hours), int(minutes), seconds
 
 
 def altaz(mjds, ra, dec, lat=CORE_LAT):
-    """Calculates the azimuth and elevation of source from time and position
-    on sky.  Takes MJD in seconds and ra, dec in degrees.  Returns (alt, az) in
-    degrees."""
+    """
+    Calculate the azimuth and elevation of a source from time and position
+    on the sky.
+
+    Parameters
+    ----------
+    mjds : float
+        Modified Julian Date in seconds.
+    ra : float
+        Right Ascension of the source in degrees.
+    dec : float
+        Declination of the source in degrees.
+    lat : float, default : CORE_LAT
+        Latitude of the observer in degrees.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - alt (float): Altitude of the source in degrees.
+        - az (float): Azimuth of the source in degrees.
+    """
 
     # compute hour angle in degrees
     ha = mjds2lst(mjds) - ra
@@ -251,15 +301,18 @@ def altaz(mjds, ra, dec, lat=CORE_LAT):
 
 
 def ratohms(radegs):
-    """Convert RA in decimal degrees format to hours, minutes,
-    seconds format.
+    """
+    Convert RA in decimal degrees format to hours, minutes, seconds format.
 
-    Keyword arguments:
-    radegs -- RA in degrees format
+    Parameters
+    ----------
+    radegs : float
+        RA in degrees format.
 
-    Return value:
-    ra -- tuple of 3 values, [hours,minutes,seconds]
-
+    Returns
+    -------
+    tuple
+        A tuple of three values: (hours, minutes, seconds).
     """
 
     radegs %= 360
@@ -268,15 +321,19 @@ def ratohms(radegs):
 
 
 def dectodms(decdegs):
-    """Convert Declination in decimal degrees format to hours, minutes,
-    seconds format.
+    """
+    Convert Declination in decimal degrees format to hours, minutes, seconds
+    format.
 
-    Keyword arguments:
-    decdegs -- Dec. in degrees format
+    Parameters
+    ----------
+    decdegs : float
+        Declination in decimal degrees format.
 
-    Return value:
-    dec -- list of 3 values, [degrees,minutes,seconds]
-
+    Returns
+    -------
+    tuple
+        A tuple containing three values: (degrees, minutes, seconds).
     """
 
     sign = -1 if decdegs < 0 else 1
