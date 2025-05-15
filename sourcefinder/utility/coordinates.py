@@ -430,15 +430,22 @@ def hmstora(rah, ram, ras):
 
 
 def dmstodec(decd, decm, decs):
-    """Convert Dec in degrees, minutes, seconds format to decimal
-    degrees format.
+    """
+    Convert Dec in degrees, minutes, seconds format to decimal degrees format.
 
-    Keyword arguments:
-    decd, decm, decs -- list of Dec values (d,m,s)
+    Parameters
+    ----------
+    decd : int
+        Degrees component of the Declination.
+    decm : int
+        Minutes component of the Declination.
+    decs : float
+        Seconds component of the Declination.
 
-    Return value:
-    decdegs -- Dec in decimal degrees
-
+    Returns
+    -------
+    float
+        Declination in decimal degrees.
     """
     sign, decd, decm, decs = propagate_sign(decd, decm, decs)
     dec = quantity("%s%dD%dM%f" % (sign, decd, decm, decs)).get_value()
@@ -448,20 +455,45 @@ def dmstodec(decd, decm, decs):
 
 
 def cmp(a, b):
+    """
+    Compare two values and return an integer indicating their relationship.
+
+    Parameters
+    ----------
+    a : Any
+        The first value to compare.
+    b : Any
+        The second value to compare.
+
+    Returns
+    -------
+    int
+        1 if `a` is greater than `b`, -1 if `a` is less than `b`,
+        and 0 if they are equal.
+    """
     return bool(a > b) - bool(a < b)
 
 
 def angsep(ra1, dec1, ra2, dec2):
-    """Find the angular separation of two sources, in arcseconds,
-    using the proper spherical trig formula
+    """
+    Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trigonometry formula.
 
-    Keyword arguments:
-    ra1,dec1 - RA and Dec of the first source, in decimal degrees
-    ra2,dec2 - RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra1 : float
+        Right Ascension of the first source, in decimal degrees.
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    ra2 : float
+        Right Ascension of the second source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation between the two sources, in arcseconds.
     """
 
     b = (math.pi / 2) - math.radians(dec1)
@@ -480,22 +512,47 @@ def angsep(ra1, dec1, ra2, dec2):
 
 @njit
 def cmp_jitted(a, b):
+    """
+    Compare two values and return an integer indicating their relationship.
+
+    Parameters
+    ----------
+    a : Any
+        The first value to compare.
+    b : Any
+        The second value to compare.
+
+    Returns
+    -------
+    int
+        1 if `a` is greater than `b`, -1 if `a` is less than `b`,
+        and 0 if they are equal.
+    """
     return bool(a > b) - bool(a < b)
 
 
 @guvectorize([(float64[:], float64[:], float64[:])],
              '(n), (n) -> ()', nopython=True)
 def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
-    """Find the angular separation of two sources, in arcseconds,
-    using the proper spherical trig formula
+    """
+    Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trigonometry formula.
 
-    Positional arguments:
-        ra_dec1 (ndarray)- RA and Dec of the first source, in decimal degrees
-        ra_dec2 (ndarray)- RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra_dec1 : ndarray
+        RA and Dec of the first source, in decimal degrees.
+    ra_dec2 : ndarray
+        RA and Dec of the second source, in decimal degrees.
+    angular_separation : float
+        Angular separation between the two sources, in arcseconds.
+        This value is assigned within the function due to the guvectorize
+        decorator.
 
-    Return value: None, because of the guvectorize decorator, but
-        angular_separation (float, arcseconds) is assigned a value.
-
+    Returns
+    -------
+    None
+        The result is stored in the `angular_separation` parameter.
     """
     ra1, dec1 = ra_dec1
     ra2, dec2 = ra_dec2
@@ -515,45 +572,70 @@ def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
 
 
 def alphasep(ra1, ra2, dec1, dec2):
-    """Find the angular separation of two sources in RA, in arcseconds
+    """
+    Find the angular separation of two sources in RA, in arcseconds.
 
-    Keyword arguments:
-    ra1,dec1 - RA and Dec of the first source, in decimal degrees
-    ra2,dec2 - RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra1 : float
+        Right Ascension of the first source, in decimal degrees.
+    ra2 : float
+        Right Ascension of the second source, in decimal degrees.
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation in RA, in arcseconds.
     """
 
     return 3600 * (ra1 - ra2) * math.cos(math.radians((dec1 + dec2) / 2.0))
 
 
 def deltasep(dec1, dec2):
-    """Find the angular separation of two sources in Dec, in arcseconds
+    """
+    Find the angular separation of two sources in declination, in arcseconds.
 
-    Keyword arguments:
-    dec1 - Dec of the first source, in decimal degrees
-    dec2 - Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation in declination, in arcseconds.
     """
 
     return 3600 * (dec1 - dec2)
 
 
-# Find angular separation in Dec of 2 positions, in arcseconds
 def alpha(l, m, alpha0, delta0):
-    """Convert a coordinate in l,m into an coordinate in RA
+    """
+    Convert a coordinate in l, m into a coordinate in RA.
 
-    Keyword arguments:
-    l,m -- direction cosines, given by (offset in cells) x cellsi (radians)
-    alpha_0, delta_0 -- centre of the field
+    Parameters
+    ----------
+    l : float
+        Direction cosine along the l-axis, given by offset in cells times
+        cell size (in radians).
+    m : float
+        Direction cosine along the m-axis, given by offset in cells times
+        cell size (in radians).
+    alpha0 : float
+        Right Ascension of the centre of the field, in decimal degrees.
+    delta0 : float
+        Declination of the centre of the field, in decimal degrees.
 
-    Return value:
-    alpha -- RA in decimal degrees
+    Returns
+    -------
+    float
+        Right Ascension (RA) in decimal degrees.
     """
     return (alpha0 + (math.degrees(math.atan2(l, (
         (math.sqrt(1 - (l * l) - (m * m)) * math.cos(math.radians(delta0))) -
@@ -561,17 +643,25 @@ def alpha(l, m, alpha0, delta0):
 
 
 def alpha_inflate(theta, decl):
-    """Compute the ra expansion for a given theta at a given declination
-    
-    Keyword arguments:
-    theta, decl are both in decimal degrees.
-    
-    Return value:
-    alpha -- RA inflation in decimal degrees
+    """
+    Compute the RA expansion for a given theta at a given declination.
 
-    For a derivation, see MSR TR 2006 52, Section 2.1
+    Parameters
+    ----------
+    theta : float
+        Angular distance from the center, in decimal degrees.
+    decl : float
+        Declination of the source, in decimal degrees.
+
+    Returns
+    -------
+    float
+        RA inflation in decimal degrees.
+
+    Notes
+    -----
+    For a derivation, see MSR TR 2006 52, Section 2.1:
     http://research.microsoft.com/apps/pubs/default.aspx?id=64524
-
     """
     if abs(decl) + theta > 89.9:
         return 180.0
@@ -582,16 +672,25 @@ def alpha_inflate(theta, decl):
                     math.radians(decl + theta)))))))
 
 
-# Find the RA of a point in a radio image, given l,m and field centre
 def delta(l, m, delta0):
-    """Convert a coordinate in l, m into an coordinate in Dec
+    """
+    Convert a coordinate in l, m into a coordinate in declination.
 
-    Keyword arguments:
-    l, m -- direction cosines, given by (offset in cells) x cellsi (radians)
-    alpha_0, delta_0 -- centre of the field
+    Parameters
+    ----------
+    l : float
+        Direction cosine along the l-axis, given by offset in cells times cell 
+        size (in radians).
+    m : float
+        Direction cosine along the m-axis, given by offset in cells times cell 
+        size (in radians).
+    delta0 : float
+        Declination of the center of the field, in decimal degrees.
 
-    Return value:
-    delta -- Dec in decimal degrees
+    Returns
+    -------
+    float
+        Declination in decimal degrees.
     """
     return math.degrees(math.asin(m * math.cos(math.radians(delta0)) +
                                   (math.sqrt(1 - (l * l) - (m * m)) *
@@ -599,32 +698,50 @@ def delta(l, m, delta0):
 
 
 def l(ra, dec, cra, incr):
-    """Convert a coordinate in RA,Dec into a direction cosine l
+    """
+    Convert a coordinate in RA, Dec into a direction cosine l.
 
-    Keyword arguments:
-    ra,dec -- Source location
-    cra -- RA centre of the field
-    incr -- number of degrees per pixel (negative in the case of RA)
+    Parameters
+    ----------
+    ra : float
+        Right Ascension of the source, in decimal degrees.
+    dec : float
+        Declination of the source, in decimal degrees.
+    cra : float
+        Right Ascension of the centre of the field, in decimal degrees.
+    incr : float
+        Number of degrees per pixel (negative in the case of RA).
 
-    Return value:
-    l -- Direction cosine
-
+    Returns
+    -------
+    float
+        Direction cosine l.
     """
     return ((math.cos(math.radians(dec)) * math.sin(math.radians(ra - cra))) /
             (math.radians(incr)))
 
 
 def m(ra, dec, cra, cdec, incr):
-    """Convert a coordinate in RA,Dec into a direction cosine m
+    """
+    Convert a coordinate in RA, Dec into a direction cosine m.
 
-    Keyword arguments:
-    ra,dec -- Source location
-    cra,cdec -- centre of the field
-    incr -- number of degrees per pixel
+    Parameters
+    ----------
+    ra : float
+        Right Ascension of the source, in decimal degrees.
+    dec : float
+        Declination of the source, in decimal degrees.
+    cra : float
+        Right Ascension of the center of the field, in decimal degrees.
+    cdec : float
+        Declination of the center of the field, in decimal degrees.
+    incr : float
+        Number of degrees per pixel.
 
-    Return value:
-    m -- direction cosine
-
+    Returns
+    -------
+    float
+        Direction cosine m.
     """
     return ((math.sin(math.radians(dec)) * math.cos(math.radians(cdec))) -
             (math.cos(math.radians(dec)) * math.sin(math.radians(cdec)) *
@@ -633,11 +750,32 @@ def m(ra, dec, cra, cdec, incr):
 
 def lm_to_radec(ra0, dec0, l, m):
     """
-    Find the l direction cosine in a radio image, given an RA and Dec and the
-    field centre
+    Find the l direction cosine in a radio image, given the RA and Dec of the
+    field centre.
+    
+    Parameters
+    ----------
+    ra0 : float
+        Right Ascension of the field center, in decimal degrees.
+    dec0 : float
+        Declination of the field center, in decimal degrees.
+    l : float
+        Direction cosine along the l-axis.
+    m : float
+        Direction cosine along the m-axis.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - ra (float): Right Ascension in decimal degrees.
+        - dec (float): Declination in decimal degrees.
+    
+    Notes
+    -----
+    This function should be the inverse of radec_to_lmn, but it is
+    not. There is likely an error here.
     """
-    # This function should be the inverse of radec_to_lmn, but it is
-    # not. There is likely an error here.
 
     sind0 = math.sin(dec0)
     cosd0 = math.cos(dec0)
@@ -646,7 +784,7 @@ def lm_to_radec(ra0, dec0, l, m):
     d0 = dm * dm * sind0 * sind0 + dl * dl - 2 * dm * cosd0 * sind0
     sind = math.sqrt(abs(sind0 * sind0 - d0))
     cosd = math.sqrt(abs(cosd0 * cosd0 + d0))
-    if (sind0 > 0):
+    if sind0 > 0:
         sind = abs(sind)
     else:
         sind = -abs(sind)
@@ -656,14 +794,14 @@ def lm_to_radec(ra0, dec0, l, m):
     if l != 0:
         ra = math.atan2(-dl, (cosd0 - dm * sind0)) + ra0
     else:
-        ra = math.atan2((1e-10), (cosd0 - dm * sind0)) + ra0
+        ra = math.atan2(1e-10, (cosd0 - dm * sind0)) + ra0
 
         # Calculate RA,Dec from l,m and phase center.  Note: As done in
         # Meqtrees, which seems to differ from l, m functions above.  Meqtrees
         # equation may have problems, judging from my difficulty fitting a
         # fringe to L4086 data.  Pandey's equation is now used in radec_to_lmn
 
-    return (ra, dec)
+    return ra, dec
 
 
 def radec_to_lmn(ra0, dec0, ra, dec):
