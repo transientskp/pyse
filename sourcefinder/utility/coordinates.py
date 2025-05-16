@@ -578,9 +578,9 @@ def alphasep(ra1, ra2, dec1, dec2):
     Parameters
     ----------
     ra1 : float
-        Right Ascension of the first source, in decimal degrees.
+        Right ascension of the first source, in decimal degrees.
     ra2 : float
-        Right Ascension of the second source, in decimal degrees.
+        Right ascension of the second source, in decimal degrees.
     dec1 : float
         Declination of the first source, in decimal degrees.
     dec2 : float
@@ -628,7 +628,7 @@ def alpha(l, m, alpha0, delta0):
         Direction cosine along the m-axis, given by offset in cells times
         cell size (in radians).
     alpha0 : float
-        Right Ascension of the centre of the field, in decimal degrees.
+        Right ascension of the centre of the field, in decimal degrees.
     delta0 : float
         Declination of the centre of the field, in decimal degrees.
 
@@ -704,11 +704,11 @@ def l(ra, dec, cra, incr):
     Parameters
     ----------
     ra : float
-        Right Ascension of the source, in decimal degrees.
+        Right ascension of the source, in decimal degrees.
     dec : float
         Declination of the source, in decimal degrees.
     cra : float
-        Right Ascension of the centre of the field, in decimal degrees.
+        Right ascension of the centre of the field, in decimal degrees.
     incr : float
         Number of degrees per pixel (negative in the case of RA).
 
@@ -728,11 +728,11 @@ def m(ra, dec, cra, cdec, incr):
     Parameters
     ----------
     ra : float
-        Right Ascension of the source, in decimal degrees.
+        Right ascension of the source, in decimal degrees.
     dec : float
         Declination of the source, in decimal degrees.
     cra : float
-        Right Ascension of the center of the field, in decimal degrees.
+        Right ascension of the center of the field, in decimal degrees.
     cdec : float
         Declination of the center of the field, in decimal degrees.
     incr : float
@@ -756,7 +756,7 @@ def lm_to_radec(ra0, dec0, l, m):
     Parameters
     ----------
     ra0 : float
-        Right Ascension of the field center, in decimal degrees.
+        Right ascension of the field center, in decimal degrees.
     dec0 : float
         Declination of the field center, in decimal degrees.
     l : float
@@ -768,7 +768,7 @@ def lm_to_radec(ra0, dec0, l, m):
     -------
     tuple
         A tuple containing:
-        - ra (float): Right Ascension in decimal degrees.
+        - ra (float): Right ascension in decimal degrees.
         - dec (float): Declination in decimal degrees.
     
     Notes
@@ -811,7 +811,7 @@ def radec_to_lmn(ra0, dec0, ra, dec):
     Parameters
     ----------
     ra0 : float
-        Right Ascension of the reference point (in decimal degrees).
+        Right ascension of the reference point (in decimal degrees).
     dec0 : float
         Declination of the reference point (in decimal degrees).
     ra : float
@@ -840,15 +840,22 @@ def radec_to_lmn(ra0, dec0, ra, dec):
 
 
 def eq_to_gal(ra, dec):
-    """Find the Galactic co-ordinates of a source given the equatorial
-    co-ordinates
+    """
+    Find the Galactic coordinates of a source given the equatorial coordinates.
 
-    Keyword arguments:
-    (alpha,delta) -- RA, Dec in decimal degrees
+    Parameters
+    ----------
+    ra : float
+        Right ascension (RA) in decimal degrees.
+    dec : float
+        Declination (Dec) in decimal degrees.
 
-    Return value:
-    (l,b) -- Galactic longitude and latitude, in decimal degrees
-
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - Galactic longitude in decimal degrees.
+        - Galactic latitude in decimal degrees.
     """
     dm = measures()
 
@@ -863,15 +870,23 @@ def eq_to_gal(ra, dec):
 
 
 def gal_to_eq(lon_l, lat_b):
-    """Find the Galactic co-ordinates of a source given the equatorial
-    co-ordinates
-
-    Keyword arguments:
-    (l, b) -- Galactic longitude and latitude, in decimal degrees
-
-    Return value:
-    (alpha, delta) -- RA, Dec in decimal degrees
-
+    """
+    Find the equatorial coordinates of a source given the Galactic
+    coordinates.
+    
+    Parameters
+    ----------
+    lon_l : float
+        Galactic longitude in decimal degrees.
+    lat_b : float
+        Galactic latitude in decimal degrees.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - Right ascension (RA) in decimal degrees.
+        - Declination (Dec) in decimal degrees.
     """
     dm = measures()
 
@@ -886,9 +901,24 @@ def gal_to_eq(lon_l, lat_b):
 
 
 def eq_to_cart(ra, dec):
-    """Find the cartesian co-ordinates on the unit sphere given the eq. co-ords.
+    """
+    Find the cartesian coordinates on the unit sphere given the equatorial
+    coordinates.
 
-        ra, dec should be in degrees.
+    Parameters
+    ----------
+    ra : float
+        Right ascension (RA) in decimal degrees.
+    dec : float
+        Declination (Dec) in decimal degrees.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - x (float): Cartesian x-coordinate.
+        - y (float): Cartesian y-coordinate.
+        - z (float): Cartesian z-coordinate.
     """
     return (
     math.cos(math.radians(dec)) * math.cos(math.radians(ra)),  # Cartesian x
@@ -904,7 +934,26 @@ class CoordSystem:
 
 
 def coordsystem(name):
-    """Given a string, return a constant from class CoordSystem."""
+    """
+    Given a string, return a constant from class CoordSystem.
+
+    Parameters
+    ----------
+    name : str
+        The name of the coordinate system (e.g., 'j2000', 'fk5', 'b1950',
+        'fk4').
+
+    Returns
+    -------
+    str
+        A constant from the CoordSystem class representing the coordinate
+        system.
+
+    Raises
+    ------
+    KeyError
+        If the provided name does not match any known coordinate system.
+    """
     mappings = {
         'j2000': CoordSystem.FK5,
         'fk5': CoordSystem.FK5,
@@ -919,6 +968,33 @@ def coordsystem(name):
 def convert_coordsystem(ra, dec, insys, outsys):
     """
     Convert RA & dec (given in decimal degrees) between equinoxes.
+
+    This function takes right Ascension (RA) and declination (Dec) coordinates
+    in decimal degrees and converts them between different equinoxes, such as
+    B1950 and J2000. The input and output equinoxes are specified as parameters.
+
+    Parameters
+    ----------
+    ra : float
+        Right ascension in decimal degrees.
+    dec : float
+        Declination in decimal degrees.
+    insys : str
+        Input equinox, e.g., 'B1950' or 'J2000'.
+    outsys : str
+        Output equinox, e.g., 'B1950' or 'J2000'.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - ra (float): Converted right ascension in decimal degrees.
+        - dec (float): Converted declination in decimal degrees.
+
+    Raises
+    ------
+    Exception
+        If the input or output equinox is unknown.
     """
     dm = measures()
 
@@ -973,7 +1049,7 @@ class WCS:
         if attrname in self.WCS_ATTRS:
             # Account for arbitrary coordinate rotations in images pointing at
             # the North Celestial Pole. We set the reference direction to
-            # infintesimally less than 90 degrees to avoid any ambiguity. See
+            # infinitesimally less than 90 degrees to avoid any ambiguity. See
             # discussion at #4599.
             if attrname == "crval" and (
                     value[1] == 90 or value[1] == math.pi / 2):
@@ -989,14 +1065,24 @@ class WCS:
 
     def p2s(self, pixpos):
         """
-        Pixel to spatial coordinate conversion.
-
-        Args:
-            pixpos [list]:  [x, y] pixel position.
-
-        Returns:
-            tuple: ra (float) Right ascension corresponding to position [x, y]
-                   dec (float) Declination corresponding to position [x, y]
+        Convert pixel coordinates to spatial coordinates.
+        
+        This function converts a given pixel position (x, y) into spatial
+        coordinates (right ascension and declination).
+        
+        Parameters
+        ----------
+        pixpos : list
+            A list of two floats containing the pixel position as [x, y].
+        
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - ra (float): Right ascension corresponding to the pixel position 
+            in decimal degrees.
+            - dec (float): Declination corresponding to the pixel position 
+            in decimal degrees.
         """
         ra, dec = self.wcs.wcs_pix2world(pixpos[0], pixpos[1], self.ORIGIN)
         if math.isnan(ra) or math.isnan(dec):
@@ -1005,15 +1091,26 @@ class WCS:
 
     def s2p(self, spatialpos):
         """
-        Spatial to Pixel coordinate conversion.
-
-        Args:
-            pixpos (tuple):  [ra, dec] spatial position
-
-        Returns:
-            tuple: X pixel value corresponding to position [ra, dec],
-                   Y pixel value corresponding to position [ra, dec]
+        Convert spatial coordinates to pixel coordinates.
+        
+        This function converts a given spatial position (right ascension and
+        declination) into pixel coordinates (x, y).
+        
+        Parameters
+        ----------
+        spatialpos : tuple
+            A tuple containing:
+            - ra (float): Right ascension in decimal degrees.
+            - dec (float): Declination in decimal degrees.
+        
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - x (float): X pixel value corresponding to the spatial position.
+            - y (float): Y pixel value corresponding to the spatial position.
         """
+
         x, y = self.wcs.wcs_world2pix(spatialpos[0], spatialpos[1], self.ORIGIN)
         if math.isnan(x) or math.isnan(y):
             raise RuntimeError("Pixel position is not a number")
@@ -1025,16 +1122,20 @@ class WCS:
         all_pix2world from astropy. This will save time when thousands of
         sources are detected.
 
-        Args:
-            array_of_pixpos ((N, 2) array):  array of [x, y] pixel
-            positions.
+        Parameters
+        ----------
+        array_of_pixpos : ndarray
+            A (N, 2) array where each row represents [x, y] pixel positions.
 
-        Returns:
-            (N, 2) array: each row has an entry for Right ascension (float)
-                          and Declination (float)
-
+        Returns
+        -------
+        ndarray
+            A (N, 2) array where each row contains:
+            - Right ascension (float) in decimal degrees.
+            - Declination (float) in decimal degrees.
         """
-        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
+        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos,
+                                                 self.ORIGIN)
         if numpy.isnan(sky_coordinates).any():
             raise RuntimeError("Spatial position is not a number")
         # Mimic conditional from extract.Detection._physical_coordinates
