@@ -6,30 +6,67 @@ rms_filter = 0.001
 deblend_mincont = 0.005
 structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 vectorized = false
+allow_multiprocessing = true
 margin = 0
 radius = 0.0
-back_size_x = 32
-back_size_y = 32
 residuals = false
 islands = false
+back_size_x = 32
+back_size_y = 32
 eps_ra = 0.0
 eps_dec = 0.0
 
 [tool.pyse.export]
-file_type = "csv"
+skymodel = false
+csv = false
+regions = false
+rmsmap = false
+sigmap = false
 source_params = [
-  "ra",
-  "dec",
-  "peak",
-  "flux",
-  "sig",
-  "smaj_asec",
-  "smin_asec",
-  "theta_celes",
-  "ew_sys_err",
-  "ns_sys_err",
-  "error_radius",
-  "gaussian",
-  "chisq",
-  "reduced_chisq",
+    "ra",
+    "dec",
+    "peak",
+    "flux",
+    "sig",
+    "smaj_asec",
+    "smin_asec",
+    "theta_celes",
+    "ew_sys_err",
+    "ns_sys_err",
+    "error_radius",
+    "gaussian",
+    "chisq",
+    "reduced_chisq",
 ]
+
+[tool.pyse.extraction]
+detection = 10.0
+analysis = 3.0
+fdr = false
+alpha = 0.01
+deblend_thresholds = 0
+grid = 64
+bmaj = "None"
+bmin = "None"
+bpa = "None"
+force_beam = false
+detection_image = "None"
+fixed_posns = "None"
+fixed_posns_file = "None"
+ffbox = 3.0
+
+
+# if options.fixed_coords:
+#     if options.fdr:
+#         parser.error("--fdr not supported with fixed positions")
+#     elif options.detection_image:
+#         parser.error("--detection-image not supported with fixed positions")
+#     options.mode = "fixed"  # mode 2 above
+# elif options.fdr:
+#     if options.detection_image:
+#         parser.error("--detection-image not supported with --fdr")
+#     options.mode = "fdr"  # mode 1.3 above
+# elif options.detection_image:
+#     options.mode = "detimage"  # mode 1.2 above
+# else:
+#     options.mode = "threshold"  # mode 1.1 above

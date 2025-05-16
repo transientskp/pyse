@@ -24,6 +24,7 @@ import math
 import numbers
 import os.path
 import sys
+import pdb
 from io import StringIO
 
 import astropy.io.fits as pyfits
@@ -33,8 +34,10 @@ from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.config import ImgConf
-from sourcefinder.utility.monitoring import parse_monitoringlist_positions
+from sourcefinder.utility.monitoring import parse_monitoringlist_positions, construct_argument_parser, read_and_update_config_file
 from sourcefinder.utils import generate_result_maps
+from sourcefinder.config import Conf
+from sourcefinder import image
 
 def regions(sourcelist):
     """
@@ -125,71 +128,7 @@ def summary(filename, sourcelist):
     return output.getvalue()
 
 
-def get_argparser():
-    parser = argparse.ArgumentParser(
-        description="Source extraction for radio-synthesis images")
 
-    # Arguments relating to source extraction:
-    extraction = parser.add_argument_group("Extraction")
-    extraction.add_argument("--detection", default=10, type=float,
-                            help="Detection threshold")
-    extraction.add_argument("--analysis", default=3, type=float,
-                            help="Analysis threshold")
-    extraction.add_argument("--fdr", action="store_true",
-                            help="Use False Detection Rate algorithm")
-    extraction.add_argument("--alpha", default=1e-2, type=float,
-                            help="FDR Alpha")
-    extraction.add_argument("--deblend-thresholds", default=0, type=int,
-                            help="Number of deblending subthresholds; 0 to disable")
-    extraction.add_argument("--grid", default=64, type=int,
-                            help="Background grid segment size")
-    extraction.add_argument("--margin", default=0, type=int,
-                            help="Margin applied to each edge of image (in pixels)")
-    extraction.add_argument("--radius", default=0, type=float,
-                            help="Radius of usable portion of image (in pixels)")
-    extraction.add_argument("--bmaj", type=float,
-                            help="Set beam: Major axis of beam (deg)")
-    extraction.add_argument("--bmin", type=float,
-                            help="Set beam: Minor axis of beam (deg)")
-    extraction.add_argument("--bpa", type=float,
-                            help="Set beam: Beam position angle (deg)")
-    extraction.add_argument("--force-beam", action="store_true",
-                            help="Force fit axis lengths to beam size")
-    extraction.add_argument("--detection-image", type=str,
-                            help="Find islands on different image")
-    extraction.add_argument('--fixed-posns',
-                            help="List of position coordinates to "
-                                 "force-fit (decimal degrees, JSON, e.g [[123.4,56.7],[359.9,89.9]]) "
-                                 "(Will not perform blind extraction in this mode)",
-                            default=None)
-    extraction.add_argument('--fixed-posns-file',
-                            help="Path to file containing a list of positions to force-fit "
-                                 "(Will not perform blind extraction in this mode)",
-                            default=None)
-    extraction.add_argument('--ffbox', type=float, default=3.,
-                            help="Forced fitting positional box size as a multiple of beam width.")
-
-    # Arguments relating to output:
-    output = parser.add_argument_group("Output")
-    output.add_argument("--skymodel", action="store_true",
-                        help="Generate sky model")
-    output.add_argument("--csv", action="store_true",
-                        help="Generate csv text file for use in programs such as TopCat")
-    output.add_argument("--regions", action="store_true",
-                        help="Generate DS9 region file(s)")
-    output.add_argument("--rmsmap", action="store_true",
-                        help="Generate RMS map")
-    output.add_argument("--sigmap", action="store_true",
-                        help="Generate significance map")
-    output.add_argument("--residuals", action="store_true",
-                        help="Generate residual maps")
-    output.add_argument("--islands", action="store_true",
-                        help="Generate island maps")
-
-    # Finally, positional arguments- the file list:
-    parser.add_argument('files', nargs='+',
-                        help="Image files for processing")
-    return parser
 
 
 def handle_args(args=None):
@@ -197,17 +136,37 @@ def handle_args(args=None):
     Parses command line options & arguments using OptionParser.
     Options & default values for the script are defined herein.
     """
-    parser = get_argparser()
-    options = parser.parse_args()
+    parser = construct_argument_parser()
+    arguments = parser.parse_args()
+    cli_args = vars(arguments)
+
+    # Extract file paths, which are only to be supplied via command line, not config
+    files = cli_args.pop("files")
+
+    # Automatically start the debugger on an unhandled exception if specified
+    debug_on_error = cli_args.pop("pdb")
+    if debug_on_error:
+        def excepthook(type, value, traceback):
+            pdb.post_mortem(traceback)
+
+        sys.excepthook = excepthook
+
+    # Merge the CLI arguments with the config file parameters
+    config_file = cli_args.pop("config_file")
+    conf =  read_and_update_config_file(config_file, cli_args)
+
+    # breakpoint()
+    # FIXME: nocheckin, add back fixed coord parsing
+
 
     # Overwrite 'fixed_coords' with a parsed list of coords
     # collated from both command line and file.
-    options.fixed_coords = parse_monitoringlist_positions(
-        options, str_name="fixed_posns", list_name="fixed_posns_file"
+    fixed_coords = parse_monitoringlist_positions(
+        conf.extraction, str_name="fixed_posns", list_name="fixed_posns_file"
     )
     # Quick & dirty check that the position list looks plausible
-    if options.fixed_coords:
-        mlist = numpy.array(options.fixed_coords)
+    if fixed_coords:
+        mlist = numpy.array(fixed_coords)
         if not (len(mlist.shape) == 2 and mlist.shape[1] == 2):
             parser.error("Positions for forced-fitting must be [RA,dec] pairs")
 
@@ -220,22 +179,22 @@ def handle_args(args=None):
     #
     # 2. Fit to fixed points (--fixed-coords and/or --fixed-list)
 
-    if options.fixed_coords:
-        if options.fdr:
+    if fixed_coords:
+        if conf.extraction.fdr:
             parser.error("--fdr not supported with fixed positions")
-        elif options.detection_image:
+        elif conf.extraction.detection_image:
             parser.error("--detection-image not supported with fixed positions")
-        options.mode = "fixed"  # mode 2 above
-    elif options.fdr:
-        if options.detection_image:
+        mode = "fixed"  # mode 2 above
+    elif conf.extraction.fdr:
+        if conf.extraction.detection_image:
             parser.error("--detection-image not supported with --fdr")
-        options.mode = "fdr"  # mode 1.3 above
-    elif options.detection_image:
-        options.mode = "detimage"  # mode 1.2 above
+        mode = "fdr"  # mode 1.3 above
+    elif conf.extraction.detection_image:
+        mode = "detimage"  # mode 1.2 above
     else:
-        options.mode = "threshold"  # mode 1.1 above
+        mode = "threshold"  # mode 1.1 above
 
-    return options, options.files
+    return conf, mode, files
 
 
 def writefits(filename, data, header={}):
@@ -258,21 +217,6 @@ def get_detection_labels(filename, det, anl, beam, configuration, plane=0):
     return labels, labelled_data
 
 
-def get_sourcefinder_configuration(options):
-    configuration = {
-        "back_size_x": options.grid,
-        "back_size_y": options.grid,
-        "margin": options.margin,
-        "radius": options.radius,
-    }
-    if options.islands:
-        configuration['islands'] = True
-    if options.residuals:
-        configuration['residuals'] = True
-
-    return ImgConf(**configuration)
-
-
 def get_beam(bmaj, bmin, bpa):
     if (
                     isinstance(bmaj, numbers.Real)
@@ -291,7 +235,7 @@ def bailout(reason):
     sys.exit(1)
 
 
-def run_sourcefinder(files, options):
+def run_sourcefinder(files, conf, mode):
     """
     Iterate over the list of files, running a sourcefinding step on each in
     turn. If specified, a DS9-compatible region file and/or a FITS file
@@ -300,12 +244,12 @@ def run_sourcefinder(files, options):
     """
     output = StringIO()
 
-    beam = get_beam(options.bmaj, options.bmin, options.bpa)
-    configuration = get_sourcefinder_configuration(options)
+    beam = get_beam(conf.extraction.bmaj, conf.extraction.bmin, conf.extraction.bpa)
+    configuration = conf.image
 
-    if options.mode == "detimage":
+    if mode == "detimage":
         labels, labelled_data = get_detection_labels(
-            options.detection_image, options.detection, options.analysis, beam,
+            conf.extraction.detection_image, conf.extraction.detection, conf.extraction.analysis, beam,
             configuration
         )
     else:
@@ -318,35 +262,36 @@ def run_sourcefinder(files, options):
         ff = open_accessor(filename, beam=beam, plane=0)
         imagedata = sourcefinder_image_from_accessor(ff, conf=configuration)
 
-        if options.mode == "fixed":
-            sr = imagedata.fit_fixed_positions(options.fixed_coords,
-                                               options.ffbox * max(
+        if mode == "fixed":
+            # FIXME: conf.extraction.fixed_coords does not exist
+            sr = imagedata.fit_fixed_positions(conf.extraction.fixed_coords,
+                                               conf.extraction.ffbox * max(
                                                    imagedata.beam[0:2])
                                                )
 
         else:
-            if options.mode == "fdr":
+            if mode == "fdr":
                 print(u"Using False Detection Rate algorithm with alpha = %f" % (
-                    options.alpha,))
+                    conf.extraction.alpha,))
                 sr = imagedata.fd_extract(
-                    alpha=options.alpha,
-                    deblend_nthresh=options.deblend_thresholds,
-                    force_beam=options.force_beam
+                    alpha=conf.extraction.alpha,
+                    deblend_nthresh=conf.extraction.deblend_thresholds,
+                    force_beam=conf.extraction.force_beam
                 )
             else:
                 if labelled_data is None:
                     print(
                         u"Thresholding with det = %f sigma, analysis = %f sigma" % (
-                         options.detection, options.analysis))
+                         conf.extraction.detection, conf.extraction.analysis))
 
                 sr = imagedata.extract(
-                    det=options.detection, anl=options.analysis,
+                    det=conf.extraction.detection, anl=conf.extraction.analysis,
                     labelled_data=labelled_data, labels=labels,
-                    deblend_nthresh=options.deblend_thresholds,
-                    force_beam=options.force_beam
+                    deblend_nthresh=conf.extraction.deblend_thresholds,
+                    force_beam=conf.extraction.force_beam
                 )
 
-        if options.regions:
+        if conf.export.regions:
             regionfile = imagename + ".reg"
             regionfile = open(regionfile, 'w')
             regionfile.write(regions(sr))
@@ -358,27 +303,27 @@ def run_sourcefinder(files, options):
         # threshold, i.e. well into the background noise. Some users may want to
         # accept the extra compute time to be able to compare the residuals with
         # the background noise.
-        # if options.residuals or options.islands:
+        # if conf.extraction.residuals or conf.extraction.islands:
         #     gaussian_map, residual_map = generate_result_maps(imagedata.data,
         #                                                       sr)
-        if options.residuals:
+        if conf.image.residuals:
             residualfile = imagename + ".residuals.fits"
             writefits(residualfile, imagedata.Gaussian_residuals,
                       pyfits.getheader(filename))
-        if options.islands:
+        if conf.image.islands:
             islandfile = imagename + ".islands.fits"
             writefits(islandfile, imagedata.Gaussian_islands,
                       pyfits.getheader(filename))
-        if options.rmsmap:
+        if conf.export.rmsmap:
             rmsfile = imagename + ".rms.fits"
             writefits(rmsfile, numpy.array(imagedata.rmsmap),
                       pyfits.getheader(filename))
-        if options.sigmap:
+        if conf.export.sigmap:
             sigfile = imagename + ".sig.fits"
             writefits(sigfile,
                       numpy.array(imagedata.data_bgsubbed / imagedata.rmsmap),
                       pyfits.getheader(filename))
-        if options.skymodel:
+        if conf.export.skymodel:
             with open(imagename + ".skymodel", 'w') as skymodelfile:
                 if ff.freq_eff:
                     skymodelfile.write(skymodel(sr, ff.freq_eff))
@@ -387,7 +332,7 @@ def run_sourcefinder(files, options):
                         u"WARNING: Using default reference frequency for %s" % (
                         skymodelfile.name,))
                     skymodelfile.write(skymodel(sr))
-        if options.csv:
+        if conf.export.csv:
             with open(imagename + ".csv", 'w') as csvfile:
                 csvfile.write(csv(sr))
                 print(summary(filename, sr), end=u' ', file=output)
@@ -396,5 +341,5 @@ def run_sourcefinder(files, options):
 
 if __name__ == "__main__":
     logging.basicConfig()
-    options, files = handle_args()
-    print(run_sourcefinder(files, options), end=u' ')
+    conf, mode, files = handle_args()
+    print(run_sourcefinder(files, conf, mode), end=u' ')
