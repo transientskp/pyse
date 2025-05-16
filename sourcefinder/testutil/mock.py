@@ -24,18 +24,19 @@ def make_wcs(crval=None,
              ):
     """
     Make a WCS object for insertion into a synthetic image.
-
+    
     Args:
-        crval (tuple): Tuple of (RA, Dec) in decimal degrees at the reference
-            position.
-        crpix (tuple): Tuple of (x,y) co-ordinates describing the reference
-            pixel location corresponding to the crval sky-position.
-        cdelt (tuple): Tuple of (cdelt0, cdelt1) in decimal degrees.
-            This is the pixel width in degrees of arc, but not necessarily
-            aligned to RA, Dec unless `crota` is (0,0). If that *is* the case,
-            then typically cdelt0 is negative since the x-axis is in direction
-            of West (decreasing RA).
-
+        crval : tuple, default : None
+            Tuple of (RA, Dec) in decimal degrees at the reference position.
+        crpix : tuple, default : None
+            Tuple of (x, y) coordinates describing the reference pixel location
+            corresponding to the crval sky-position.
+        cdelt : tuple, default : None
+            Tuple of (cdelt0, cdelt1) in decimal degrees. This is the pixel 
+            width in degrees of arc, but not necessarily aligned to RA, 
+            Dec unless `crota` is (0, 0). If that *is* the case, 
+            then typically cdelt0 is negative since the x-axis is in the 
+            direction of West (decreasing RA).
     """
     # For any arguments not set we simply assign an arbitrary valid value:
     if crval is None:
@@ -66,21 +67,27 @@ class SyntheticImage(DataAccessor):
                  taustart_ts=datetime.datetime(2015,1,1)
                  ):
         """
-        Generate a synthetic image for use in tests
+        Generate a synthetic image for use in tests.
 
-        Args:
-            wcs (sourcefinder.utility.coordinates.WCS): WCS for the image.
-            data (array_like): Data for the image. Default is a 512x512 array of
-                zeroes.
-            beam (tuple): Beamsemi-major axis (in pixels), semi-minor axis (pixels)
-                and position angle (radians).
-            freq_eff(float): Effective frequency of the image in Hz.
-                That is, the mean frequency of all the visibility data which
-                comprises this image.
-            freq_bw(float): The frequency bandwidth of this image in Hz.
-            tau_time(float): Total time on sky in seconds.
-            taustart_ts(float): Timestamp of the first integration which
-                constitutes part of this image. MJD in seconds.
+        Parameters
+        ----------
+        wcs : sourcefinder.utility.coordinates.WCS, default: None
+            WCS instance for the image.
+        data : array_like, default: None
+            Data for the image. Default is a 512x512 array of zeroes.
+        beam : tuple, default: (1.5, 1.5, 0)
+            Beam semi-major axis (in pixels), semi-minor axis (in pixels),
+            and position angle (in radians).
+        freq_eff : float, default: 150e6
+            Effective frequency of the image in Hz. This is the mean frequency
+            of all the visibility data which comprises this image.
+        freq_bw : float, default: 2e6
+            The frequency bandwidth of this image in Hz.
+        tau_time : float, default: 1800
+            Total time on sky in seconds.
+        taustart_ts : datetime.datetime, default: datetime.datetime(2015, 1, 1)
+            Timestamp of the first integration which constitutes part of this
+            image.
         """
         self.url = "SyntheticImage"
         self.wcs = wcs
@@ -100,6 +107,16 @@ class SyntheticImage(DataAccessor):
 
 
     def calculate_phase_centre(self):
+        """
+        Calculate the equatorial coordinates of the center of the synthetic
+        image, based on the image dimensions.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the right ascension and declination of the
+            image center in degrees.
+        """
         x, y = self.data.shape
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))
         return centre_ra, centre_decl
