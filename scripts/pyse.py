@@ -33,7 +33,7 @@ from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.config import ImgConf
-from sourcefinder.utility.cli import parse_monitoringlist_positions
+from sourcefinder.utility.monitoring import parse_monitoringlist_positions
 from sourcefinder.utils import generate_result_maps
 
 def regions(sourcelist):
