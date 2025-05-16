@@ -1072,8 +1072,9 @@ class WCS:
         
         Parameters
         ----------
-        pixpos : list
-            A list of two floats containing the pixel position as [x, y].
+        pixpos : list or tuple
+            A list or tuple of two floats containing the pixel position as
+            [x, y].
         
         Returns
         -------
