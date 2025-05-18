@@ -30,17 +30,20 @@ subtable_names = (
 
 class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
     """
-    Use casacore to pull image data out of an Casa table.
+    Use casacore to pull image data out of a CASA table.
 
     This accessor assumes the casatable contains the values described in the
     CASA Image description for LOFAR. 0.03.00.
 
-    Args:
-      - url: location of CASA table
-      - plane: if datacube, what plane to use
-      - beam: (optional) beam parameters in degrees, in the form
-        (bmaj, bmin, bpa). Will attempt to read from header if
-        not supplied.
+    Parameters
+    ----------
+    url : str
+        Location of the CASA table.
+    plane : int, default: 0
+        If the data is a datacube, specifies which plane to use.
+    beam : tuple, default: None
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not
+        supplied, the method will attempt to read these from the header.
     """
 
     def __init__(self, url, plane=0, beam=None):
@@ -56,12 +59,20 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         self.subbandwidth = self.parse_subbandwidth(subtables)
         self.subbands = self.parse_subbands(subtables)
 
-    def open_subtables(self, table):
-        """open all subtables defined in the LOFAR format
-        args:
-            table: a casacore table handler to a LOFAR CASA table
-        returns:
-            a dict containing all LOFAR CASA subtables
+    @staticmethod
+    def open_subtables(table):
+        """
+        Open all subtables defined in the LOFAR format.
+
+        Parameters
+        ----------
+        table : casacore.tables.table
+            A casacore table handler to a LOFAR CASA table.
+
+        Returns
+        -------
+        dict
+            A dictionary containing all LOFAR CASA subtables
         """
         subtables = {}
         for subtable in subtable_names:
