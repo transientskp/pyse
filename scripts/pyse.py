@@ -34,7 +34,7 @@ from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.config import ImgConf
-from sourcefinder.utility.monitoring import parse_monitoringlist_positions, construct_argument_parser, read_and_update_config_file
+from sourcefinder.utility.cli import parse_monitoringlist_positions, construct_argument_parser, read_and_update_config_file
 from sourcefinder.utils import generate_result_maps
 from sourcefinder.config import Conf
 from sourcefinder import image
@@ -338,8 +338,10 @@ def run_sourcefinder(files, conf, mode):
                 print(summary(filename, sr), end=u' ', file=output)
     return output.getvalue()
 
-
-if __name__ == "__main__":
+def main():
     logging.basicConfig()
     conf, mode, files = handle_args()
     print(run_sourcefinder(files, conf, mode), end=u' ')
+
+if __name__ == "__main__":
+    sys.exit(main)
