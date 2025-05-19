@@ -134,17 +134,14 @@ _source_params = [
 
 @dataclass(frozen=True)
 class ImgConf(_Validate):
-    interpolate_order: int = 1
-    # If non-zero, apply a median filter of size median_filter to the
-    # background and RMS grids prior to interpolating.
-    median_filter: int = 0
-    # If median_filter is non-zero, only use the filtered grid when
-    # the (absolute) difference between the raw and filtered grids is
-    # larger than mf_threshold.
-    mf_threshold: int = 0
-    rms_filter: float = 0.001
-    # Min. fraction of island flux in deblended subisland
-    deblend_mincont: float = 0.005
+    """Configuration that should cover all the specifications for processing the image."""
+
+    interpolate_order: int = 1  # Order of interpolation to use (e.g. 1 for linear)
+    median_filter: int = 0      # Size of the median filter to apply to background and RMS grids prior to interpolating. Use 0 to disable.
+    mf_threshold: int = 0       # Threshold used with the median filter if median_filter is non-zero. Sources below this are discarded.
+    rms_filter: float = 0.001   # Minimum RMS value to use as filter for the image noise.
+    deblend_mincont: float = 0.005  # Minimum contrast for deblending islands into separate sources.
+
     # The "structuring element" defines island connectivity as in
     # "4-connectivity" and "8-connectivity". These two are the only reasonable
     # choices, since the structuring element must be centrosymmetric.
@@ -153,46 +150,47 @@ class ImgConf(_Validate):
     structuring_element: list[list[int]] = field(
         default_factory=lambda: _structuring_element
     )
-    # Vectorized processing of source islands is much faster, but excludes Gaussian
-    # fits, therefore slightly less accurate.
-    vectorized: bool = False
-    # Spwan multiple processes when performing gaussian fits. If set to True will
-    # give better performance when fitting. Set to False if it errors due to
-    # a conflict with other processes spawned by the user.
-    allow_multiprocessing: bool = True
-    margin: int = 0
-    radius: float = 0.0
-    back_size_x: int = 32
-    back_size_y: int = 32
-    eps_ra: float = 0.0
-    eps_dec: float = 0.0
-    detection: float = 10.0
-    analysis: float = 3.0
-    fdr: bool = False
-    alpha: float = 1e-2
-    deblend_thresholds: int = 0
-    grid: int = 64
-    bmaj: Optional[float] = None
-    bmin: Optional[float] = None
-    bpa: Optional[float] = None
-    force_beam: bool = False
-    detection_image: Optional[str] = None
-    fixed_posns: Optional[str] = None
-    fixed_posns_file: Optional[str] = None
-    ffbox: float = 3.0
+    vectorized: bool = False               # Use vectorized operations where applicable (faster, but skips Gaussian fitting).
+    allow_multiprocessing: bool = True     # Allow multiprocessing for Gaussian fitting in parallel.
+    margin: int = 0                        # Margin in pixels to ignore around the edge of the image.
+    radius: float = 0.0                    # Radius in pixels around sources to include in analysis.
+    back_size_x: int = 32                  # Background estimation box size (X direction).
+    back_size_y: int = 32                  # Background estimation box size (Y direction).
+    eps_ra: float = 0.0                    # RA matching tolerance in arcseconds.
+    eps_dec: float = 0.0                   # Dec matching tolerance in arcseconds.
+    detection: float = 10.0                # Detection threshold.
+    analysis: float = 3.0                  # Analysis threshold.
+    fdr: bool = False                      # Use False Detection Rate (FDR) algorithm.
+    alpha: float = 1e-2                    # FDR alpha value (significance level).
+    deblend_thresholds: int = 0            # Number of deblending subthresholds; 0 to disable.
+    grid: int = 64                         # Background grid segment size.
+    bmaj: Optional[float] = None           # Set beam: Major axis of beam (degrees).
+    bmin: Optional[float] = None           # Set beam: Minor axis of beam (degrees).
+    bpa: Optional[float] = None            # Set beam: Beam position angle (degrees).
+    force_beam: bool = False               # Force fit axis lengths to beam size.
+    detection_image: Optional[str] = None  # Path to image used for detection (can be different from analysis image).
+    fixed_posns: Optional[str] = None      # JSON list of coordinates to force-fit (disables blind extraction).
+    fixed_posns_file: Optional[str] = None # Path to file with coordinates to force-fit (disables blind extraction).
+    ffbox: float = 3.0                     # Forced fitting box size as a multiple of beam width.
+
 
 
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
-    file_type: str = "csv"
-    skymodel: bool = False
-    csv: bool = False
-    regions: bool = False
-    rmsmap: bool = False
-    sigmap: bool = False
-    residuals: bool = False
-    islands: bool = False
-    source_params: list[str] = field(default_factory=lambda: _source_params)
+    """Configuration for writing out the image data."""
+
+    file_type: str = "csv"                  # Output file type (default: csv).
+    skymodel: bool = False                  # Generate sky model.
+    csv: bool = False                       # Generate CSV text file (e.g., for TopCat).
+    regions: bool = False                   # Generate DS9 region file(s).
+    rmsmap: bool = False                    # Generate RMS map.
+    sigmap: bool = False                    # Generate significance map.
+    residuals: bool = False                 # Generate residual maps.
+    islands: bool = False                   # Generate island maps.
+    source_params: list[str] = field(       # Source parameters to include in the output.
+        default_factory=lambda: _source_params
+    )
+
 
 @dataclass(frozen=True)
 class Conf:
