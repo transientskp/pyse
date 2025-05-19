@@ -9,12 +9,25 @@ vectorized = false
 allow_multiprocessing = true
 margin = 0
 radius = 0.0
-residuals = false
-islands = false
 back_size_x = 32
 back_size_y = 32
 eps_ra = 0.0
 eps_dec = 0.0
+detection = 10.0
+analysis = 3.0
+fdr = false
+alpha = 0.01
+deblend_thresholds = 0
+grid = 64
+bmaj = "None"
+bmin = "None"
+bpa = "None"
+force_beam = false
+detection_image = "None"
+fixed_posns = "None"
+fixed_posns_file = "None"
+ffbox = 3.0
+
 
 [tool.pyse.export]
 skymodel = false
@@ -22,6 +35,8 @@ csv = false
 regions = false
 rmsmap = false
 sigmap = false
+residuals = false
+islands = false
 source_params = [
     "ra",
     "dec",
@@ -38,22 +53,6 @@ source_params = [
     "chisq",
     "reduced_chisq",
 ]
-
-[tool.pyse.extraction]
-detection = 10.0
-analysis = 3.0
-fdr = false
-alpha = 0.01
-deblend_thresholds = 0
-grid = 64
-bmaj = "None"
-bmin = "None"
-bpa = "None"
-force_beam = false
-detection_image = "None"
-fixed_posns = "None"
-fixed_posns_file = "None"
-ffbox = 3.0
 
 
 # if options.fixed_coords:

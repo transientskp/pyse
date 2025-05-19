@@ -162,26 +162,10 @@ class ImgConf(_Validate):
     allow_multiprocessing: bool = True
     margin: int = 0
     radius: float = 0.0
-    residuals: bool = False
-    islands: bool = False
     back_size_x: int = 32
     back_size_y: int = 32
     eps_ra: float = 0.0
     eps_dec: float = 0.0
-
-
-@dataclass(frozen=True)
-class ExportSettings(_Validate):
-    file_type: str = "csv"
-    skymodel: bool = False
-    csv: bool = False
-    regions: bool = False
-    rmsmap: bool = False
-    sigmap: bool = False
-    source_params: list[str] = field(default_factory=lambda: _source_params)
-
-@dataclass(frozen=True)
-class ExtractionSettings(_Validate):
     detection: float = 10.0
     analysis: float = 3.0
     fdr: bool = False
@@ -197,11 +181,23 @@ class ExtractionSettings(_Validate):
     fixed_posns_file: Optional[str] = None
     ffbox: float = 3.0
 
+
+@dataclass(frozen=True)
+class ExportSettings(_Validate):
+    file_type: str = "csv"
+    skymodel: bool = False
+    csv: bool = False
+    regions: bool = False
+    rmsmap: bool = False
+    sigmap: bool = False
+    residuals: bool = False
+    islands: bool = False
+    source_params: list[str] = field(default_factory=lambda: _source_params)
+
 @dataclass(frozen=True)
 class Conf:
     image: ImgConf
     export: ExportSettings
-    extraction: ExtractionSettings
 
     def __post_init__(self):  # noqa: D105
         for key, field_t in get_type_hints(self).items():

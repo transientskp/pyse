@@ -2,6 +2,8 @@ import json
 import logging
 import ast
 import argparse
+import sys
+import pdb
 from pathlib import Path
 
 from sourcefinder.config import _read_conf_as_dict, Conf
@@ -158,18 +160,6 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
-        "--residuals",
-        action="store_true",
-        help="Generate residual maps"
-    )
-
-    image_group.add_argument(
-        "--islands",
-        action="store_true",
-        help="Generate island maps"
-    )
-
-    image_group.add_argument(
         "--back_size_x",
         type=int,
         help="Size of the background estimation box in the X direction."
@@ -192,41 +182,38 @@ def construct_argument_parser():
         type=float,
         help="Dec matching tolerance in arcseconds."
     )
-
-    # Arguments relating to source extraction:
-    extraction = parser.add_argument_group("Extraction")
-    extraction.add_argument("--detection", default=10, type=float,
+    image_group.add_argument("--detection", default=10, type=float,
                             help="Detection threshold")
-    extraction.add_argument("--analysis", default=3, type=float,
+    image_group.add_argument("--analysis", default=3, type=float,
                             help="Analysis threshold")
-    extraction.add_argument("--fdr", action="store_true",
+    image_group.add_argument("--fdr", action="store_true",
                             help="Use False Detection Rate algorithm")
-    extraction.add_argument("--alpha", default=1e-2, type=float,
+    image_group.add_argument("--alpha", default=1e-2, type=float,
                             help="FDR Alpha")
-    extraction.add_argument("--deblend-thresholds", default=0, type=int,
+    image_group.add_argument("--deblend-thresholds", default=0, type=int,
                             help="Number of deblending subthresholds; 0 to disable")
-    extraction.add_argument("--grid", default=64, type=int,
+    image_group.add_argument("--grid", default=64, type=int,
                             help="Background grid segment size")
-    extraction.add_argument("--bmaj", type=float,
+    image_group.add_argument("--bmaj", type=float,
                             help="Set beam: Major axis of beam (deg)")
-    extraction.add_argument("--bmin", type=float,
+    image_group.add_argument("--bmin", type=float,
                             help="Set beam: Minor axis of beam (deg)")
-    extraction.add_argument("--bpa", type=float,
+    image_group.add_argument("--bpa", type=float,
                             help="Set beam: Beam position angle (deg)")
-    extraction.add_argument("--force-beam", action="store_true",
+    image_group.add_argument("--force-beam", action="store_true",
                             help="Force fit axis lengths to beam size")
-    extraction.add_argument("--detection-image", type=str,
+    image_group.add_argument("--detection-image", type=str,
                             help="Find islands on different image")
-    extraction.add_argument('--fixed-posns',
+    image_group.add_argument('--fixed-posns',
                             help="List of position coordinates to "
                                  "force-fit (decimal degrees, JSON, e.g [[123.4,56.7],[359.9,89.9]]) "
                                  "(Will not perform blind extraction in this mode)",
                             default=None)
-    extraction.add_argument('--fixed-posns-file',
+    image_group.add_argument('--fixed-posns-file',
                             help="Path to file containing a list of positions to force-fit "
                                  "(Will not perform blind extraction in this mode)",
                             default=None)
-    extraction.add_argument('--ffbox', type=float, default=3.,
+    image_group.add_argument('--ffbox', type=float, default=3.,
                             help="Forced fitting positional box size as a multiple of beam width.")
 
 
@@ -242,6 +229,10 @@ def construct_argument_parser():
                         help="Generate RMS map")
     export_group.add_argument("--sigmap", action="store_true",
                         help="Generate significance map")
+    export_group.add_argument("--residuals", action="store_true",
+                        help="Generate residual maps")
+    export_group.add_argument("--islands", action="store_true",
+                        help="Generate island maps")
 
     # Finally, positional arguments- the file list:
     parser.add_argument('files', nargs='+',
@@ -255,5 +246,16 @@ def parse_arguments():
     config_file = Path(cli_args.pop("config_file"))
     if not config_file.exists() or not config_file.is_file():
         raise ValueError(f"Config file {config_file} does not exist or is not a file. Specify config file location using the --config_file arguement.")
+
+    pdb_on_crash = cli_args.pop("pdb")
+    breakpoint()
+    if pdb_on_crash:
+        # Automatically start the debugger on an unhandled exception
+        def excepthook(type, value, traceback):
+            pdb.post_mortem(traceback)
+
+        sys.excepthook = excepthook
+
+
     conf =  read_and_update_config_file(config_file, cli_args)
     return conf

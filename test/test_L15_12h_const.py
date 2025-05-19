@@ -6,7 +6,7 @@ import gc
 import os
 import unittest
 
-from sourcefinder.config import ImgConf
+from sourcefinder.config import Conf, ImgConf
 
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
@@ -114,7 +114,7 @@ class L15_12hConstMod(unittest.TestCase):
                                                                     0.1597,
                                                                     -23.87))
         self.image = image.ImageData(
-            fitsfile.data, fitsfile.beam, fitsfile.wcs, ImgConf(radius=100)
+            fitsfile.data, fitsfile.beam, fitsfile.wcs, Conf(ImgConf(radius=100), {})
         )
         self.results = self.image.extract(det=5, anl=3.0)
 

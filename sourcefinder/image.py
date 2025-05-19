@@ -12,7 +12,7 @@ from numba import guvectorize, float32, int32
 from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
-from sourcefinder.config import ImgConf
+from sourcefinder.config import Conf
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
 import psutil
@@ -34,7 +34,7 @@ class ImageData(object):
     facilities for source extraction and measurement, etc.
     """
 
-    def __init__(self, data, beam, wcs, conf: ImgConf = ImgConf()):
+    def __init__(self, data, beam, wcs, conf: Conf = Conf(image={}, export={})):
         """
         Initializes an ImageData object.
 
@@ -90,7 +90,7 @@ class ImageData(object):
         self._conf = conf
 
     @property
-    def conf(self) -> ImgConf:
+    def conf(self) -> Conf:
         return self._conf
 
     ###########################################################################
@@ -141,12 +141,12 @@ class ImageData(object):
         # * Any data outside a given radius from the centre of the image;
         # * Data which is "obviously" bad (equal to 0 or NaN).
         mask = np.zeros((self.xdim, self.ydim))
-        if self.conf.margin:
+        if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
-            margin_mask[self.conf.margin:-self.conf.margin, self.conf.margin:-self.conf.margin] = 0
+            margin_mask[self.conf.image.margin:-self.conf.image.margin, self.conf.image.margin:-self.conf.image.margin] = 0
             mask = np.logical_or(mask, margin_mask)
-        if self.conf.radius:
-            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.conf.radius)
+        if self.conf.image.radius:
+            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.conf.image.radius)
             mask = np.logical_or(mask, radius_mask)
         mask = np.logical_or(mask, np.isnan(self.rawdata))
         return np.ma.array(self.rawdata, mask=mask)
@@ -229,8 +229,8 @@ class ImageData(object):
         # respectively. If not, we need to select a frame within useful_chunk
         # that does have the appropriate dimensions. At the same time, it should
         # be as large as possible and centered within useful_chunk.
-        rem_row = np.mod(x_dim, self.conf.back_size_x)
-        rem_col = np.mod(y_dim, self.conf.back_size_y)
+        rem_row = np.mod(x_dim, self.conf.image.back_size_x)
+        rem_col = np.mod(y_dim, self.conf.image.back_size_y)
         start_offset_row, rem_rem_row = divmod(rem_row, 2)
         start_offset_col, rem_rem_col = divmod(rem_col, 2)
         end_offset_row = start_offset_row + rem_rem_row
@@ -245,8 +245,8 @@ class ImageData(object):
 
         # Before proceeding, check that our data has the size of at least
         # one subimage, for both dimensions.
-        if (centred_inds[1] - centred_inds[0] > self.conf.back_size_x and
-            centred_inds[3] - centred_inds[2] > self.conf.back_size_y):
+        if (centred_inds[1] - centred_inds[0] > self.conf.image.back_size_x and
+            centred_inds[3] - centred_inds[2] > self.conf.image.back_size_y):
 
             subimages, number_of_elements_for_each_subimage = \
                 utils.make_subimages(self.data.data[centred_inds[0]:
@@ -257,7 +257,7 @@ class ImageData(object):
                                                     centred_inds[1],
                                                     centred_inds[2]:
                                                     centred_inds[3]],
-                                     self.conf.back_size_x, self.conf.back_size_y)
+                                     self.conf.image.back_size_x, self.conf.image.back_size_y)
 
             mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
                                  dtype=np.float32)
@@ -326,16 +326,16 @@ class ImageData(object):
 
         my_xdim, my_ydim = inds[1] - inds[0], inds[3] - inds[2]
 
-        if self.conf.median_filter:
-            f_grid = ndimage.median_filter(grid, self.conf.median_filter)
-            if self.conf.mf_threshold:
+        if self.conf.image.median_filter:
+            f_grid = ndimage.median_filter(grid, self.conf.image.median_filter)
+            if self.conf.image.mf_threshold:
                 grid = np.where(
-                    np.fabs(f_grid - grid) > self.conf.mf_threshold, f_grid, grid
+                    np.fabs(f_grid - grid) > self.conf.image.mf_threshold, f_grid, grid
                 )
             else:
                 grid = f_grid
 
-        if self.conf.interpolate_order == 1:
+        if self.conf.image.interpolate_order == 1:
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
                 utils.two_step_interp(grid, my_xdim, my_ydim)
         else:
@@ -348,7 +348,7 @@ class ImageData(object):
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
                                         mode='nearest',
-                                        order=self.conf.interpolate_order))
+                                        order=self.conf.image.interpolate_order))
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -889,10 +889,10 @@ class ImageData(object):
         # which contain no usable data; for example, the parts of the image
         # falling outside the circular region produced by awimager.
 
-        if self.conf.rms_filter:
+        if self.conf.image.rms_filter:
             clipped_data = np.ma.where(
                 (self.data_bgsubbed > analysisthresholdmap) &
-                (self.rmsmap >= (self.conf.rms_filter * self.grids["rms"].mean())), 1, 0
+                (self.rmsmap >= (self.conf.image.rms_filter * self.grids["rms"].mean())), 1, 0
             ).filled(fill_value=0)
         else:
             clipped_data = np.ma.where(
@@ -900,7 +900,7 @@ class ImageData(object):
             ).filled(fill_value=0)
 
         labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  self.conf.structuring_element)
+                                                  self.conf.image.structuring_element)
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
@@ -1113,7 +1113,7 @@ class ImageData(object):
 
         results = containers.ExtractionResults()
 
-        if deblend_nthresh or force_beam or not self.conf.vectorized:
+        if deblend_nthresh or force_beam or not self.conf.image.vectorized:
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -1137,16 +1137,16 @@ class ImageData(object):
                         detectionthresholdmap[chunk],
                         self.beam,
                         deblend_nthresh,
-                        self.conf.deblend_mincont,
-                        self.conf.structuring_element
+                        self.conf.image.deblend_mincont,
+                        self.conf.image.structuring_element
                     )
                 )
 
-            if self.conf.islands:
+            if self.conf.export.islands:
                 self.Gaussian_islands = np.zeros(self.data.shape)
             # If required, we can save the 'leftovers' from the deblending and
             # fitting processes for later analysis. This needs setting up here:
-            if self.conf.residuals:
+            if self.conf.export.residuals:
                 self.Gaussian_residuals = np.zeros(self.data.shape)
                 self.residuals_from_deblending = np.zeros(self.data.shape)
                 for island in island_list:
@@ -1176,7 +1176,7 @@ class ImageData(object):
                 fixed
             )
 
-            if self.conf.allow_multiprocessing:
+            if self.conf.image.allow_multiprocessing:
                 with Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
@@ -1191,8 +1191,8 @@ class ImageData(object):
                 try:
                     det = extract.Detection(measurement, self,
                                             chunk=island.chunk,
-                                            eps_ra=self.conf.eps_ra,
-                                            eps_dec=self.conf.eps_dec)
+                                            eps_ra=self.conf.image.eps_ra,
+                                            eps_dec=self.conf.image.eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
                         logger.warning('Bad fit from blind extraction at pixel coords:'
@@ -1203,10 +1203,10 @@ class ImageData(object):
                 except RuntimeError as e:
                     logger.error("Island not processed; unphysical?")
 
-                if self.conf.islands:
+                if self.conf.export.islands:
                     self.Gaussian_islands[island.chunk] += Gauss_island
 
-                if self.conf.residuals:
+                if self.conf.export.residuals:
                     self.residuals_from_deblending[island.chunk] -= (
                         island.data.filled(fill_value=0.))
                     self.Gaussian_residuals[island.chunk] += Gauss_residual
@@ -1223,12 +1223,12 @@ class ImageData(object):
                     self.rmsmap.data, analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
                     self.beam, self.beamsize, self.correlation_lengths,
-                    self.conf.eps_ra, self.conf.eps_dec)
+                    self.conf.image.eps_ra, self.conf.image.eps_dec)
 
-            if self.conf.islands:
+            if self.conf.image.islands:
                 self.Gaussian_islands = Gaussian_islands
 
-            if self.conf.residuals:
+            if self.conf.image.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
             for count, label in enumerate(labels):

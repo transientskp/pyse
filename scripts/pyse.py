@@ -162,7 +162,7 @@ def handle_args(args=None):
     # Overwrite 'fixed_coords' with a parsed list of coords
     # collated from both command line and file.
     fixed_coords = parse_monitoringlist_positions(
-        conf.extraction, str_name="fixed_posns", list_name="fixed_posns_file"
+        conf.image, str_name="fixed_posns", list_name="fixed_posns_file"
     )
     # Quick & dirty check that the position list looks plausible
     if fixed_coords:
@@ -180,16 +180,16 @@ def handle_args(args=None):
     # 2. Fit to fixed points (--fixed-coords and/or --fixed-list)
 
     if fixed_coords:
-        if conf.extraction.fdr:
+        if conf.image.fdr:
             parser.error("--fdr not supported with fixed positions")
-        elif conf.extraction.detection_image:
+        elif conf.image.detection_image:
             parser.error("--detection-image not supported with fixed positions")
         mode = "fixed"  # mode 2 above
-    elif conf.extraction.fdr:
-        if conf.extraction.detection_image:
+    elif conf.image.fdr:
+        if conf.image.detection_image:
             parser.error("--detection-image not supported with --fdr")
         mode = "fdr"  # mode 1.3 above
-    elif conf.extraction.detection_image:
+    elif conf.image.detection_image:
         mode = "detimage"  # mode 1.2 above
     else:
         mode = "threshold"  # mode 1.1 above
@@ -244,13 +244,12 @@ def run_sourcefinder(files, conf, mode):
     """
     output = StringIO()
 
-    beam = get_beam(conf.extraction.bmaj, conf.extraction.bmin, conf.extraction.bpa)
-    configuration = conf.image
+    beam = get_beam(conf.image.bmaj, conf.image.bmin, conf.image.bpa)
 
     if mode == "detimage":
         labels, labelled_data = get_detection_labels(
-            conf.extraction.detection_image, conf.extraction.detection, conf.extraction.analysis, beam,
-            configuration
+            conf.image.detection_image, conf.image.detection, conf.image.analysis, beam,
+            conf
         )
     else:
         labels, labelled_data = [], None
@@ -260,35 +259,35 @@ def run_sourcefinder(files, conf, mode):
             filename, counter + 1, len(files)))
         imagename = os.path.splitext(os.path.basename(filename))[0]
         ff = open_accessor(filename, beam=beam, plane=0)
-        imagedata = sourcefinder_image_from_accessor(ff, conf=configuration)
+        imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
 
         if mode == "fixed":
-            # FIXME: conf.extraction.fixed_coords does not exist
-            sr = imagedata.fit_fixed_positions(conf.extraction.fixed_coords,
-                                               conf.extraction.ffbox * max(
+            # FIXME: conf.image.fixed_coords does not exist
+            sr = imagedata.fit_fixed_positions(conf.image.fixed_coords,
+                                               conf.image.ffbox * max(
                                                    imagedata.beam[0:2])
                                                )
 
         else:
             if mode == "fdr":
                 print(u"Using False Detection Rate algorithm with alpha = %f" % (
-                    conf.extraction.alpha,))
+                    conf.image.alpha,))
                 sr = imagedata.fd_extract(
-                    alpha=conf.extraction.alpha,
-                    deblend_nthresh=conf.extraction.deblend_thresholds,
-                    force_beam=conf.extraction.force_beam
+                    alpha=conf.image.alpha,
+                    deblend_nthresh=conf.image.deblend_thresholds,
+                    force_beam=conf.image.force_beam
                 )
             else:
                 if labelled_data is None:
                     print(
                         u"Thresholding with det = %f sigma, analysis = %f sigma" % (
-                         conf.extraction.detection, conf.extraction.analysis))
+                         conf.image.detection, conf.image.analysis))
 
                 sr = imagedata.extract(
-                    det=conf.extraction.detection, anl=conf.extraction.analysis,
+                    det=conf.image.detection, anl=conf.image.analysis,
                     labelled_data=labelled_data, labels=labels,
-                    deblend_nthresh=conf.extraction.deblend_thresholds,
-                    force_beam=conf.extraction.force_beam
+                    deblend_nthresh=conf.image.deblend_thresholds,
+                    force_beam=conf.image.force_beam
                 )
 
         if conf.export.regions:
@@ -303,14 +302,14 @@ def run_sourcefinder(files, conf, mode):
         # threshold, i.e. well into the background noise. Some users may want to
         # accept the extra compute time to be able to compare the residuals with
         # the background noise.
-        # if conf.extraction.residuals or conf.extraction.islands:
+        # if conf.image.residuals or conf.image.islands:
         #     gaussian_map, residual_map = generate_result_maps(imagedata.data,
         #                                                       sr)
-        if conf.image.residuals:
+        if conf.export.residuals:
             residualfile = imagename + ".residuals.fits"
             writefits(residualfile, imagedata.Gaussian_residuals,
                       pyfits.getheader(filename))
-        if conf.image.islands:
+        if conf.export.islands:
             islandfile = imagename + ".islands.fits"
             writefits(islandfile, imagedata.Gaussian_islands,
                       pyfits.getheader(filename))

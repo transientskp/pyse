@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
-from sourcefinder.config import ImgConf
+from sourcefinder.config import Conf, ImgConf
 from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
@@ -57,7 +57,7 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=ImgConf(margin=10)
+            FitsImage(GRB120422A), conf=Conf(ImgConf(margin=10), {})
         )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
@@ -100,7 +100,7 @@ class TestFitFixedPositions(unittest.TestCase):
                     DATAPATH, ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits")
                 )
             ),
-            conf=ImgConf(back_size_x=64, back_size_y=64),
+            conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
         )
 
     def testSourceAtGivenPosition(self):
@@ -450,7 +450,7 @@ class TestMaskedBackground(unittest.TestCase):
         """
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=ImgConf(radius=1.0),
+            conf=Conf(ImgConf(radius=1.0), {}),
         )
         result = self.image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
@@ -459,7 +459,7 @@ class TestMaskedBackground(unittest.TestCase):
     def testMaskedBackgroundBlind(self):
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=ImgConf(radius=1.0),
+            conf=Conf(ImgConf(radius=1.0), {}),
         )
         result = self.image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
@@ -517,7 +517,7 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            ImgConf(back_size_x=128, back_size_y=51),
+            Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
         )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
@@ -599,7 +599,7 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
-            ImgConf(back_size_x=128, back_size_y=128, radius=1000),
+            Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
         )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
@@ -674,5 +674,3 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                          "Shapes of rms grids do not match")
 
         self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
-
-
