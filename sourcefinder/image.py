@@ -1267,7 +1267,7 @@ class ImageData(object):
                             det.dec.error == float('inf')):
                         logger.warning(('Bad fit from blind extraction at '
                                         'pixel coords:%f %f - measurement '
-                                        'discarded'
+                                        'discarded '
                                         '(increase fitting margin?)'),
                                         det.x, det.y)
                     else:
