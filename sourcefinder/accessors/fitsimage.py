@@ -222,14 +222,24 @@ class FitsImage(DataAccessor):
 
 
     def parse_beam(self):
-        """Read and return the beam properties bmaj, bmin and bpa values from
-        the fits header.
-
-        Returns:
-          - Beam parameters, (semimajor, semiminor, position angle)
-            in (pixels, pixels, radians)
         """
-        # AIPS FITS file; stored in the history section
+        Read and return the beam properties bmaj, bmin and bpa values from
+        the FITS header.
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - bmaj: float
+                The semimajor axis of the beam in pixels.
+            - bmin: float
+                The semiminor axis of the beam in pixels.
+            - bpa: float
+                The position angle of the beam in radians.
+        Notes
+        -----
+        AIPS FITS file: stored in the history section
+        """
         beam_regex = re.compile(r'''
             BMAJ
             \s*=\s*
@@ -255,7 +265,18 @@ class FitsImage(DataAccessor):
 
             def get_history(hdr):
                 """
-                Returns all history cards in FITS header hdr as a list of strings.
+                Retrieve all history cards from a FITS header.
+
+                Parameters
+                ----------
+                hdr : astropy.io.fits.Header
+                    The FITS header object from which to extract history cards.
+
+                Returns
+                -------
+                list of str
+                    A list of strings, where each string represents a history
+                    card from the FITS header.
                 """
                 return hdr['HISTORY']
 
@@ -270,17 +291,26 @@ class FitsImage(DataAccessor):
 
 
     def parse_times(self):
-        """Returns:
-          - taustart_ts: tz naive (implicit UTC) datetime at start of observation.
-          - tau_time: Integration time, in seconds
         """
-        # Attempt to do something sane with timestamps.
+        Attempt to do something sane with timestamps.
+
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - taustart_ts: datetime.datetime
+                Timezone-naive (implicit UTC) datetime representing the start
+                of the observation.
+            - tau_time: float
+                Integration time in seconds.
+        """
         try:
             start = self.parse_start_time()
         except KeyError:
             # If no start time specified, give up:
-            logger.warning("Timestamp not specified in FITS file:"
-                        " using 'now' with dummy (zero-valued) integration time.")
+            logger.warning(("Timestamp not specified in FITS file:"
+                           " using 'now' with dummy (zero-valued) integration "
+                           "time."))
             return datetime.datetime.now(), 0.
 
         try:
@@ -308,8 +338,22 @@ class FitsImage(DataAccessor):
 
     def parse_start_time(self):
         """
-        Returns:
-          - start time of image as an instance of ``datetime.datetime``
+        Parse and return the start time of the observation, that yielded this
+        FITS image, from its header.
+
+        Returns
+        -------
+        datetime.datetime
+            The start time of the observation as an instance of
+            `datetime.datetime`.
+
+        Raises
+        ------
+        KeyError
+            If the timestamp in the FITS file is unreadable.
+        Warning
+            Logged if a non-standard date format is encountered in the FITS
+            file.
         """
         header = self.header
         try:
