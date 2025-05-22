@@ -9,14 +9,25 @@ logger = logging.getLogger(__name__)
 
 class FitsImageBlob(FitsImage):
     """
-    A Fits image Blob. Same as ``sourcefinder.accessors.fitsimage.FitsImage`` but
-    constructed from an in memory fits file, not a fits file on disk.
-    """
+    A FITS image blob. Same as ``sourcefinder.accessors.fitsimage.FitsImage``
+    but constructed from an in-memory FITS file, not a FITS file on disk.
 
+    Parameters
+    ----------
+    hdulist : astropy.io.fits.HDUList
+        The HDU list representing the in-memory FITS file.
+    plane : int, default: None
+        If the data is a datacube, specifies which plane to use.
+    beam : tuple, default: None
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not 
+        supplied, the method will attempt to read these from the header.
+    hdu_index : int, default: 0
+        The index of the HDU to use from the HDU list.
+    """
     def __init__(self, hdulist, plane=None, beam=None, hdu_index=0):
-        # set the URL in case we need it during header parsing for error loggign
+        # Set the URL in case we need it during header parsing for error
+        # logging.
         self.url = "AARTFAAC streaming image"
-        # super(FitsImage, self).__init__()
 
         self.header = self._get_header(hdulist, hdu_index)
         self.wcs = self.parse_coordinates()
@@ -43,11 +54,44 @@ class FitsImageBlob(FitsImage):
             self.telescope = self.header['TELESCOP']
 
     def _get_header(self, *args):
+        """
+        Retrieve the header from the specified HDU.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments where:
+            - args[0] is the HDU list (astropy.io.fits.HDUList).
+            - args[1] is the index of the HDU to use.
+
+        Returns
+        -------
+        astropy.io.fits.Header
+            The header of the specified HDU.
+        """
         hdulist = args[0]
         hdu_index = args[1]
         return hdulist[hdu_index].header
 
     def read_data(self, *args):
+        """
+        Read and process the data from the specified HDU.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments where:
+            - args[0] is the HDU list (astropy.io.fits.HDUList).
+            - args[1] is the index of the HDU to use.
+            - args[2] is the plane index (int) if the data is a datacube.
+
+        Returns
+        -------
+        numpy.ndarray
+            The processed 2D data array. Processing here means remove axes of
+            length 1, select the plane index from the datacube if needed, and
+            transpose.
+        """
         hdulist = args[0]
         hdu_index = args[1]
         plane = args[2]
@@ -57,8 +101,9 @@ class FitsImageBlob(FitsImage):
             data = data[plane].squeeze()
         n_dim = len(data.shape)
         if n_dim != 2:
-            logger.warning(
-                "Loaded datacube with %s dimensions, assuming Stokes I and taking plane 0" % n_dim)
+            logger.warning((
+                "Loaded datacube with %s dimensions, assuming Stokes I and "
+                "taking plane 0" % n_dim))
             data = data[0, :, :]
         data = data.transpose()
         return data
