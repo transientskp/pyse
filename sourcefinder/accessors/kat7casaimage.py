@@ -20,12 +20,15 @@ class Kat7CasaImage(CasaImage):
     Note also that the start time is taken from the CASA coords record, and
     may not be valid if the image is composed of multiple observations.
 
-    Args:
-      - url: location of CASA table
-      - plane: if datacube, what plane to use
-      - beam: (optional) beam parameters in degrees, in the form
-        (bmaj, bmin, bpa). Will attempt to read from header if
-        not supplied.
+    Parameters
+    ----------
+    url : str
+        Location of the CASA table.
+    plane : int, default: 0
+        If the data is a datacube, specifies which plane to use.
+    beam : tuple, default: None
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not
+        supplied, the method will attempt to read these from the header.
     """
 
     def __init__(self, url, plane=0, beam=None):
