@@ -16,10 +16,22 @@ logger = logging.getLogger(__name__)
 class FitsImage(DataAccessor):
     """
     Use PyFITS to pull image data out of a FITS file.
-
+    
     Provide standard attributes, as per :class:`DataAccessor`. In addition, we
     provide a ``telescope`` attribute if the FITS file has a ``TELESCOP``
     header.
+    
+    Parameters
+    ----------
+    url : str
+        The path or URL to the FITS file.
+    plane : int, default: None
+        If the data is a datacube, specifies which plane to use.
+    beam : tuple, default: None
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not 
+        supplied, the method will attempt to read these from the header.
+    hdu_index : int, default: 0
+        The index of the HDU to use from the HDU list.
     """
     def __init__(self, url, plane=None, beam=None, hdu_index=0):
         self.url = url
@@ -43,15 +55,42 @@ class FitsImage(DataAccessor):
             self.telescope = self.header['TELESCOP']
 
     def _get_header(self, hdu_index):
+        """
+        Retrieve the header from the specified HDU in the FITS file.
+
+        Parameters
+        ----------
+        hdu_index : int
+            The index of the Header Data Unit (HDU) to extract the header from.
+
+        Returns
+        -------
+        astropy.io.fits.Header
+            A copy of the header from the specified HDU.
+        """
         with pyfits.open(self.url) as hdulist:
             hdu = hdulist[hdu_index]
         return hdu.header.copy()
 
     def read_data(self, hdu_index, plane):
         """
-        Read and store data from our FITS file.
+        Read data from our FITS file.
 
-        NOTE: PyFITS reads the data into an array indexed as [y][x]. We
+        Parameters
+        ----------
+        hdu_index : int
+            The index of the Header Data Unit (HDU) to extract the data from.
+        plane : int, default: None
+            If the data is a datacube, specifies which plane to use.
+
+        Returns
+        -------
+        numpy.ndarray
+            The processed 2D data array, transposed for intuitive display.
+
+        Notes
+        -----
+        PyFITS reads the data into an array indexed as [y][x]. We
         take the transpose to make this more intuitively reasonable and
         consistent with (eg) ds9 display of the FitsFile. Transpose back
         before viewing the array with RO.DS9, saving to a FITS file,
@@ -71,7 +110,25 @@ class FitsImage(DataAccessor):
         return data
 
     def parse_coordinates(self):
-        """Returns a WCS object"""
+        """
+        Parse header to return a WCS (World Coordinate System) object.
+
+        Returns
+        -------
+        WCS
+            A WCS object containing the coordinate system information
+            extracted from the FITS file header.
+
+        Raises
+        ------
+        TypeError
+            If the coordinate system is not specified in the FITS header.
+
+        Notes
+        -----
+        If units are not specified in the header, degrees are assumed by
+        default.
+        """
         header = self.header
         wcs = WCS()
         try:
@@ -95,8 +152,8 @@ class FitsImage(DataAccessor):
         except KeyError:
             # The "Definition of the Flexible Image Transport System", version
             # 3.0, tells us that "units for celestial coordinate systems defined
-            # in this Standard must be degrees", so we assume that if nothing else
-            # is specifiedj
+            # in this Standard must be degrees", so we assume that if nothing
+            # else is specified.
             msg = "WCS units unknown; using degrees"
             logger.warning(msg)
             wcs.cunit = 'deg', 'deg'
@@ -104,6 +161,18 @@ class FitsImage(DataAccessor):
 
 
     def calculate_phase_centre(self):
+        """
+        Calculate the phase center of the FITS image.
+
+        The phase center is determined by finding the central pixel and
+        converting that position to celestial coordinates.
+
+        Returns
+        -------
+        tuple of float
+            A tuple containing the right ascension and declination
+            of the phase center in degrees.
+        """
         x, y = self.data.shape
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))
         return float(centre_ra), float(centre_decl)
@@ -114,8 +183,12 @@ class FitsImage(DataAccessor):
         Set some 'shortcut' variables for access to the frequency parameters
         in the FITS file header.
 
-        @param hdulist: hdulist to parse
-        @type hdulist: hdulist
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - freq_eff: The effective frequency extracted from the FITS header.
+            - freq_bw: The bandwidth extracted from the FITS header.
         """
         freq_eff = None
         freq_bw = None
@@ -129,10 +202,12 @@ class FitsImage(DataAccessor):
                     logger.warning("bandwidth header missing in image {},"
                                    " setting to 1 MHz".format(self.url))
                     freq_bw = 1e6
-            elif ('CTYPE3' in header) and (header['CTYPE3'] in ('FREQ', 'VOPT')):
+            elif ('CTYPE3' in header) and (header['CTYPE3'] in
+                                           ('FREQ', 'VOPT')):
                 freq_eff = header['CRVAL3']
                 freq_bw = header['CDELT3']
-            elif ('CTYPE4' in header) and (header['CTYPE4'] in ('FREQ', 'VOPT')):
+            elif ('CTYPE4' in header) and (header['CTYPE4'] in
+                                           ('FREQ', 'VOPT')):
                 freq_eff = header['CRVAL4']
                 freq_bw = header['CDELT4']
             else:
