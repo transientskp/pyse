@@ -58,6 +58,7 @@ def read_and_update_config_file(config_file: str | Path, overwrite_data: dict):
     """
     config_data = _read_conf_as_dict(config_file)
     combined_data = dict()
+    visited_arguments = set()
     def overwrite_params_from_nested_dict(to_update: dict, update_with: dict):
         # Recursively copy the fields in 'update_with' and replace the fields
         # if found in 'overwrite_params'.
@@ -67,8 +68,14 @@ def read_and_update_config_file(config_file: str | Path, overwrite_data: dict):
                 overwrite_params_from_nested_dict(to_update[key], value)
             else:
                 to_update[key] = parse_none(overwrite_data.get(key)) or parse_none(value)
+                visited_arguments.add(key)
 
     overwrite_params_from_nested_dict(combined_data, config_data)
+
+    not_visited = set(overwrite_data).difference(visited_arguments)
+    if not_visited:
+        raise ValueError(f"The defaults for the following CLI arguments are missing in the config {not_visited}")
+
     return Conf(**combined_data)
 
 def construct_argument_parser():
@@ -219,6 +226,13 @@ def construct_argument_parser():
 
     # Arguments relating to output:
     export_group = parser.add_argument_group("export")
+    export_group.add_argument(
+        "--output_dir",
+        default=".",
+        help="""
+        The directory in which to store the output files.
+    """,
+    )
     export_group.add_argument("--skymodel", action="store_true",
                         help="Generate sky model")
     export_group.add_argument("--csv", action="store_true",
@@ -248,7 +262,6 @@ def parse_arguments():
         raise ValueError(f"Config file {config_file} does not exist or is not a file. Specify config file location using the --config_file arguement.")
 
     pdb_on_crash = cli_args.pop("pdb")
-    breakpoint()
     if pdb_on_crash:
         # Automatically start the debugger on an unhandled exception
         def excepthook(type, value, traceback):

@@ -30,6 +30,7 @@ ffbox = 3.0
 
 
 [tool.pyse.export]
+output_dir = "."
 skymodel = false
 csv = false
 regions = false

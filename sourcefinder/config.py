@@ -179,6 +179,7 @@ class ImgConf(_Validate):
 class ExportSettings(_Validate):
     """Configuration for writing out the image data."""
 
+    output_dir: str = "."                   # Directory in which to write the output files
     file_type: str = "csv"                  # Output file type (default: csv).
     skymodel: bool = False                  # Generate sky model.
     csv: bool = False                       # Generate CSV text file (e.g., for TopCat).

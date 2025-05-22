@@ -26,6 +26,7 @@ import os.path
 import sys
 import pdb
 from io import StringIO
+from pathlib import Path
 
 import astropy.io.fits as pyfits
 import numpy
@@ -154,10 +155,6 @@ def handle_args(args=None):
     # Merge the CLI arguments with the config file parameters
     config_file = cli_args.pop("config_file")
     conf =  read_and_update_config_file(config_file, cli_args)
-
-    # breakpoint()
-    # FIXME: nocheckin, add back fixed coord parsing
-
 
     # Overwrite 'fixed_coords' with a parsed list of coords
     # collated from both command line and file.
@@ -290,8 +287,11 @@ def run_sourcefinder(files, conf, mode):
                     force_beam=conf.image.force_beam
                 )
 
+        export_dir = Path(conf.export.output_dir)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
         if conf.export.regions:
-            regionfile = imagename + ".reg"
+            regionfile = export_dir / (imagename + ".reg")
             regionfile = open(regionfile, 'w')
             regionfile.write(regions(sr))
             regionfile.close()
@@ -306,24 +306,24 @@ def run_sourcefinder(files, conf, mode):
         #     gaussian_map, residual_map = generate_result_maps(imagedata.data,
         #                                                       sr)
         if conf.export.residuals:
-            residualfile = imagename + ".residuals.fits"
+            residualfile = export_dir / (imagename + ".residuals.fits")
             writefits(residualfile, imagedata.Gaussian_residuals,
                       pyfits.getheader(filename))
         if conf.export.islands:
-            islandfile = imagename + ".islands.fits"
+            islandfile = export_dir / (imagename + ".islands.fits")
             writefits(islandfile, imagedata.Gaussian_islands,
                       pyfits.getheader(filename))
         if conf.export.rmsmap:
-            rmsfile = imagename + ".rms.fits"
+            rmsfile = export_dir / (imagename + ".rms.fits")
             writefits(rmsfile, numpy.array(imagedata.rmsmap),
                       pyfits.getheader(filename))
         if conf.export.sigmap:
-            sigfile = imagename + ".sig.fits"
+            sigfile = export_dir / (imagename + ".sig.fits")
             writefits(sigfile,
                       numpy.array(imagedata.data_bgsubbed / imagedata.rmsmap),
                       pyfits.getheader(filename))
         if conf.export.skymodel:
-            with open(imagename + ".skymodel", 'w') as skymodelfile:
+            with open(export_dir / (imagename + ".skymodel"), 'w') as skymodelfile:
                 if ff.freq_eff:
                     skymodelfile.write(skymodel(sr, ff.freq_eff))
                 else:
@@ -332,9 +332,10 @@ def run_sourcefinder(files, conf, mode):
                         skymodelfile.name,))
                     skymodelfile.write(skymodel(sr))
         if conf.export.csv:
-            with open(imagename + ".csv", 'w') as csvfile:
+            with open(export_dir / (imagename + ".csv"), 'w') as csvfile:
                 csvfile.write(csv(sr))
                 print(summary(filename, sr), end=u' ', file=output)
+
     return output.getvalue()
 
 def main():
