@@ -189,17 +189,17 @@ def construct_argument_parser():
         type=float,
         help="Dec matching tolerance in arcseconds."
     )
-    image_group.add_argument("--detection", default=10, type=float,
+    image_group.add_argument("--detection", type=float,
                             help="Detection threshold")
-    image_group.add_argument("--analysis", default=3, type=float,
+    image_group.add_argument("--analysis", type=float,
                             help="Analysis threshold")
     image_group.add_argument("--fdr", action="store_true",
                             help="Use False Detection Rate algorithm")
-    image_group.add_argument("--alpha", default=1e-2, type=float,
+    image_group.add_argument("--alpha", type=float,
                             help="FDR Alpha")
-    image_group.add_argument("--deblend-thresholds", default=0, type=int,
+    image_group.add_argument("--deblend-thresholds", type=int,
                             help="Number of deblending subthresholds; 0 to disable")
-    image_group.add_argument("--grid", default=64, type=int,
+    image_group.add_argument("--grid", type=int,
                             help="Background grid segment size")
     image_group.add_argument("--bmaj", type=float,
                             help="Set beam: Major axis of beam (deg)")
@@ -215,12 +215,12 @@ def construct_argument_parser():
                             help="List of position coordinates to "
                                  "force-fit (decimal degrees, JSON, e.g [[123.4,56.7],[359.9,89.9]]) "
                                  "(Will not perform blind extraction in this mode)",
-                            default=None)
+                            )
     image_group.add_argument('--fixed-posns-file',
                             help="Path to file containing a list of positions to force-fit "
                                  "(Will not perform blind extraction in this mode)",
-                            default=None)
-    image_group.add_argument('--ffbox', type=float, default=3.,
+                            )
+    image_group.add_argument('--ffbox', type=float,
                             help="Forced fitting positional box size as a multiple of beam width.")
 
 
@@ -228,7 +228,6 @@ def construct_argument_parser():
     export_group = parser.add_argument_group("export")
     export_group.add_argument(
         "--output_dir",
-        default=".",
         help="""
         The directory in which to store the output files.
     """,
