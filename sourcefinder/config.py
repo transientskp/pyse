@@ -177,7 +177,7 @@ class ImgConf(_Validate):
 
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
-    """Configuration for writing out the image data."""
+    """Selection of output, related to detected sources and/or intermediate image processing products"""
 
     output_dir: str = "."                   # Directory in which to write the output files
     file_type: str = "csv"                  # Output file type (default: csv).
