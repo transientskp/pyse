@@ -15,18 +15,22 @@ class AmiCasaImage(CasaImage):
     """
     Use casacore to pull image data out of a CASA table as produced by AMI-LA.
 
-    Note that AMI-LA does not currently include image duration in its headers,
-    so we use a placeholder value of 1.
+    Parameters
+    ----------
+    url : str
+        Location of the CASA table.
+    plane : int, default: 0
+        If the data is a cube, specifies which plane to use.
+    beam : tuple, default: None
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not
+        supplied, an attempt is made to read them from the header.
 
-    Note also that the start time is taken from the CASA coords record, and
-    may not be valid if the image is composed of multiple observations.
-
-    Args:
-      - url: location of CASA table
-      - plane: if datacube, what plane to use
-      - beam: (optional) beam parameters in degrees, in the form
-        (bmaj, bmin, bpa). Will attempt to read from header if
-        not supplied.
+    Notes
+    -----
+    - AMI-LA does not currently include image duration in its headers, so a
+      placeholder value of 1 is used.
+    - The start time is taken from the CASA coords record and may not be valid
+      if the image is composed of multiple observations.
     """
 
     def __init__(self, url, plane=0, beam=None):
