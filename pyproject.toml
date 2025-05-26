@@ -30,7 +30,7 @@ dependencies = [
 Homepage = "http://docs.transientskp.org/"
 
 [project.scripts]
-pyse = "scripts.pyse:main"
+pyse = "sourcefinder.utility.cli:main"
 
 # here so that standalone setuptools_scm also works
 [tool.setuptools_scm]
