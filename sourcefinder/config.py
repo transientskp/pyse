@@ -207,7 +207,7 @@ class Conf:
                 super().__setattr__(key, field_t(**value))
 
 
-def _read_conf_as_dict(path: str | Path):
+def read_conf(path: str | Path):
     data = tomllib.loads(Path(path).read_text())
     conf = data.get("tool", {}).get("pyse", {})
     if not conf:
@@ -218,8 +218,4 @@ def _read_conf_as_dict(path: str | Path):
                 raise KeyError("tool.pyse: section for PySE missing in config file")
             case _:
                 raise KeyError("tool: top-level section missing in config file")
-    return conf
-
-def read_conf(path: str | Path):
-    conf = _read_conf_as_dict(path)
     return Conf(**conf)

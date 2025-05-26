@@ -29,6 +29,8 @@ import pdb
 import sys
 from io import StringIO
 from pathlib import Path
+from collections import OrderedDict
+from dataclasses import replace
 
 import astropy.io.fits as pyfits
 import numpy
@@ -37,7 +39,7 @@ from sourcefinder import image
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
-from sourcefinder.config import Conf, ImgConf, _read_conf_as_dict
+from sourcefinder.config import Conf, ImgConf, read_conf
 from sourcefinder.utils import generate_result_maps
 
 
@@ -73,43 +75,6 @@ def parse_none(value):
         if value.lower() == "none" or value.lower() == "null":
             return None
     return value
-
-def read_and_update_config_file(config_file: str | Path, overwrite_data: dict):
-    """Read the config file and overwrite the parameters with those found on the command line.
-
-    Parameters
-    ----------
-    config_file: :class:`str`
-        The path to the configuration file. Must be a .toml format.
-    params: :class:`dict`
-        The parameters as parsed by argparse from the command line.
-
-    Returns
-    -------
-    :class:`Conf`
-        The PySE configuration based on the config file and CLI arguments
-    """
-    config_data = _read_conf_as_dict(config_file)
-    combined_data = dict()
-    visited_arguments = set()
-    def overwrite_params_from_nested_dict(to_update: dict, update_with: dict):
-        # Recursively copy the fields in 'update_with' and replace the fields
-        # if found in 'overwrite_params'.
-        for key, value in update_with.items():
-            if isinstance(value, dict):
-                to_update[key] = dict()
-                overwrite_params_from_nested_dict(to_update[key], value)
-            else:
-                to_update[key] = parse_none(overwrite_data.get(key)) or parse_none(value)
-                visited_arguments.add(key)
-
-    overwrite_params_from_nested_dict(combined_data, config_data)
-
-    not_visited = set(overwrite_data).difference(visited_arguments)
-    if not_visited:
-        raise ValueError(f"The defaults for the following CLI arguments are missing in the config {not_visited}")
-
-    return Conf(**combined_data)
 
 def construct_argument_parser():
     parser = argparse.ArgumentParser(
@@ -258,7 +223,7 @@ def construct_argument_parser():
 
 
     # Arguments relating to output:
-    export_group = parser.add_argument_group("export")
+    export_group = parser.add_argument_group("Export parameters")
     export_group.add_argument(
         "--output_dir",
         help="""
@@ -284,26 +249,6 @@ def construct_argument_parser():
     parser.add_argument('files', nargs='+',
                         help="Image files for processing")
     return parser
-
-def parse_arguments():
-    parser = construct_argument_parser()
-    arguments = parser.parse_args()
-    cli_args = vars(arguments)
-    config_file = Path(cli_args.pop("config_file"))
-    if not config_file.exists() or not config_file.is_file():
-        raise ValueError(f"Config file {config_file} does not exist or is not a file. Specify config file location using the --config_file arguement.")
-
-    pdb_on_crash = cli_args.pop("pdb")
-    if pdb_on_crash:
-        # Automatically start the debugger on an unhandled exception
-        def excepthook(type, value, traceback):
-            pdb.post_mortem(traceback)
-
-        sys.excepthook = excepthook
-
-
-    conf =  read_and_update_config_file(config_file, cli_args)
-    return conf
 
 def regions(sourcelist):
     """
@@ -393,10 +338,6 @@ def summary(filename, sourcelist):
         print(u"Peak: %s\n" % (str(source.peak)), file=output)
     return output.getvalue()
 
-
-
-
-
 def handle_args(args=None):
     """
     Parses command line options & arguments using OptionParser.
@@ -404,13 +345,13 @@ def handle_args(args=None):
     """
     parser = construct_argument_parser()
     arguments = parser.parse_args()
-    cli_args = vars(arguments)
+    unstructured_args = vars(arguments)
 
     # Extract file paths, which are only to be supplied via command line, not config
-    files = cli_args.pop("files")
+    files = unstructured_args.pop("files")
 
     # Automatically start the debugger on an unhandled exception if specified
-    debug_on_error = cli_args.pop("pdb")
+    debug_on_error = unstructured_args.pop("pdb")
     if debug_on_error:
         def excepthook(type, value, traceback):
             pdb.post_mortem(traceback)
@@ -418,8 +359,24 @@ def handle_args(args=None):
         sys.excepthook = excepthook
 
     # Merge the CLI arguments with the config file parameters
-    config_file = cli_args.pop("config_file")
-    conf =  read_and_update_config_file(config_file, cli_args)
+    config_file = unstructured_args.pop("config_file")
+    conf = read_conf(config_file)
+
+    # Structure the arguments based on their group
+    cli_args = dict()
+    for argument in parser._actions:
+        section_name = argument.container.title
+        if section_name not in cli_args:
+            cli_args[section_name] = dict()
+        arg_name = argument.dest
+        if arg_name in unstructured_args:
+            # Default arguments like '--help' and arguments popped from unstructured args like "--pdb" should be skipped
+            cli_value = unstructured_args[arg_name]
+            if cli_value is not None:
+                # For argparse arguments where no value is provided in the command line we get a None value, ignore these
+                cli_args[section_name][arg_name] = cli_value
+
+    conf = replace(conf, image=cli_args["Image parameters"], export=cli_args["Export parameters"])
 
     # Overwrite 'fixed_coords' with a parsed list of coords
     # collated from both command line and file.
