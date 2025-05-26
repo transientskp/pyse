@@ -19,7 +19,6 @@ from typing import get_type_hints
 from typing import Container
 from typing import Type
 from typing import TypeVar
-from typing import Optional
 from warnings import warn
 
 T = TypeVar("T")
@@ -94,6 +93,9 @@ def validate_types(key: str, value, type_: type):
     It is used to generate a meaningful error message.
 
     """
+    # 'None' in toml is a string, convert that here to a python-native None
+    value = None if (isinstance(value, str) and value.lower() == "none") else value
+
     match get_origin(type_):
         case type() as origin_t if issubclass(origin_t, Container):
             validate_nested(key, value, origin_t, get_args(type_))
@@ -164,13 +166,13 @@ class ImgConf(_Validate):
     alpha: float = 1e-2                    # FDR alpha value (significance level).
     deblend_thresholds: int = 0            # Number of deblending subthresholds; 0 to disable.
     grid: int = 64                         # Background grid segment size.
-    bmaj: Optional[float] = None           # Set beam: Major axis of beam (degrees).
-    bmin: Optional[float] = None           # Set beam: Minor axis of beam (degrees).
-    bpa: Optional[float] = None            # Set beam: Beam position angle (degrees).
+    bmaj: float | None = None           # Set beam: Major axis of beam (degrees).
+    bmin: float | None = None           # Set beam: Minor axis of beam (degrees).
+    bpa: float | None = None            # Set beam: Beam position angle (degrees).
     force_beam: bool = False               # Force fit axis lengths to beam size.
-    detection_image: Optional[str] = None  # Path to image used for detection (can be different from analysis image).
-    fixed_posns: Optional[str] = None      # JSON list of coordinates to force-fit (disables blind extraction).
-    fixed_posns_file: Optional[str] = None # Path to file with coordinates to force-fit (disables blind extraction).
+    detection_image: str | None = None  # Path to image used for detection (can be different from analysis image).
+    fixed_posns: str | None = None      # JSON list of coordinates to force-fit (disables blind extraction).
+    fixed_posns_file: str | None = None # Path to file with coordinates to force-fit (disables blind extraction).
     ffbox: float = 3.0                     # Forced fitting box size as a multiple of beam width.
 
 
