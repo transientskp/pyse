@@ -296,23 +296,14 @@ def skymodel(sourcelist, ref_freq=73800000):
     return output.getvalue()
 
 
-def csv(sourcelist):
+def csv(sourcelist, export_parameters):
     """
     Return a string containing a csv from the extracted sources.
     """
     output = StringIO()
-    print(
-        "ra, ra_err, dec, dec_err, smaj, smaj_err, smin, smin_err, pa, pa_err,"
-        " int_flux, int_flux_err, pk_flux, pk_flux_err, x, y, snr, "
-        "reduced_chisq", file=output)
+    print(", ".join(export_parameters), file=output)
     for source in sourcelist:
-        values = (
-            source.ra, source.ra.error, source.dec, source.dec.error,
-            source.smaj_asec, source.smaj_asec.error, source.smin_asec,
-            source.smin_asec.error, source.theta_celes,
-            source.theta_celes.error, source.flux, source.flux.error,
-            source.peak, source.peak.error, source.x, source.y, source.sig,
-            source.reduced_chisq)
+        values = source.serialize(parameters=export_parameters)
         print(", ".join(f"{float(v):.6f}" for v in values), file=output)
     return output.getvalue()
 
@@ -376,7 +367,11 @@ def handle_args(args=None):
                 # For argparse arguments where no value is provided in the command line we get a None value, ignore these
                 cli_args[section_name][arg_name] = cli_value
 
-    conf = replace(conf, image=cli_args["Image parameters"], export=cli_args["Export parameters"])
+    # Note: Dataclass replace is not recursive for stacked dataclasses.
+    #       Replace one by one to avoid arguments being reset to their defaults.
+    conf_image = replace(conf.image, **cli_args["Image parameters"])
+    conf_export = replace(conf.export, **cli_args["Export parameters"])
+    conf = replace(conf, image=conf_image, export=conf_export)
 
     # Overwrite 'fixed_coords' with a parsed list of coords
     # collated from both command line and file.
@@ -555,7 +550,7 @@ def run_sourcefinder(files, conf, mode):
                     skymodelfile.write(skymodel(sr))
         if conf.export.csv:
             with open(export_dir / (imagename + ".csv"), 'w') as csvfile:
-                csvfile.write(csv(sr))
+                csvfile.write(csv(sr, conf.export.source_params))
                 print(summary(filename, sr), end=u' ', file=output)
 
     return output.getvalue()

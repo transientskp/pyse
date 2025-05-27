@@ -41,8 +41,12 @@ islands = false
 source_params = [
     "ra",
     "dec",
+    "ra_err",
+    "dec_err",
     "peak",
+    "peak_err",
     "flux",
+    "flux_err",
     "sig",
     "smaj_asec",
     "smin_asec",
@@ -54,19 +58,3 @@ source_params = [
     "chisq",
     "reduced_chisq",
 ]
-
-
-# if options.fixed_coords:
-#     if options.fdr:
-#         parser.error("--fdr not supported with fixed positions")
-#     elif options.detection_image:
-#         parser.error("--detection-image not supported with fixed positions")
-#     options.mode = "fixed"  # mode 2 above
-# elif options.fdr:
-#     if options.detection_image:
-#         parser.error("--detection-image not supported with --fdr")
-#     options.mode = "fdr"  # mode 1.3 above
-# elif options.detection_image:
-#     options.mode = "detimage"  # mode 1.2 above
-# else:
-#     options.mode = "threshold"  # mode 1.1 above

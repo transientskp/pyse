@@ -93,9 +93,6 @@ def validate_types(key: str, value, type_: type):
     It is used to generate a meaningful error message.
 
     """
-    # 'None' in toml is a string, convert that here to a python-native None
-    value = None if (isinstance(value, str) and value.lower() == "none") else value
-
     match get_origin(type_):
         case type() as origin_t if issubclass(origin_t, Container):
             validate_nested(key, value, origin_t, get_args(type_))
@@ -119,8 +116,12 @@ _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 _source_params = [
     "ra",
     "dec",
+    "ra_err",
+    "dec_err",
     "peak",
+    "peak_err",
     "flux",
+    "flux_err",
     "sig",
     "smaj_asec",
     "smin_asec",
@@ -208,9 +209,19 @@ class Conf:
                 # dataclasses are frozen
                 super().__setattr__(key, field_t(**value))
 
+def normalize_none_values(val):
+    if isinstance(val, dict):
+        return {k: normalize_none_values(v) for k, v in val.items()}
+    elif isinstance(val, list):
+        return [normalize_none_values(v) for v in val]
+    elif isinstance(val, str) and val.strip().lower() == "none":
+        return None
+    else:
+        return val
 
 def read_conf(path: str | Path):
-    data = tomllib.loads(Path(path).read_text())
+    data_raw = tomllib.loads(Path(path).read_text())
+    data = normalize_none_values(data_raw)
     conf = data.get("tool", {}).get("pyse", {})
     if not conf:
         match data:
