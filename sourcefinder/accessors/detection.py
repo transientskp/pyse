@@ -39,7 +39,22 @@ casa_telescope_keyword_mapping = {
 
 
 def isfits(filename):
-    """returns True if filename is a fits file"""
+    """
+    Check if the given file is a FITS file.
+
+    This function verifies whether the specified file exists, has a `.fits`
+    extension, and can be opened using the `astropy.io.fits` module.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the file to be checked.
+
+    Returns
+    -------
+    bool
+        True if the file is a valid FITS file, False otherwise.
+    """
     if not os.path.isfile(filename):
         return False
     if filename[-4:].lower() != 'fits':
@@ -53,7 +68,23 @@ def isfits(filename):
 
 
 def iscasa(filename):
-    """returns True if filename is a lofar casa directory"""
+    """
+    Determine if the given filename corresponds to a LOFAR CASA directory.
+
+    This function checks if the specified directory exists, contains the
+    expected files for a CASA table and can be opened using the
+    `casacore.tables.table` module.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the directory to be checked.
+
+    Returns
+    -------
+    bool
+        True if the directory is a valid LOFAR CASA directory, False otherwise.
+    """
     if not os.path.isdir(filename):
         return False
     for file_ in casafiles:
@@ -71,7 +102,22 @@ def iscasa(filename):
 
 
 def islofarhdf5(filename):
-    """returns True if filename is a hdf5 container"""
+    """
+    Check if the given file is a LOFAR HDF5 container.
+
+    This function verifies whether the specified file exists, has a `.h5`
+    extension, and can be opened using the `casacore.images.image` module.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the file to be checked.
+
+    Returns
+    -------
+    bool
+        True if the file is a valid LOFAR HDF5 container, False otherwise.
+    """
     if not os.path.isfile(filename):
         return False
     if filename[-2:].lower() != 'h5':
@@ -87,8 +133,20 @@ def fits_detect(filename):
     """
     Detect which telescope produced FITS data, return corresponding accessor.
 
-    Checks for known FITS image types where we expect additional metadata.
-    If the telescope is unknown we default to a regular FitsImage.
+    This function identifies the telescope that produced the FITS data by
+    checking for known FITS image types with expected metadata. If the
+    telescope cannot be determined, it defaults to using a regular FitsImage
+    accessor.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the FITS file to be analyzed.
+
+    Returns
+    -------
+    FitsImage or subclass
+        The accessor class corresponding to the detected telescope.
     """
     with pyfits.open(filename) as hdulist:
         hdr = hdulist[0].header
@@ -102,8 +160,20 @@ def casa_detect(filename):
     """
     Detect which telescope produced CASA data, return corresponding accessor.
 
-    Checks for known CASA table types where we expect additional metadata.
-    If the telescope is unknown we return nothing.
+    This function identifies the telescope that produced the CASA data by
+    checking for known CASA table types with expected metadata. If the
+    telescope cannot be determined, it returns `None`.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the CASA table to be analyzed.
+
+    Returns
+    -------
+    subclass of FitsImage or None
+        The accessor class corresponding to the detected telescope, or `None`
+        if the telescope is unknown.
     """
     table = casacore_table(filename, ack=False)
     telescope = table.getkeyword('coords')['telescope']
@@ -111,7 +181,29 @@ def casa_detect(filename):
 
 
 def detect(filename):
-    """returns the accessor class that should be used to process filename"""
+    """
+    Determine the accessor class to process the given file.
+
+    This function checks the format of the provided file and returns the
+    appropriate accessor class to handle it. It supports FITS files, CASA
+    directories, and LOFAR HDF5 containers. If the format is unsupported,
+    an `OSError` is raised.
+
+    Parameters
+    ----------
+    filename : str
+        The path to the file or directory to be processed.
+
+    Returns
+    -------
+    FitsImage or subclass
+        The accessor class corresponding to the detected file format.
+
+    Raises
+    ------
+    OSError
+        If the file format is unsupported.
+    """
     if isfits(filename):
         return fits_detect(filename)
     elif iscasa(filename):
