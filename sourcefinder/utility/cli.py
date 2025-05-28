@@ -88,7 +88,7 @@ def construct_argument_parser():
 
     general_group = parser.add_argument_group("General")
     general_group.add_argument(
-        "--config_file",
+        "--config-file",
         default="pyse_config.toml",
         help="""
         TOML file containing default input arguments to PySE.
@@ -107,37 +107,37 @@ def construct_argument_parser():
     image_group = parser.add_argument_group("Image parameters")
 
     image_group.add_argument(
-        "--interpolate_order",
+        "--interpolate-order",
         type=int,
         help="Order of interpolation to use (e.g. 1 for linear).",
     )
 
     image_group.add_argument(
-        "--median_filter",
+        "--median-filter",
         type=int,
         help="Size of the median filter to apply to the image. Use 0 to disable.",
     )
 
     image_group.add_argument(
-        "--mf_threshold",
+        "--mf-threshold",
         type=float,
         help="Threshold used with the median filter. Sources below this value are discarded.",
     )
 
     image_group.add_argument(
-        "--rms_filter",
+        "--rms-filter",
         type=float,
         help="Minimum RMS value to use as filter for the image noise.",
     )
 
     image_group.add_argument(
-        "--deblend_mincont",
+        "--deblend-mincont",
         type=float,
         help="Minimum contrast for deblending islands into separate sources (e.g. 0.005).",
     )
 
     image_group.add_argument(
-        "--structuring_element",
+        "--structuring-element",
         type=ast.literal_eval,
         help="""
         Structuring element for morphological operations, provided as a Python-style nested list (e.g. '[[1,1,1],[1,1,1],[1,1,1]]').
@@ -152,7 +152,7 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
-        "--allow_multiprocessing",
+        "--allow-multiprocessing",
         action="store_true",
         help="Allow use of multiprocessing to fit gaussians to islands in parallel.",
     )
@@ -170,23 +170,23 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
-        "--back_size_x",
+        "--back-size-x",
         type=int,
         help="Size of the background estimation box in the X direction.",
     )
 
     image_group.add_argument(
-        "--back_size_y",
+        "--back-size-y",
         type=int,
         help="Size of the background estimation box in the Y direction.",
     )
 
     image_group.add_argument(
-        "--eps_ra", type=float, help="RA matching tolerance in arcseconds."
+        "--eps-ra", type=float, help="RA matching tolerance in arcseconds."
     )
 
     image_group.add_argument(
-        "--eps_dec", type=float, help="Dec matching tolerance in arcseconds."
+        "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
     )
     image_group.add_argument("--detection", type=float, help="Detection threshold")
     image_group.add_argument("--analysis", type=float, help="Analysis threshold")
@@ -231,14 +231,14 @@ def construct_argument_parser():
         type=float,
         help="Forced fitting positional box size as a multiple of beam width.",
     )
-    image_group.add_argument("--ew_sys_err", type=float, help="Systematic error in east-west direction")
-    image_group.add_argument("--ns_sys_err", type=float, help="Systematic error in north-south direction")
+    image_group.add_argument("--ew-sys-err", type=float, help="Systematic error in east-west direction")
+    image_group.add_argument("--ns-sys-err", type=float, help="Systematic error in north-south direction")
 
 
     # Arguments relating to output:
     export_group = parser.add_argument_group("Export parameters")
     export_group.add_argument(
-        "--output_dir",
+        "--output-dir",
         help="""
         The directory in which to store the output files.
     """,
@@ -331,7 +331,7 @@ def csv(sourcelist, conf):
     Return a string containing a csv from the extracted sources.
     """
     output = StringIO()
-    print(", ".join(conf.export.source_parameters), file=output)
+    print(", ".join(conf.export.source_params), file=output)
     for source in sourcelist:
         values = source.serialize(conf=conf)
         print(", ".join(f"{float(v):.6f}" for v in values), file=output)

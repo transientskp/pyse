@@ -4,9 +4,9 @@ from pathlib import Path
 import pytest
 
 def run_pyse(files, extra_args, out_dir):
-    cli_args = ["pyse", *files, "--config_file", "test/data/config.toml"]
+    cli_args = ["pyse", *files, "--config-file", "test/data/config.toml"]
     cli_args.extend(extra_args)
-    cli_args.extend(["--output_dir", str(out_dir)])
+    cli_args.extend(["--output-dir", str(out_dir)])
 
     test = subprocess.Popen(cli_args, stdout=subprocess.PIPE)
     raw_output = test.communicate()[0]
