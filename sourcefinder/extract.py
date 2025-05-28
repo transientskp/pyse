@@ -1198,12 +1198,16 @@ class Detection(object):
                 except KeyError as e:
                     raise KeyError(f"Unknown parameter '{param_name}'") from e
                 except AttributeError as e:
-                    raise KeyError(f"Parameter '{base_name}' has no associated error value") from e
+                    raise KeyError(
+                        f"Parameter '{base_name}' has no associated error value"
+                    ) from e
 
             # Return the normal value
             try:
                 param_val = attr_map[param_name]
-                return param_val.value if hasattr(param_val, "value") else param_val
+                if hasattr(param_val, "value"):
+                    return param_val.value
+                return param_val
             except KeyError as e:
                 raise KeyError(f"Unknown parameter '{param_name}'") from e
 
