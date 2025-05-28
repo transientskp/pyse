@@ -231,6 +231,9 @@ def construct_argument_parser():
         type=float,
         help="Forced fitting positional box size as a multiple of beam width.",
     )
+    image_group.add_argument("--ew_sys_err", type=float, help="Systematic error in east-west direction")
+    image_group.add_argument("--ns_sys_err", type=float, help="Systematic error in north-south direction")
+
 
     # Arguments relating to output:
     export_group = parser.add_argument_group("Export parameters")
@@ -323,14 +326,14 @@ def skymodel(sourcelist, ref_freq=73800000):
     return output.getvalue()
 
 
-def csv(sourcelist, export_parameters):
+def csv(sourcelist, conf):
     """
     Return a string containing a csv from the extracted sources.
     """
     output = StringIO()
-    print(", ".join(export_parameters), file=output)
+    print(", ".join(conf.export.source_parameters), file=output)
     for source in sourcelist:
-        values = source.serialize(parameters=export_parameters)
+        values = source.serialize(conf=conf)
         print(", ".join(f"{float(v):.6f}" for v in values), file=output)
     return output.getvalue()
 
@@ -587,7 +590,7 @@ def run_sourcefinder(files, conf, mode):
                     skymodelfile.write(skymodel(sr))
         if conf.export.csv:
             with open(export_dir / (imagename + ".csv"), "w") as csvfile:
-                csvfile.write(csv(sr, conf.export.source_params))
+                csvfile.write(csv(sr, conf))
                 print(summary(filename, sr), end=" ", file=output)
 
     return output.getvalue()

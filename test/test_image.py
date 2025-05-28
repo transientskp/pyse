@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
-from sourcefinder.config import Conf, ImgConf
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
@@ -302,7 +302,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        ew_sys_err, ns_sys_err = 0.0, 0.0
+        conf = Conf(image=ImgConf(), export=ExportSettings())
 
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
@@ -313,7 +313,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.06461773e+01, 1.78499710e+02,
              # Beam semiminor-axis width (arcsec), beam position angle (deg)
-             ew_sys_err, ns_sys_err,
+             0.0, 0.0, # ew_sys_err, ns_sys_err,
              4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
              1.47489354e-01, 1.63056225e-01]  # chisq, reduced chisq
 
@@ -326,7 +326,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
              # Beam position angle (deg).
-             ew_sys_err, ns_sys_err,
+             0.0, 0.0, # ew_sys_err, ns_sys_err,
              4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
              8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
 
@@ -334,7 +334,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             FitsImage(GRB120422A))
 
         results = self.image.extract(det=5, anl=3)
-        results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        results = [result.serialize(conf) for result in
                    results]
         self.assertEqual(len(results), 2)
         r = np.array(results[1], dtype=np.float32)
@@ -378,12 +378,12 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             accessors.kat7casaimage.Kat7CasaImage(
                 os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
 
-        ew_sys_err, ns_sys_err = 0.0, 0.0
+        conf = Conf(image=ImgConf(), export=ExportSettings())
         fits_results = fits_image.extract(det=5, anl=3)
-        fits_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        fits_results = [result.serialize(conf) for result in
                         fits_results]
         casa_results = casa_image.extract(det=5, anl=3)
-        casa_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        casa_results = [result.serialize(conf) for result in
                         casa_results]
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches two extra noise peaks at the 5 sigma level.

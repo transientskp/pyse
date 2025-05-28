@@ -27,6 +27,8 @@ detection_image = "None"
 fixed_posns = "None"
 fixed_posns_file = "None"
 ffbox = 3.0
+ew_sys_err = 0.0
+ns_sys_err = 0.0
 
 
 [tool.pyse.export]

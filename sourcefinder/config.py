@@ -167,15 +167,16 @@ class ImgConf(_Validate):
     alpha: float = 1e-2                    # FDR alpha value (significance level).
     deblend_thresholds: int = 0            # Number of deblending subthresholds; 0 to disable.
     grid: int = 64                         # Background grid segment size.
-    bmaj: float | None = None           # Set beam: Major axis of beam (degrees).
-    bmin: float | None = None           # Set beam: Minor axis of beam (degrees).
-    bpa: float | None = None            # Set beam: Beam position angle (degrees).
+    bmaj: float | None = None              # Set beam: Major axis of beam (degrees).
+    bmin: float | None = None              # Set beam: Minor axis of beam (degrees).
+    bpa: float | None = None               # Set beam: Beam position angle (degrees).
     force_beam: bool = False               # Force fit axis lengths to beam size.
-    detection_image: str | None = None  # Path to image used for detection (can be different from analysis image).
-    fixed_posns: str | None = None      # JSON list of coordinates to force-fit (disables blind extraction).
-    fixed_posns_file: str | None = None # Path to file with coordinates to force-fit (disables blind extraction).
+    detection_image: str | None = None     # Path to image used for detection (can be different from analysis image).
+    fixed_posns: str | None = None         # JSON list of coordinates to force-fit (disables blind extraction).
+    fixed_posns_file: str | None = None    # Path to file with coordinates to force-fit (disables blind extraction).
     ffbox: float = 3.0                     # Forced fitting box size as a multiple of beam width.
-
+    ew_sys_err: float = 0.                 # Systematic error in east-west direction
+    ns_sys_err: float = 0.                 # Systematic error in north-south direction
 
 
 @dataclass(frozen=True)

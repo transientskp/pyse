@@ -10,7 +10,7 @@ from sourcefinder.utility.uncertain import Uncertain
 from .gaussian import gaussian
 from . import measuring
 from . import utils
-from .config import _source_params
+from .config import Conf
 import logging
 from typing import List
 from collections.abc import MutableMapping
@@ -1155,16 +1155,11 @@ class Detection(object):
         """Distance from center"""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
-    def serialize(
-        self,
-        ew_sys_err: float = 0.,
-        ns_sys_err: float = 0.,
-        parameters: List[str] = _source_params,
-        ):
+    def serialize(self, conf=Conf):
         """
         Return source properties suitable for database storage.
 
-        We manually add ew_sys_err, ns_sys_err
+        We manually add ew_sys_err, ns_sys_err as defined in conf.image.
 
         returns: a list of tuples containing all relevant fields
         """
@@ -1186,9 +1181,9 @@ class Detection(object):
         def _get_param(param_name):
             # Handle special case of ns_sys_err and ew_sys_err
             if param_name == "ns_sys_err":
-                return ns_sys_err
+                return conf.image.ew_sys_err
             if param_name == "ew_sys_err":
-                return ew_sys_err
+                return conf.image.ew_sys_err
 
             # Return the error value
             if param_name.endswith("_err"):
@@ -1211,7 +1206,7 @@ class Detection(object):
             except KeyError as e:
                 raise KeyError(f"Unknown parameter '{param_name}'") from e
 
-        result = [_get_param(name) for name in parameters]
+        result = [_get_param(name) for name in conf.export.source_params]
         return result
 
 
