@@ -302,7 +302,28 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        conf = Conf(image=ImgConf(), export=ExportSettings())
+        conf = Conf(image=ImgConf(), export=ExportSettings(
+            source_params = [
+                "ra",
+                "dec",
+                "ra_err",
+                "dec_err",
+                "peak",
+                "peak_err",
+                "flux",
+                "flux_err",
+                "sig",
+                "smaj_asec",
+                "smin_asec",
+                "theta_celes",
+                "ew_sys_err",
+                "ns_sys_err",
+                "error_radius",
+                "gaussian",
+                "chisq",
+                "reduced_chisq",
+            ]
+        ))
 
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)

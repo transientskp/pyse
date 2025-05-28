@@ -115,24 +115,25 @@ class _Validate:
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 _source_params = [
     "ra",
-    "dec",
     "ra_err",
+    "dec",
     "dec_err",
-    "peak",
-    "peak_err",
+    "smaj_asec",
+    "smaj_asec_err",
+    "smin_asec",
+    "smin_asec_err",
+    "theta_celes",
+    "theta_celes_err",
     "flux",
     "flux_err",
+    "peak",
+    "peak_err",
+    "x",
+    "y",
     "sig",
-    "smaj_asec",
-    "smin_asec",
-    "theta_celes",
-    "ew_sys_err",
-    "ns_sys_err",
-    "error_radius",
-    "gaussian",
-    "chisq",
-    "reduced_chisq",
+    "reduced_chisq"
 ]
+
 
 
 @dataclass(frozen=True)

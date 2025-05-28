@@ -40,23 +40,3 @@ rmsmap = false
 sigmap = false
 residuals = false
 islands = false
-source_params = [
-    "ra",
-    "dec",
-    "ra_err",
-    "dec_err",
-    "peak",
-    "peak_err",
-    "flux",
-    "flux_err",
-    "sig",
-    "smaj_asec",
-    "smin_asec",
-    "theta_celes",
-    "ew_sys_err",
-    "ns_sys_err",
-    "error_radius",
-    "gaussian",
-    "chisq",
-    "reduced_chisq",
-]

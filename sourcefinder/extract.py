@@ -1163,20 +1163,6 @@ class Detection(object):
 
         returns: a list of tuples containing all relevant fields
         """
-        attr_map = {
-            "ra": self.ra,
-            "dec": self.dec,
-            "peak": self.peak,
-            "flux": self.flux,
-            "smaj_asec": self.smaj_asec,
-            "smin_asec": self.smin_asec,
-            "theta_celes": self.theta_celes,
-            "sig": self.sig,
-            "error_radius": self.error_radius,
-            "gaussian": self.gaussian,
-            "chisq": self.chisq,
-            "reduced_chisq": self.reduced_chisq,
-        }
 
         def _get_param(param_name):
             # Handle special case of ns_sys_err and ew_sys_err
@@ -1189,7 +1175,7 @@ class Detection(object):
             if param_name.endswith("_err"):
                 base_name = param_name[:-4]
                 try:
-                    return attr_map[base_name].error
+                    return getattr(self, base_name).error
                 except KeyError as e:
                     raise KeyError(f"Unknown parameter '{param_name}'") from e
                 except AttributeError as e:
@@ -1199,7 +1185,7 @@ class Detection(object):
 
             # Return the normal value
             try:
-                param_val = attr_map[param_name]
+                param_val = getattr(self, param_name)
                 if hasattr(param_val, "value"):
                     return param_val.value
                 return param_val
