@@ -138,7 +138,7 @@ class Island(object):
     def deblend(self, niter=0):
         """
         Decompose the island into subislands.
-    
+
         Parameters
         ----------
         niter : int, default: 0
@@ -147,12 +147,12 @@ class Island(object):
             logarithmically, between the lowest and highest pixel value, but not
             include these limits. niter==0 corresponds to the lowest
             subthreshold, i.e. to the subthreshold just above self.data.min().
-    
+
         Returns
         -------
         numpy.ndarray
             A decomposed numpy array of all the subislands.
-    
+
         Notes
         -----
         This function iterates up through subthresholds, looking for the island
@@ -406,24 +406,24 @@ class ParamSet(MutableMapping):
 
     def compute_bounds(self, data_shape):
         """
-        Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance on 
+        Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance on
         runaway solutions. The bounds are largely based on moments estimation,
-        so it only makes sense to impose bounds if moments estimation was 
+        so it only makes sense to impose bounds if moments estimation was
         successful.
-        
+
         Parameters
         ----------
         data_shape : tuple of (int32, int32) or (int64, int64)
             Shape of the rectangular area (slice) encompassing the island used
-            for the fit. This shape is used to set bounds for the position of 
+            for the fit. This shape is used to set bounds for the position of
             the source in the fitting process, i.e. the position is bounded to
             be within this shape.
-        
+
         Returns
         -------
         dict of (float, float, bool) tuples
             Bounds for a maximum of six Gaussian fit parameters, less if "fixed"
-            is not None. Each 3-tuple has lower_bound (float), upper_bound 
+            is not None. Each 3-tuple has lower_bound (float), upper_bound
             (float) and boolean elements. If the boolean is True, a bound will
             be loosened when the fit becomes unfeasible.  See the documentation
             on scipy.optimize.Bounds for details.
@@ -517,13 +517,13 @@ class ParamSet(MutableMapping):
         """
         Returns the errors on parameters from Gaussian fits according to
         the Condon (PASP 109, 166 (1997)) formulae.
-    
+
         These formulae are not perfect, but we'll use them for the
         time being.  (See Refregier and Brown (astro-ph/9803279v1) for
         a more rigorous approach.) It also returns the corrected peak.
         The peak is corrected for the overestimate due to the local
         noise gradient.
-    
+
         Parameters
         ----------
         noise : float
@@ -533,7 +533,7 @@ class ParamSet(MutableMapping):
             Tuple describing over which distance (in pixels) noise should be
             considered correlated, along both principal axes of the Gaussian
             profile of the restoring beam.
-    
+
         Returns
         -------
         ParamSet
@@ -1484,23 +1484,23 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
     by Numba, i.e. this routine. We will be needing a number of calls to
     wcs.all_pix2world to traverse all the steps from
     extract.Detection._physical_coordinates.
-    
+
     Parameters
     ----------
     ra_dec : np.ndarray
         Array of floats of length 2, containing the right ascension (degrees)
-        and the declination (degrees) corresponding to [xbar, ybar] of the 
+        and the declination (degrees) corresponding to [xbar, ybar] of the
         source.
     endy_ra_dec : np.ndarray
         Array of floats of length 2, containing the right ascension (degrees)
         and the declination (degrees) corresponding to [xbar, ybar + 1] of the
         source.
     xbar_ybar_error : np.ndarray
-        Array of floats of length 2, with the errors on the barycentric 
+        Array of floats of length 2, with the errors on the barycentric
         positions, in pixel coordinates, in both dimensions.
     xbar_ybar_smaj_smin_theta : np.ndarray
-        Array of floats of length 5, with the barycentric positions, the 
-        semi-major and semi-minor axes, all in pixel coordinates and the 
+        Array of floats of length 5, with the barycentric positions, the
+        semi-major and semi-minor axes, all in pixel coordinates and the
         position angles, in radians.
     dummy : np.ndarray
         Same shape as return_values, to accommodate for a missing feature in the
@@ -1623,64 +1623,64 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
     each island; when determining source properties this is an important
     integer, i.e. with sufficient width all six Gaussian parameters can be
     calculated in a robust manner.
-    
+
     Parameters
     ----------
     some_image : np.ndarray
-        The 2D ndarray with all the pixel values, typically 
+        The 2D ndarray with all the pixel values, typically
         image.ImageData().data_bgsubbed.data.
     noise_map : np.ndarray
-        The 2D ndarray with all the noise values, i.e. an estimate of the 
+        The 2D ndarray with all the noise values, i.e. an estimate of the
         standard deviation of the background pixels, from an interpolation
-        across the background grid, centered on subimages. Typically 
+        across the background grid, centered on subimages. Typically
         image.ImageData().rmsmap.data.
     inds : np.ndarray
         A ndarray of four indices indicating the slice encompassing an island.
         Such a slice would typically be a pick from a list of slices from a call
-        to scipy.ndimage.find_objects. Since we are attempting vectorized 
-        processing here, the slice should have been replaced by its four 
+        to scipy.ndimage.find_objects. Since we are attempting vectorized
+        processing here, the slice should have been replaced by its four
         coordinates through a call to image.ImageData.slices_to_indices.
     labelled_data : np.ndarray
         A ndarray with the same shape as some_image, with labelled islands with
         integer values and zeroes for all background pixels.
     label : int
         The label (integer value) indicates the island we are processing since
-        the pixel positions of the island are determined by 
+        the pixel positions of the island are determined by
         labelled_data==label.
     npix : int
         Number of pixels comprising the island we are processing. The island
         pixel positions are determined by labelled_data==label.
     source : np.ndarray
-        1D ndarray of float32 pixel values of the island with label = label. 
-        Length= maxpix, the number of pixels in the largest possible island, 
-        indicating that there will be a number of unassigned values for the 
+        1D ndarray of float32 pixel values of the island with label = label.
+        Length= maxpix, the number of pixels in the largest possible island,
+        indicating that there will be a number of unassigned values for the
         highest indices, for some islands.
     noise : np.ndarray
         1D ndarray of float32 rms noise values - local estimates of the standard
-        deviation of the background noise - of the island with label = label. 
-        Length= maxpix, the number of pixels in the largest possible island, 
-        indicating that there will be a number of unassigned values for the 
+        deviation of the background noise - of the island with label = label.
+        Length= maxpix, the number of pixels in the largest possible island,
+        indicating that there will be a number of unassigned values for the
         highest indices, for some islands.
     xpos : np.ndarray
         1D ndarray of integers indicating the row indices of the pixels of the
-        island with label = label, relative to the position of pixel [0, 0] of 
-        the rectangular slice encompassing the island. Must have same order as 
-        pixel values in island. Length = maxpix, the number of pixels in the 
-        largest possible island, indicating that there will be a number of 
+        island with label = label, relative to the position of pixel [0, 0] of
+        the rectangular slice encompassing the island. Must have same order as
+        pixel values in island. Length = maxpix, the number of pixels in the
+        largest possible island, indicating that there will be a number of
         unassigned values for the highest indices.
     ypos : np.ndarray
-        1D ndarray of integers indicating the column indices of the pixels of 
+        1D ndarray of integers indicating the column indices of the pixels of
         the island with label = label, relative to the position of pixel [0, 0]
-        of the rectangular slice encompassing the island. Must have same order 
-        as pixel values in island. Length = maxpix, the number of pixels in the 
-        largest possible island, indicating that there will be a number of 
+        of the rectangular slice encompassing the island. Must have same order
+        as pixel values in island. Length = maxpix, the number of pixels in the
+        largest possible island, indicating that there will be a number of
         unassigned values for the highest indices.
     min_width : int
-        int32 indicating the minimum width of the island, in order to assess 
-        whether the island has sufficient width to determine Gaussian 
-        parameters. Calculated from the maximum widths of the island over x 
+        int32 indicating the minimum width of the island, in order to assess
+        whether the island has sufficient width to determine Gaussian
+        parameters. Calculated from the maximum widths of the island over x
         and y and subsequently taking the minimum of those two maximum widths.
-    
+
     Returns
     -------
     None
@@ -1710,18 +1710,13 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
         xpos[i], ypos[i] = index
 
 
-def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
-                                                        maxposs, maxis,
-                                                        data_bgsubbeddata,
-                                                        rmsdata,
-                                                        analysisthresholddata,
-                                                        indices,
-                                                        labelled_data, labels,
-                                                        wcs,
-                                                        fudge_max_pix_factor,
-                                                        beam, beamsize,
-                                                        correlation_lengths,
-                                                        eps_ra, eps_dec):
+def source_measurements_vectorised(num_islands, npixs, maxposs, maxis,
+                                   data_bgsubbeddata, rmsdata,
+                                   analysisthresholddata, indices,
+                                   labelled_data, labels, wcs,
+                                   fudge_max_pix_factor, beam, beamsize,
+                                   force_beam, correlation_lengths, eps_ra,
+                                   eps_dec):
     """
     From islands of pixels above the analysis threshold with peaks above the
     detection threshold source parameters are extracted, including error bars.
@@ -1742,7 +1737,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     Parameters
     ----------
     eps_ra : float
-        Extra positional uncertainty (degrees) from calibration errors along 
+        Extra positional uncertainty (degrees) from calibration errors along
         right ascension, following equation 27a from the NVSS paper.
     eps_dec : float
         Extra positional uncertainty (degrees) from calibration errors along
@@ -1760,8 +1755,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         corresponding to the maxposs positions.
     data_bgsubbeddata : np.ndarray
         2D float32 array representing the image. These are the data of
-        image.ImageData().data_bgsubbed, i.e. ImageData().data_bgsubbed.data, 
-        without the mask, since we assume that any mask has already been 
+        image.ImageData().data_bgsubbed, i.e. ImageData().data_bgsubbed.data,
+        without the mask, since we assume that any mask has already been
         properly propagated in selecting the islands pixels. The interpolated
         mean background has been subtracted from the image data.
     rmsdata : np.ndarray
@@ -1771,7 +1766,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         deviation of the background noise is determined after kappa, sigma
         clipping subimages of appropriate size and interpolating this across the
         image while including masks. This is image.ImageData().rmsmap.data, i.e.
-        without the mask, since we assume that any mask has already been 
+        without the mask, since we assume that any mask has already been
         properly propagated in selecting the islands pixels.
     analysisthresholddata : np.ndarray
         2D float32 or float64 array, same shape as data_bgsubbeddata. These are
@@ -1815,23 +1810,23 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
     beamsize : float
         Area of the restoring beam, in square pixels.
     correlation_lengths : tuple
-        Tuple of 2 floats describing over which distance (in pixels) noise 
-        should be considered correlated, along both principal axes of the 
+        Tuple of 2 floats describing over which distance (in pixels) noise
+        should be considered correlated, along both principal axes of the
         Gaussian profile of the restoring beam.
-    
+
     Returns
     -------
     moments_of_sources : np.ndarray
         3D float32 array, with a row index corresponding to each island, i.e.
-        num_islands rows, a 0 and 1 column index corresponding to values and 
-        their error bars, respectively and a third index [0...9] which 
-        represents the measurements of the sources, i.e. peak spectral 
+        num_islands rows, a 0 and 1 column index corresponding to values and
+        their error bars, respectively and a third index [0...9] which
+        represents the measurements of the sources, i.e. peak spectral
         brightness, in Jy/beam and the integrated spectral brightness a.k.a.
-        flux density in Jy. All the other numbers in moments_of_sources are in 
+        flux density in Jy. All the other numbers in moments_of_sources are in
         pixel coordinates. These are position on the sky, along both image axes,
         semi-major and semi-minor axis of the Gaussian profile of the source and
-        the position angle of the major axis measured east from local north. 
-        These three Gaussian profile parameters can be deconvolved from the 
+        the position angle of the major axis measured east from local north.
+        These three Gaussian profile parameters can be deconvolved from the
         clean beam if the source is resolved. This adds up to ten quantities and
         corresponding error bars for each island.
     sky_barycenters : np.ndarray
@@ -1876,17 +1871,17 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         degrees.
     theta_dc_celes_values : np.ndarray
         1D float32 array representing the position angles of the semi-major axes
-        of the deconvolved Gaussian profiles, i.e. deconvolved from the 
+        of the deconvolved Gaussian profiles, i.e. deconvolved from the
         restoring beam, in degrees.
     theta_dc_celes_errors : np.ndarray
         1D float32 array representing the 1-sigma error bars of the position
         angles of the semi-major axes of the deconvolved Gaussian profiles, in
         degrees.
     Gaussian_islands_map : np.ndarray
-        2D float32 array with the same shape as data_bgsubbed from the 
-        image.ImageData class instantiation. The derived Gaussian parameters 
+        2D float32 array with the same shape as data_bgsubbed from the
+        image.ImageData class instantiation. The derived Gaussian parameters
         have been used to reconstruct Gaussian profiles at the pixel positions
-        of the islands and zero outside those islands. This array can be saved 
+        of the islands and zero outside those islands. This array can be saved
         e.g. as a FITS image for inspection of the source processing.
     Gaussian_residuals_map : np.ndarray
         Similar to Gaussian_islands_map, but as residuals, i.e. the Gaussian
@@ -2004,7 +1999,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxposs, maxis,
                              fudge_max_pix_factor, np.array(beam), beamsize,
-                             np.array(correlation_lengths), 0, 0,
+                             force_beam, np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)
 
