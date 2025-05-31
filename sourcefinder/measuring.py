@@ -448,6 +448,8 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     else:
         xxbar, yybar, xybar =  0, 0, 0
 
+        # Compute the second moments of the island and the three Gaussian
+        # shape parameters in a number of steps.
         for index in range(no_pixels):
             i = posx[index]
             j = posy[index]
