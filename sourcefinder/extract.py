@@ -1441,17 +1441,13 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
         xpos[i], ypos[i] = index
 
 
-def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
-                                                        maxposs, maxis,
-                                                        data_bgsubbeddata,
-                                                        rmsdata,
-                                                        analysisthresholddata,
-                                                        indices,
-                                                        labelled_data, labels, wcs,
-                                                        fudge_max_pix_factor,
-                                                        beam, beamsize,
-                                                        correlation_lengths,
-                                                        eps_ra, eps_dec):
+def source_measurements_vectorised(num_islands, npixs, maxposs, maxis,
+                                   data_bgsubbeddata, rmsdata,
+                                   analysisthresholddata, indices,
+                                   labelled_data, labels, wcs,
+                                   fudge_max_pix_factor, beam, beamsize,
+                                   force_beam, correlation_lengths, eps_ra,
+                                   eps_dec):
     """
     From islands of pixels above the analysis threshold with peaks above the
     detection threshold source parameters are extracted, including error bars
@@ -1553,6 +1549,10 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                  radians.
 
     :param beamsize: area (float) of the restoring beam, in pixels.
+
+    :param force_beam: boolean, if True, the restoring beam shape is fixed when
+                       the source is measured, i.e. the source shape is not
+                       calculated, but set equal to the restoring beam.
 
     :param correlation_lengths: tuple of 2 floats describing over which
              distance (in pixels) noise should be considered correlated, along
@@ -1753,7 +1753,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                              ypositions, minimum_widths, npixs, thresholds,
                              local_noise_levels, maxposs, maxis,
                              fudge_max_pix_factor, np.array(beam), beamsize,
-                             np.array(correlation_lengths), 0, 0,
+                             force_beam, np.array(correlation_lengths), 0, 0,
                              Gaussian_islands, Gaussian_residuals, dummy,
                              moments_of_sources, sig, chisq, reduced_chisq)
 
