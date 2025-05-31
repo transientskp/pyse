@@ -10,7 +10,7 @@ import scipy.optimize
 from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
 from sourcefinder.deconv import deconv
-from numba import guvectorize, float64, float32, int32, njit
+from numba import guvectorize, float64, float32, int32, boolean, njit
 from sourcefinder.utils import (newton_raphson_root_finder,
                                 complement_gaussian_args)
 
@@ -204,17 +204,19 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     }
 
 
-@guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:], int32,
-               int32, float32, float32, int32[:], float32, float64,
-               float64[:], float64, float64[:], float64, float64, float32[:, :],
-               float32[:, :], float32[:, :], float32[:, :], float32[:],
-               float32[:], float32[:])],
+@guvectorize([(float32[:], float32[:], int32[:], int32[:], int32[:],
+               int32, int32, float32, float32, int32[:], float32, float64,
+               float64[:], float64, boolean, float64[:], float64, float64,
+               float32[:, :], float32[:, :], float32[:, :], float32[:, :],
+               float32[:], float32[:], float32[:])],
              ('(n), (n), (m), (n), (n), (), (), (), (), (m), (), (), (k),' +
-              '(), (m), (), (), (q, r), (q, r), (l, p) -> (l, p), (), (), ()'),
+              '(), (), (m), (), (), (q, r), (q, r), (l, p) -> (l, p), (), (), '
+              '()'),
              nopython=True, target='parallel')
 def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      min_width, no_pixels, threshold, noise, maxpos, maxi,
-                     fudge_max_pix_factor, beam, beamsize, correlation_lengths,
+                     fudge_max_pix_factor, beam, beamsize,
+                     force_beam, correlation_lengths,
                      clean_bias_error, frac_flux_cal_error,
                      Gaussian_islands_map, Gaussian_residuals_map, dummy,
                      computed_moments, significance, chisq, reduced_chisq):
@@ -295,6 +297,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     beamsize : float
         FWHM size of the clean beam. Units: pixels.
 
+    force_beam : boolean
+        If 1, the restoring beam shape is fixed when the source is
+        measured, i.e. the source shape is not calculated, but set equal to
+        the restoring beam.
+
     correlation_lengths : np.ndarray
         Array of two floats describing distances along the semi-major and
         semi-minor axes of the clean beam beyond which noise is assumed
@@ -361,7 +368,6 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         If input contains NaN values.
 
     """
-
     # Not every island has the same size. The number of columns of the array
     # containing all islands is equal to the maximum number of pxiels over
     # all islands. This containing array was created by np.empty, so better
@@ -372,34 +378,21 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     significance[0] = (source_island / noise_island).max()
 
     total = source_island.sum()
-    xbar, ybar, xxbar, yybar, xybar = 0, 0, 0, 0, 0
+    xbar, ybar =  0, 0
 
+    # Compute the barycenter of the island.
     for index in range(no_pixels):
         i = posx[index]
         j = posy[index]
         xbar += i * source_island[index]
         ybar += j * source_island[index]
-        xxbar += i * i * source_island[index]
-        yybar += j * j * source_island[index]
-        xybar += i * j * source_island[index]
 
     xbar /= total
     ybar /= total
-    xxbar /= total
-    xxbar -= xbar ** 2
-    yybar /= total
-    yybar -= ybar ** 2
-    xybar /= total
-    xybar -= xbar * ybar
-
-    working1 = (xxbar + yybar) / 2.0
-    working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
-
-    if (np.isnan(xbar) or np.isnan(ybar) or np.isnan(working1)
-            or np.isnan(working2)):
-        raise ValueError("Unable to estimate Gauss shape")
 
     # Are we fitting a -ve or +ve Gaussian?
+    # A preference for a positive peak is expressed here, but one could
+    # consider that arbitrary.
     if maxi > 0:
         # The peak is always underestimated when you take the highest pixel.
         peak = maxi
@@ -409,102 +402,155 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     # - for images other than Stokes I, where that may apply - pixel.
     peak *=  fudge_max_pix_factor
 
-    semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
-    semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+    # We will be extrapolating from a pixel centred position to the real
+    # position of the Gaussian peak.
+    rounded_barycenter = int(round(xbar)), int(round(ybar))
+    # First we try the pixel centred position closest to the barycenter
+    # position to extrapolate from.
+    if rounded_barycenter[0] in posx and rounded_barycenter[1] in posy:
+        basepos = rounded_barycenter
+        # We need to loop over all possible positions to find the
+        # source_island index corresponding to the rounded barycenter
+        # position.
+        for i in (posx == rounded_barycenter[0]).nonzero()[0]:
+            if posy[i] == rounded_barycenter[1]:
+                basevalue = source_island[i]
+                break
+    else:
+        # The rounded barycenter position is not in source_island, so we
+        # revert to the maximum pixel position, which is always included.
+        basepos = maxpos[0] - chunkpos[0], maxpos[1] - chunkpos[1]
+        # In this case we do not need to figure out the source_island
+        # index corresponding to the maximum pixel position, because
+        # maxi, the maximum pixel value has already been provided, as an
+        # argument to this function.
+        basevalue = maxi
 
-    if semiminor_tmp <= 0 or min_width <= 2:
-        # Short circuit in one way or another!
-        # We need a minimal width to determine Gaussian shape parameters in
-        # a meaningful way.
+    deltax, deltay = xbar - basepos[0], ybar - basepos[1]
+
+    if force_beam:
+        # If the restoring beam is forced, we use the beam parameters
+        # directly.
         smaj = beam[0]
         smin = beam[1]
         theta = beam[2]
+        # Implementation of "tweaked moments", equation 2.66 from
+        # Spreeuw's thesis. In that formula the "base position" was the
+        # maximum pixel position, though. Here that is the rounded
+        # barycenter position, unless it's masked. If it's masked, it
+        # will be the maximum pixel position.
+        exponent = np.log(2.) * (((np.cos(theta) * deltax +
+                                   np.sin(theta) * deltay) / smin) ** 2
+                                 + ((np.cos(theta) * deltay -
+                                     np.sin(theta) * deltax) / smaj) ** 2)
+        peak = np.exp(exponent) * basevalue
+
     else:
-        if abs(semimajor_tmp - semiminor_tmp) < 0.01:
-            # In this case the island is very thin in at least one dimension.
-            # We set the position angle to zero.
-            theta = 0.0
-        else:
-            # Theta is not affected by the cut-off at the threshold, see Spreeuw's
-            # thesis (2010), page 45, so we can easily compute the position angle
-            # first.
-            if xxbar != yybar:
-                theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
-            else:
-                theta = np.sign(xybar) * math.pi / 4.0
+        xxbar, yybar, xybar =  0, 0, 0
 
-            if theta * xybar > 0.:
-                if theta < 0.:
-                    theta += math.pi / 2.0
+        for index in range(no_pixels):
+            i = posx[index]
+            j = posy[index]
+            xxbar += i * i * source_island[index]
+            yybar += j * j * source_island[index]
+            xybar += i * j * source_island[index]
+
+        xxbar /= total
+        xxbar -= xbar ** 2
+        yybar /= total
+        yybar -= ybar ** 2
+        xybar /= total
+        xybar -= xbar * ybar
+
+        working1 = (xxbar + yybar) / 2.0
+        working2 = math.sqrt(((xxbar - yybar) / 2) ** 2 + xybar ** 2)
+
+        if (np.isnan(xbar) or np.isnan(ybar) or np.isnan(working1)
+                or np.isnan(working2)):
+            raise ValueError("Unable to estimate Gauss shape")
+
+        semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
+        semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
+
+        if semiminor_tmp <= 0 or min_width <= 2:
+            # Short circuit in one way or another!
+            # We need a minimal width to determine Gaussian shape parameters in
+            # a meaningful way.
+            smaj = beam[0]
+            smin = beam[1]
+            theta = beam[2]
+        else:
+            if abs(semimajor_tmp - semiminor_tmp) < 0.01:
+                # In this case the island is very thin in at least one dimension.
+                # We set the position angle to zero.
+                theta = 0.0
+            else:
+                # Theta is not affected by the cut-off at the threshold, see
+                # Spreeuw's thesis (2010), page 45, so we can easily compute
+                # the position angle first.
+                if xxbar != yybar:
+                    theta = math.atan(2. * xybar / (xxbar - yybar)) / 2.
                 else:
-                    theta -= math.pi / 2.0
+                    theta = np.sign(xybar) * math.pi / 4.0
 
-        # We will be extrapolating from a pixel centred position to the real
-        # position of the Gaussian peak.
-        rounded_barycenter = int(round(xbar)), int(round(ybar))
-        # First we try the pixel centred position closest to the barycenter
-        # position to extrapolate from.
-        if rounded_barycenter[0] in posx and rounded_barycenter[1] in posy:
-            basepos = rounded_barycenter
-            # We need to loop over all possible positions to find the
-            # source_island index corresponding to the rounded barycenter
-            # position.
-            for i in (posx==rounded_barycenter[0]).nonzero()[0]:
-                if posy[i] == rounded_barycenter[1]:
-                    basevalue = source_island[i]
-                    break
-        else:
-            # The rounded barycenter position is not in source_island, so we
-            # revert to the maximum pixel position, which is always included.
-            basepos = maxpos[0] - chunkpos[0], maxpos[1] - chunkpos[1]
-            # In this case we do not need to figure out the source_island
-            # index corresponding to the maximum pixel position, because
-            # maxi, the maximum pixel value has already been provided, as an
-            # argument to this function.
-            basevalue = maxi
+                if theta * xybar > 0.:
+                    if theta < 0.:
+                        theta += math.pi / 2.0
+                    else:
+                        theta -= math.pi / 2.0
 
-        if np.sign(threshold) == np.sign(basevalue):
-            # Implementation of "tweaked moments", equation 2.67 from
-            # Spreeuw's thesis. In that formula the "base position" was the
-            # maximum pixel position, though. Here that is the rounded
-            # barycenter position, unless it's masked. If it's masked, it
-            # will be the maximum pixel position.
-            deltax, deltay = xbar - basepos[0], ybar - basepos[1]
+            if np.sign(threshold) == np.sign(basevalue):
+                # Implementation of "tweaked moments", equation 2.67 from
+                # Spreeuw's thesis. In that formula the "base position" was the
+                # maximum pixel position. Here that is the rounded
+                # barycenter position, unless it's masked. If it's masked, it
+                # will be the maximum pixel position.
+                # The rounded barycenter position will buy us slightly more
+                # stability (established by testing) than the maximum pixel
+                # position.
+                # The condition is a sanity check for maps other than Stokes I,
+                # where the threshold can be negative. For Stokes I maps, which
+                # will have positive thresholds, at least for all
+                # non-pathological cases, this condition will always be true.
 
-            epsilon = np.log(2.) * ((np.cos(theta) * deltax +
-                                     np.sin(theta) * deltay) ** 2
-                                    + (np.cos(theta) * deltay -
-                                       np.sin(theta) * deltax) ** 2
-                                    * semiminor_tmp / semimajor_tmp)
+                epsilon = np.log(2.) * ((np.cos(theta) * deltax +
+                                         np.sin(theta) * deltay) ** 2
+                                        + (np.cos(theta) * deltay -
+                                           np.sin(theta) * deltax) ** 2
+                                        * semiminor_tmp / semimajor_tmp)
 
-            # Set limits for the root finder similar to the bounds for
-            # Gaussian fits.
-            if basevalue > 0:
-                low_bound = 0.5 * basevalue
-                upp_bound = 1.5 * basevalue
-            else:
-                low_bound = 1.5 * basevalue
-                upp_bound = 0.5 * basevalue
+                # Set limits for the root finder similar to the bounds for
+                # Gaussian fits.
+                if basevalue > 0:
+                    low_bound = 0.5 * basevalue
+                    upp_bound = 1.5 * basevalue
+                else:
+                    low_bound = 1.5 * basevalue
+                    upp_bound = 0.5 * basevalue
 
-            # The number of iterations used for the root finder is also
-            # returned, but not used here.
-            peak, _ = newton_raphson_root_finder(find_true_peak, basevalue,
-                                                 low_bound, upp_bound,
-                                                 1e-8, 100,
-                                                 threshold, epsilon,
-                                                 semiminor_tmp, basevalue)
+                # The number of iterations used for the root finder is also
+                # returned, but not used here.
+                peak, _ = newton_raphson_root_finder(find_true_peak, basevalue,
+                                                     low_bound, upp_bound,
+                                                     1e-8, 100,
+                                                     threshold, epsilon,
+                                                     semiminor_tmp, basevalue)
 
-        if np.sign(threshold) == np.sign(peak):
-            # The corrections below for the semi-major and semi-minor axes are
-            # to compensate for the underestimate of these quantities
-            # due to the cutoff at the threshold.
-            if peak > threshold:
+            if (np.sign(threshold) == np.sign(peak) and
+                    abs(peak) > abs(threshold)):
+                # The corrections below for the semi-major and semi-minor axes
+                # are to compensate for the underestimate of these quantities
+                # due to the cutoff at the threshold. We try to accommodate
+                # for source finding with negative thresholds too, i.e. in
+                # maps from polarisation products other than Stokes I.
                 ratio = threshold / peak
-                semimajor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
-                semiminor_tmp /= (1.0 + math.log(ratio) * ratio / (1.0 - ratio))
+                semimajor_tmp /= (1.0 + math.log(ratio) * ratio /
+                                  (1.0 - ratio))
+                semiminor_tmp /= (1.0 + math.log(ratio) * ratio /
+                                  (1.0 - ratio))
 
-        smaj = math.sqrt(semimajor_tmp)
-        smin = math.sqrt(semiminor_tmp)
+            smaj = math.sqrt(semimajor_tmp)
+            smin = math.sqrt(semiminor_tmp)
 
     # Reconstruct the Gaussian profile we just derived at the pixel positions
     # of the island. Initialise a flat array to hold these values.
