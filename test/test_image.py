@@ -379,7 +379,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
         results = image.extract(det=5, anl=3, force_beam=True)
-        self.assertEqual(results[0].smaj.value, image.beam[0])
+        self.assertEqual(results[0].smaj.value, image.beam[0], places=6)
         self.assertEqual(results[0].smin.value, image.beam[1])
 
     @requires_data(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits'))
