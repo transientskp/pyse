@@ -359,7 +359,7 @@ def cmp_jitted(a, b):
     return bool(a > b) - bool(a < b)
 
 
-@guvectorize([(float64[:], float64[:], float64)],
+@guvectorize([(float64[:], float64[:], float64[:])],
              '(n), (n) -> ()', nopython=True)
 def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
     """Find the angular separation of two sources, in arcseconds,
@@ -387,7 +387,7 @@ def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
     if abs(temp) > 1.0:
         temp = 1.0 * cmp_jitted(temp, 0)
 
-    angular_separation = 3600 * math.degrees(math.acos(temp))
+    angular_separation[0] = 3600 * math.degrees(math.acos(temp))
 
 
 def alphasep(ra1, ra2, dec1, dec2):
