@@ -1225,10 +1225,10 @@ class ImageData(object):
                     self.beam, self.beamsize, self.correlation_lengths,
                     self.conf.image.eps_ra, self.conf.image.eps_dec)
 
-            if self.conf.image.islands:
+            if self.conf.export.islands:
                 self.Gaussian_islands = Gaussian_islands
 
-            if self.conf.image.residuals:
+            if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
             for count, label in enumerate(labels):
