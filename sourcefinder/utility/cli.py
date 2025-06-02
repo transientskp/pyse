@@ -382,7 +382,7 @@ def handle_args(args=None):
     conf = read_conf(config_file)
 
     # Structure the arguments based on their group
-    cli_args = dict()
+    cli_args: dict = dict()
     for argument in parser._actions:
         section_name = argument.container.title
         if section_name not in cli_args:
@@ -553,7 +553,7 @@ def run_sourcefinder(files, conf, mode):
         # threshold, i.e. well into the background noise. Some users may want to
         # accept the extra compute time to be able to compare the residuals with
         # the background noise.
-        # if conf.image.residuals or conf.image.islands:
+        # if conf.export.residuals or conf.export.islands:
         #     gaussian_map, residual_map = generate_result_maps(imagedata.data,
         #                                                       sr)
         if conf.export.residuals:
@@ -600,7 +600,8 @@ def main():
     logging.basicConfig()
     conf, mode, files = handle_args()
     print(run_sourcefinder(files, conf, mode), end=" ")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main)
+    sys.exit(main())

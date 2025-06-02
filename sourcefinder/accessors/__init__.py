@@ -13,11 +13,11 @@ from astropy.io.fits.hdu.hdulist import HDUList
 from sourcefinder.accessors import detection
 from sourcefinder.accessors.fitsimageblob import FitsImageBlob
 from sourcefinder.accessors.lofarfitsimage import LofarFitsImage
-from sourcefinder.config import Conf
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.image import ImageData
 
 
-def sourcefinder_image_from_accessor(image, conf: Conf=Conf(image={}, export={})):
+def sourcefinder_image_from_accessor(image, conf: Conf=Conf(image=ImgConf(), export=ExportSettings())):
     """Create a source finder ImageData object from an image 'accessor'
 
     Args:

@@ -178,7 +178,7 @@ but to use a development version you may run such scripts like this:
 
 .. code-block:: bash
 
-   $ hatch run scripts/pyse [--options]
+   $ hatch run pyse [--options]
 
 Since the development environment is the default, you don't need to
 specify the ``<envrironment>:`` prefix in the run command.

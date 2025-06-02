@@ -12,7 +12,7 @@ from numba import guvectorize, float32, int32
 from sourcefinder import extract
 from sourcefinder import stats
 from sourcefinder import utils
-from sourcefinder.config import Conf
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
 import psutil
@@ -34,7 +34,7 @@ class ImageData(object):
     facilities for source extraction and measurement, etc.
     """
 
-    def __init__(self, data, beam, wcs, conf: Conf = Conf(image={}, export={})):
+    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(), export=ExportSettings())):
         """
         Initializes an ImageData object.
 
