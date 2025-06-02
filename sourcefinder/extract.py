@@ -1179,7 +1179,7 @@ class Detection(object):
                 except KeyError as e:
                     raise KeyError(f"Unknown parameter '{param_name}'") from e
                 except AttributeError as e:
-                    raise KeyError(
+                    raise AttributeError(
                         f"Parameter '{base_name}' has no associated error value"
                     ) from e
 
