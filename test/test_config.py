@@ -15,7 +15,6 @@ from .conftest import DATAPATH
 _image = {"rms_filter": 0.1, "structuring_element": [[2] * 3] * 3}
 _export = {"file_type": "hdf5", "source_params": ["foo", "bar"]}
 
-
 @pytest.mark.parametrize(
     "conf_t, conf",
     [

@@ -39,7 +39,7 @@ import os
 import unittest
 
 from sourcefinder import accessors
-from sourcefinder.config import ImgConf
+from sourcefinder.config import Conf, ImgConf
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 
@@ -85,19 +85,19 @@ class test_maps(unittest.TestCase):
             uncorr_map.data,
             uncorr_map.beam,
             uncorr_map.wcs,
-            ImgConf(back_size_x=2048, back_size_y=2048),
+            Conf(ImgConf(back_size_x=2048, back_size_y=2048), {}),
         )
         self.corr_image = image.ImageData(
             corr_map.data,
             uncorr_map.beam,
             uncorr_map.wcs,
-            ImgConf(back_size_x=2048, back_size_y=2048),
+            Conf(ImgConf(back_size_x=2048, back_size_y=2048), {}),
         )
         self.image_with_sources = image.ImageData(
             map_with_sources.data,
             map_with_sources.beam,
             map_with_sources.wcs,
-            ImgConf(back_size_x=2048, back_size_y=2048),
+            Conf(ImgConf(back_size_x=2048, back_size_y=2048), {}),
         )
 
     def test_normal(self):

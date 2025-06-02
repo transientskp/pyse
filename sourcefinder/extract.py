@@ -10,7 +10,9 @@ from sourcefinder.utility.uncertain import Uncertain
 from .gaussian import gaussian
 from . import measuring
 from . import utils
+from .config import Conf
 import logging
+from typing import List
 from collections.abc import MutableMapping
 from numba import guvectorize, float64, float32, int32
 import numpy as np
@@ -1153,34 +1155,46 @@ class Detection(object):
         """Distance from center"""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
-    def serialize(self, ew_sys_err, ns_sys_err):
+    def serialize(self, conf=Conf):
         """
         Return source properties suitable for database storage.
 
-        We manually add ew_sys_err, ns_sys_err
+        We manually add ew_sys_err, ns_sys_err as defined in conf.image.
 
         returns: a list of tuples containing all relevant fields
         """
-        return [
-            self.ra.value,
-            self.dec.value,
-            self.ra.error,
-            self.dec.error,
-            self.peak.value,
-            self.peak.error,
-            self.flux.value,
-            self.flux.error,
-            self.sig,
-            self.smaj_asec.value,
-            self.smin_asec.value,
-            self.theta_celes.value,
-            ew_sys_err,
-            ns_sys_err,
-            self.error_radius,
-            self.gaussian,
-            self.chisq,
-            self.reduced_chisq
-        ]
+
+        def _get_param(param_name):
+            # Handle special case of ns_sys_err and ew_sys_err
+            if param_name == "ns_sys_err":
+                return conf.image.ew_sys_err
+            if param_name == "ew_sys_err":
+                return conf.image.ew_sys_err
+
+            # Return the error value
+            if param_name.endswith("_err"):
+                base_name = param_name[:-4]
+                try:
+                    return getattr(self, base_name).error
+                except KeyError as e:
+                    raise KeyError(f"Unknown parameter '{param_name}'") from e
+                except AttributeError as e:
+                    raise AttributeError(
+                        f"Parameter '{base_name}' has no associated error value"
+                    ) from e
+
+            # Return the normal value
+            try:
+                param_val = getattr(self, param_name)
+                if hasattr(param_val, "value"):
+                    return param_val.value
+                return param_val
+            except KeyError as e:
+                raise KeyError(f"Unknown parameter '{param_name}'") from e
+
+        result = [_get_param(name) for name in conf.export.source_params]
+        return result
+
 
 
 @guvectorize([(float64[:], float64[:], float32[:], float32[:], float32[:],
