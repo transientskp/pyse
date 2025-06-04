@@ -3,13 +3,15 @@ Generic utility routines for number handling and calculating (specific)
 variances used by the TKP sourcefinder.
 """
 
+import math
 import numpy as np
-from scipy.special import erf
-import numba_scipy
 from numba import njit, guvectorize, int32, float32
 from sourcefinder.utils import newton_raphson_root_finder
 # CODE & NUMBER HANDLING ROUTINES
 
+@njit
+def erf(val):
+    return math.erf(val)
 
 @njit
 def find_true_std(sigma, clipped_std, clip_limit):

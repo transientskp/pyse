@@ -11,10 +11,10 @@ license = {file = "LICENSE"}
 authors = [
     { name = "TKP Discovery WG", email = "discovery@transientskp.org" },
 ]
-requires-python = ">=3.10, <3.12"
+requires-python = ">=3.10"
 dependencies = [
     "astropy",
-    "numpy<2.0",
+    "numpy",
     "psutil",
     "python-casacore",
     "python-dateutil",
@@ -22,7 +22,6 @@ dependencies = [
     "scipy",
     "tomli; python_version < '3.11'",
     "numba",
-    "numba-scipy",
     "sphinx"
 ]
 
