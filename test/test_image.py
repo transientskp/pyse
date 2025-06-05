@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
@@ -56,7 +57,8 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), margin=10)
+            FitsImage(GRB120422A), conf=Conf(ImgConf(margin=10), {})
+        )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
 
@@ -94,9 +96,12 @@ class TestFitFixedPositions(unittest.TestCase):
         # and completeness, adapted where needed, and approved.
         self.cropped_image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
-                os.path.join(DATAPATH,
-                             ('GRB201006A_final_2min_srcs-t0002-image-pb'
-                              '_cutout.fits'))), back_size_x=64, back_size_y=64)
+                os.path.join(
+                    DATAPATH, ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits")
+                )
+            ),
+            conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
+        )
 
     def testSourceAtGivenPosition(self):
         posn = self.bright_src_posn
@@ -297,7 +302,28 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        ew_sys_err, ns_sys_err = 0.0, 0.0
+        conf = Conf(image=ImgConf(), export=ExportSettings(
+            source_params = [
+                "ra",
+                "dec",
+                "ra_err",
+                "dec_err",
+                "peak",
+                "peak_err",
+                "flux",
+                "flux_err",
+                "sig",
+                "smaj_asec",
+                "smin_asec",
+                "theta_celes",
+                "ew_sys_err",
+                "ns_sys_err",
+                "error_radius",
+                "gaussian",
+                "chisq",
+                "reduced_chisq",
+            ]
+        ))
 
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
@@ -308,7 +334,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.06461773e+01, 1.78499710e+02,
              # Beam semiminor-axis width (arcsec), beam position angle (deg)
-             ew_sys_err, ns_sys_err,
+             0.0, 0.0, # ew_sys_err, ns_sys_err,
              4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
              1.47489354e-01, 1.63056225e-01]  # chisq, reduced chisq
 
@@ -321,7 +347,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              # Significance level, beam semimajor-axis width (arcsec)
              1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
              # Beam position angle (deg).
-             ew_sys_err, ns_sys_err,
+             0.0, 0.0, # ew_sys_err, ns_sys_err,
              4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
              8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
 
@@ -329,7 +355,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             FitsImage(GRB120422A))
 
         results = self.image.extract(det=5, anl=3)
-        results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        results = [result.serialize(conf) for result in
                    results]
         self.assertEqual(len(results), 2)
         r = np.array(results[1], dtype=np.float32)
@@ -373,12 +399,12 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             accessors.kat7casaimage.Kat7CasaImage(
                 os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
 
-        ew_sys_err, ns_sys_err = 0.0, 0.0
+        conf = Conf(image=ImgConf(), export=ExportSettings())
         fits_results = fits_image.extract(det=5, anl=3)
-        fits_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        fits_results = [result.serialize(conf) for result in
                         fits_results]
         casa_results = casa_image.extract(det=5, anl=3)
-        casa_results = [result.serialize(ew_sys_err, ns_sys_err) for result in
+        casa_results = [result.serialize(conf) for result in
                         casa_results]
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches two extra noise peaks at the 5 sigma level.
@@ -444,14 +470,18 @@ class TestMaskedBackground(unittest.TestCase):
         Background at forced fit is masked
         """
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
+            conf=Conf(ImgConf(radius=1.0), {}),
+        )
         result = self.image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
 
     @requires_data(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
     def testMaskedBackgroundBlind(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")), radius=1.0)
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
+            conf=Conf(ImgConf(radius=1.0), {}),
+        )
         result = self.image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
 
@@ -504,9 +534,12 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = sfimage.ImageData(fitsfile.data, fitsfile.beam,
-                                     fitsfile.wcs,
-                                     back_size_x=128, back_size_y=51)
+        self.img = sfimage.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
+        )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
@@ -583,9 +616,12 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                'image_206-215-t0002.fits'))
-        self.img = sfimage.ImageData(fitsfile.data, (0.208, 0.136, 15.619),
-                                     fitsfile.wcs, back_size_x=128,
-                                     back_size_y=128, radius=1000)
+        self.img = sfimage.ImageData(
+            fitsfile.data,
+            (0.208, 0.136, 15.619),
+            fitsfile.wcs,
+            Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
+        )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("mean_grid_image_206-215-t0002.fits_radius" +
@@ -659,5 +695,3 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
                          "Shapes of rms grids do not match")
 
         self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
-
-
