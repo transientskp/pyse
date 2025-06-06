@@ -2,7 +2,7 @@ from sourcefinder.accessors.fitsimage import FitsImage
 from sourcefinder.accessors.lofaraccessor import LofarAccessor
 
 
-class LofarFitsImage(FitsImage, LofarAccessor):
+class LofarFitsImage(FitsImage, LofarAccessor):  # type: ignore[misc]
     def __init__(self, url, plane=False, beam=False, hdu=0):
         super().__init__(url, plane, beam, hdu)
         header = self._get_header(hdu)

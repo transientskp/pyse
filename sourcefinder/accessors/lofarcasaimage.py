@@ -28,7 +28,7 @@ subtable_names = (
 )
 
 
-class LofarCasaImage(CasaImage, LofarAccessor):
+class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
     """
     Use casacore to pull image data out of an Casa table.
 
