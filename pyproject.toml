@@ -62,7 +62,7 @@ extra-dependencies = [
     "pytest-xdist",
 ]
 
-[tool.hatch.envs.default_310]
+[tool.hatch.envs.default_312]
 python = "3.12"
 extra-dependencies = [
     "pytest",
