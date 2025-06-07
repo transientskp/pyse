@@ -71,6 +71,7 @@ extra-dependencies = [
 
 [tool.hatch.envs.lint]
 detached = true
+python = "3.12"
 dependencies = [
     "black",
     "flake8",
@@ -80,7 +81,8 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra", "-n=logical", "--dist=worksteal", "--cov-config=test/.coveragerc"]
+addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra",
+           "-n=logical", "--dist=worksteal", "--cov-config=test/.coveragerc"]
 
 [tool.black]
 include = '\.pyi?$'
