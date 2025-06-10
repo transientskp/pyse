@@ -82,7 +82,7 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["test"]
 addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra",
-           "-n=logical", "--dist=worksteal", "--cov-config=test/.coveragerc"]
+           "-n=logical", "--dist=worksteal", "--cov-config=.coveragerc"]
 
 [tool.black]
 include = '\.pyi?$'
