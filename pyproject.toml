@@ -59,7 +59,6 @@ matrix = [
 extra-dependencies = [
     "pytest",
     "pytest-cov",
-    "pytest-xdist",
 ]
 
 [tool.hatch.envs.default_312]
@@ -81,8 +80,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra",
-           "-n=logical", "--dist=worksteal", "--cov-config=test/.coveragerc"]
+addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra"]
 
 [tool.black]
 include = '\.pyi?$'
