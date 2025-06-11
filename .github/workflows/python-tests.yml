@@ -74,6 +74,8 @@ jobs:
       - name: Integration test
         run: |
           hatch run pyse --config-file test/data/config.toml --detection 5 --radius 400 --csv --force-beam test/data/GRB120422A-120429.fits
+      - name: List files
+        run: ls -l ./
       - name: Fail if .coverage.* files remain
         run: |
           if ls .coverage.* 1> /dev/null 2>&1; then
