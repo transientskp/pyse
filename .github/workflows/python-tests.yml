@@ -68,22 +68,18 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install hatch
           hatch env create test
-      - name: list coverage files for debugging before running pytest
-        run: find . -maxdepth 1 -type f -name ".coverage.*"
       - name: Run pytest
         run: |
-          hatch run test:pytest
+          hatch run test:pytest test/test_image.py -n 4 2> >(tee .coverage-stderr.log >&2)
+      - name: Fail on CoverageWarning
+        run: |
+          if grep -q "CoverageWarning" .coverage-stderr.log; then
+            echo "CoverageWarning encountered. This is likely related to pyse using multiprocessing in one of the tests. Make sure 'allow_multiprocessing=False' in the pyse image configuration"
+            exit 1
+          fi
       - name: Integration test
         run: |
           hatch run pyse --config-file test/data/config.toml --detection 5 --radius 400 --csv --force-beam test/data/GRB120422A-120429.fits
-      - name: list coverage files for debugging
-        run: find . -maxdepth 1 -type f -name ".coverage.*"
-      - name: Fail if .coverage.* files remain
-        run: |
-          if find . -maxdepth 1 -type f -name ".coverage.*" | grep -q .; then
-            echo "Unable to concatenate all .coverage.* files. This is likely related to pyse using multiprocessing in one of the tests. Make sure 'allow_multiprocessing=False' in the pyse image configuration"
-            exit 1
-          fi
 
   type-check:
     strategy:

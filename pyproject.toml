@@ -81,7 +81,7 @@ dependencies = [
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
-addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-v", "-ra",
+addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra",
            "-n=logical", "--dist=worksteal", "--cov-config=.coveragerc", "--cov-append"]
 
 [tool.black]
