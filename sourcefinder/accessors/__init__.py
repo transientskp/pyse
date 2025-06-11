@@ -17,9 +17,14 @@ from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.image import ImageData
 
 
-def sourcefinder_image_from_accessor(image, conf: Conf=Conf(image=ImgConf(),
-                                                            export=
-                                                            ExportSettings())):
+def sourcefinder_image_from_accessor(
+            image,
+            conf: Conf = Conf(
+                image=ImgConf(),
+                export=ExportSettings()
+            ),
+    ):
+
     """
     Create a sourcefinder.image.ImageData object from an image 'accessor'.
 
