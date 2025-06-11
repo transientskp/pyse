@@ -74,6 +74,12 @@ jobs:
       - name: Integration test
         run: |
           hatch run pyse --config-file test/data/config.toml --detection 5 --radius 400 --csv --force-beam test/data/GRB120422A-120429.fits
+      - name: Fail if .coverage.* files remain
+        run: |
+          if ls .coverage.* 1> /dev/null 2>&1; then
+            echo "Unable to concatenate all .coverage.* files. This is likely related to pyse using multiprocessing in one of the tests. Make sure 'allow_multiprocessing=False' in the pyse image configuration"
+            exit 1
+          fi
 
   type-check:
     strategy:
