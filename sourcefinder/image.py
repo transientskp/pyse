@@ -164,7 +164,7 @@ class ImageData(object):
         if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
             margin_mask[self.conf.image.margin:-self.conf.image.margin,
-            self.conf.image.margin:-self.conf.image.margin] = 0
+                self.conf.image.margin:-self.conf.image.margin] = 0
             mask = np.logical_or(mask, margin_mask)
         if self.conf.image.radius:
             radius_mask = utils.circular_mask(self.xdim, self.ydim,
@@ -260,8 +260,8 @@ class ImageData(object):
         # node is centered on a subimage. This is only possible if
         # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
         # respectively. If not, we need to select a frame within useful_chunk
-        # that does have the appropriate dimensions. At the same time, it should
-        # be as large as possible and centered within useful_chunk.
+        # that does have the appropriate dimensions. At the same time, it
+        # should be as large as possible and centered within useful_chunk.
         rem_row = np.mod(x_dim, back_size_x)
         rem_col = np.mod(y_dim, back_size_y)
 
@@ -384,7 +384,8 @@ class ImageData(object):
             my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
                 ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
                                         mode='nearest',
-                                        order=self.conf.image.interpolate_order))
+                                        order=
+                                        self.conf.image.interpolate_order))
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -478,7 +479,8 @@ class ImageData(object):
             else:
                 self.rmsmap = noisemap
 
-        if labelled_data is not None and labelled_data.shape != self.data.shape:
+        if (labelled_data is not None and labelled_data.shape !=
+            self.data.shape):
             raise ValueError("Labelled map is wrong shape")
 
         return self._pyse(
@@ -533,8 +535,8 @@ class ImageData(object):
     ):
         """False Detection Rate based source extraction.
 
-        The FDR procedure guarantees that the False Detection Rate (FDR) is less
-        than alpha.
+        The FDR procedure guarantees that the False Detection Rate (FDR) is
+        less than alpha.
 
         Parameters
         ----------
