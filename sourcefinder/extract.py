@@ -1054,7 +1054,100 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
 
 
 class Detection(object):
-    """The result of a measurement at a given position in a given image."""
+    """
+    Propagate a measurement in pixel space to celestial coordinates.
+
+    A source measurement is primarily done in pixel space, this includes the
+    parameters peak spectral brightness, position and (Gaussian) shape, but
+    also derived quanities such as flux density, signal-to-noise ratio and
+    (reduced) chi-squared of the Gaussian model.
+    On top of that, the Gaussian shape parameters have to be deconvolved from
+    the clean beam, if the source is resolved. This adds up to a total of ten
+    source parameters that have to be supplemented with their 1-sigma error
+    bars:
+    1) peak spectral brightness
+    2) integrated flux density
+    3) x-coordinate in pixel space
+    4) y-coordinate in pixel space
+    5) semi-major axis in pixel space
+    6) semi-minor axis in pixel space
+    7) position angle in radians
+    8) deconvolved semi-major axis in pixel space
+    9) deconvolved semi-minor axis in pixel space
+    10) deconvolved position angle in radians
+
+    Quantities 3 through 10 all have to be converted to celestial coordinates.
+
+    Parameters
+    ----------
+    paramset : a ParamSet instance
+        The measurement of the source, reflected by Gaussian model
+        parameters supplemented with some auxiliary quantities.
+    imagedata : an image.ImageData instance
+        The actual pixel data from the input image are not used here,
+        we simply need the wcs attribute that is needed to convert to celestial
+        coordinates.
+    chunk : tuple of slices, default: None
+        The rectangular region of the image encompassing the source pixels
+        above the analysis threshold.
+    eps_ra : float, default: 0
+        The calibration error in right ascension in degrees following equation
+        27a of the NVSS paper (Condon et al. 1998, AJ, 115, 1693).
+    eps_dec : float, default: 0
+        The calibration error in declination in degrees following equation
+        27b of the NVSS paper (Condon et al. 1998, AJ, 115, 1693).
+
+    Attributes
+    ----------
+    peak : Uncertain instance
+        The peak spectral brightness of the source in the units used in
+        the image, typically Jy/beam.
+    flux : Uncertain instance
+        The integrated flux density of the source, typically in Jy.
+    x : Uncertain instance
+        The x-coordinate of the source in pixel space.
+    y : Uncertain instance
+        The y-coordinate of the source in pixel space.
+    smaj : Uncertain instance
+        The semi-major axis of the source in units of pixels.
+    smin : Uncertain instance
+        The semi-minor axis of the source in units of pixels.
+    theta : Uncertain instance
+        The position angle of the source in radians.
+    dc_imposs : int
+        The number of elliptical axes that could not be deconvolved,
+        minimum = 0, maximum = 2
+    smaj_dc : Uncertain instance
+        The deconvolved semi-major axis of the source in units of pixels.
+    smin_dc : Uncertain instance
+        The deconvolved semi-minor axis of the source in units of pixels.
+    theta_dc : Uncertain instance
+        The deconvolved position angle of the source in degrees.
+    error_radius : float or None
+        A pessimistic estimate of the 1-sigma positional uncertainty, in
+        arcseconds.
+    gaussian : bool
+        Indicates whether the measurement is based on a Gaussian fit.
+    chisq : float
+        The chi-squared value of the Gaussian model relative to the data.
+        Can be a Gaussian model derived from a fit or from moments.
+    reduced_chisq : float
+        The reduced chi-squared value of the Gaussian model relative to the
+        data. Can be a Gaussian model derived from a fit or from moments.
+    sig : float
+        The significance of a detection is defined as the maximum
+        signal-to-noise ratio across the island. Often this will be the ratio
+        of the maximum pixel value within the source island divided by the
+        noise at that position.
+    imagedata : an image.ImageData instance
+        This is the same object passed as the `imagedata` parameter.
+    chunk : tuple of slices or None, default: None
+        This is the same object passed as the `chunk` parameter.
+    eps_ra : float, default: 0
+        This is the same object passed as the `eps_ra` parameter.
+    eps_dec : float, default: 0
+        This is the same object passed as the `eps_dec` parameter.
+    """
 
     def __init__(self, paramset, imagedata, chunk=None, eps_ra=0, eps_dec=0):
 
