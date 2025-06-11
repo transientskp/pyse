@@ -7,6 +7,7 @@ from sourcefinder.accessors.lofaraccessor import LofarAccessor
 from sourcefinder.accessors.lofarcasaimage import LofarCasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from .conftest import DATAPATH
 
 
@@ -19,9 +20,19 @@ class TestLofarCasaImage(unittest.TestCase):
         self.accessor = LofarCasaImage(casatable)
 
     def test_casaimage(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         self.assertTrue(isinstance(self.accessor, LofarAccessor))
         results = self.accessor.extract_metadata()
-        sfimage = accessors.sourcefinder_image_from_accessor(self.accessor)
+        sfimage = accessors.sourcefinder_image_from_accessor(
+            self.accessor,
+            conf=conf,
+        )
 
         known_bmaj, known_bmin, known_bpa = 2.64, 1.85, 1.11
         bmaj, bmin, bpa = self.accessor.beam

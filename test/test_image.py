@@ -57,7 +57,11 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=Conf(ImgConf(margin=10), {})
+            FitsImage(GRB120422A), conf=Conf(ImgConf(
+                margin=10,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {})
         )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
@@ -75,9 +79,15 @@ class TestFitFixedPositions(unittest.TestCase):
         Source positions / background positions were simply picked out by
         eye in DS9
         """
+        conf = conf=Conf(ImgConf(
+            # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+            allow_multiprocessing=False,
+        ), {})
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
-                os.path.join(DATAPATH, 'NCP_sample_image_1.fits'))
+                os.path.join(DATAPATH, 'NCP_sample_image_1.fits')
+            ),
+            conf=conf,
         )
         self.assertListEqual(list(self.image.data.shape), [1024, 1024])
         self.boxsize = BOX_IN_BEAMPIX * max(self.image.beam[0],
@@ -100,7 +110,12 @@ class TestFitFixedPositions(unittest.TestCase):
                     DATAPATH, ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits")
                 )
             ),
-            conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
+            conf=Conf(ImgConf(
+                back_size_x=64,
+                back_size_y=64,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {}),
         )
 
     def testSourceAtGivenPosition(self):
@@ -302,28 +317,34 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        conf = Conf(image=ImgConf(), export=ExportSettings(
-            source_params = [
-                "ra",
-                "dec",
-                "ra_err",
-                "dec_err",
-                "peak",
-                "peak_err",
-                "flux",
-                "flux_err",
-                "sig",
-                "smaj_asec",
-                "smin_asec",
-                "theta_celes",
-                "ew_sys_err",
-                "ns_sys_err",
-                "error_radius",
-                "gaussian",
-                "chisq",
-                "reduced_chisq",
-            ]
-        ))
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings(
+                source_params = [
+                    "ra",
+                    "dec",
+                    "ra_err",
+                    "dec_err",
+                    "peak",
+                    "peak_err",
+                    "flux",
+                    "flux_err",
+                    "sig",
+                    "smaj_asec",
+                    "smin_asec",
+                    "theta_celes",
+                    "ew_sys_err",
+                    "ns_sys_err",
+                    "error_radius",
+                    "gaussian",
+                    "chisq",
+                    "reduced_chisq",
+                ]
+            )
+        )
 
         known_result_fit = \
             [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
@@ -352,7 +373,9 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
 
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A),
+            conf=conf,
+        )
 
         results = self.image.extract(det=5, anl=3)
         results = [result.serialize(conf) for result in
@@ -377,8 +400,17 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         testSingleSourceExtraction(), above). Here we force the lengths of the
         major/minor axes to be held constant when fitting.
         """
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A),
+            conf=conf,
+        )
         results = self.image.extract(det=5, anl=3, force_beam=True)
         self.assertEqual(results[0].smaj.value, self.image.beam[0])
         self.assertEqual(results[0].smin.value, self.image.beam[1])
@@ -391,15 +423,26 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         same dataset gives the same results (especially, RA and Dec).
         """
 
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         fits_image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits')))
+            FitsImage(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits')),
+            conf=conf,
+        )
         # Abuse the KAT7 CasaImage class here, since we just want to access
         # the pixel data and the WCS:
         casa_image = accessors.sourcefinder_image_from_accessor(
             accessors.kat7casaimage.Kat7CasaImage(
-                os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
+                os.path.join(DATAPATH, 'SWIFT_554620-130504.image')
+            ),
+            conf=conf,
+        )
 
-        conf = Conf(image=ImgConf(), export=ExportSettings())
         fits_results = fits_image.extract(det=5, anl=3)
         fits_results = [result.serialize(conf) for result in
                         fits_results]
@@ -427,8 +470,17 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         source in the image, just by setting the thresholds very high -
         this avoids requiring additional data).
         """
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A),
+            conf=conf,
+        )
         results = self.image.extract(det=5e10, anl=5e10)
         results = [result.serialize() for result in results]
         self.assertEqual(len(results), 0)
@@ -449,9 +501,17 @@ class TestMaskedSource(unittest.TestCase):
 
         Tip of major axis is around 267, 264
         """
-
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A),
+            conf=conf,
+        )
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
         self.image.data[266:269, 263:266] = np.ma.masked
@@ -471,7 +531,11 @@ class TestMaskedBackground(unittest.TestCase):
         """
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(ImgConf(
+                radius=1.0,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {}),
         )
         result = self.image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
@@ -480,7 +544,11 @@ class TestMaskedBackground(unittest.TestCase):
     def testMaskedBackgroundBlind(self):
         self.image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(ImgConf(
+                radius=1.0,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {}),
         )
         result = self.image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
@@ -493,8 +561,17 @@ class TestFailureModes(unittest.TestCase):
     """
 
     def testFlatImage(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ),
+            export=ExportSettings()
+        )
         sfimage = accessors.sourcefinder_image_from_accessor(
-            SyntheticImage(data=np.zeros((512, 512))))
+            SyntheticImage(data=np.zeros((512, 512))),
+            conf=conf,
+        )
         self.assertTrue(np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
                         msg="Data should be flat")
         with self.assertRaises(RuntimeError):
@@ -538,7 +615,12 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
+            Conf(ImgConf(
+                back_size_x=128,
+                back_size_y=51,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {}),
         )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
@@ -620,7 +702,13 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
+            Conf(ImgConf(
+                back_size_x=128,
+                back_size_y=128,
+                radius=1000,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False,
+            ), {}),
         )
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",

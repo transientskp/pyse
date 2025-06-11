@@ -6,7 +6,7 @@ import gc
 import os
 import unittest
 
-from sourcefinder.config import Conf, ImgConf
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
@@ -41,7 +41,19 @@ class L15_12hConstObs(unittest.TestCase):
                                                               beam=(0.2299,
                                                                     0.1597,
                                                                     -23.87))
-        self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
+        self.image = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=conf,
+        )
         self.results = self.image.extract(det=10, anl=3.0)
 
     def tearDown(self):
@@ -68,7 +80,19 @@ class L15_12hConstCor(unittest.TestCase):
                                                               beam=(0.2299,
                                                                     0.1597,
                                                                     -23.87))
-        self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
+        self.image = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=conf,
+        )
         self.results = self.image.extract(det=10.0, anl=3.0)
 
     def tearDown(self):
@@ -114,7 +138,11 @@ class L15_12hConstMod(unittest.TestCase):
                                                                     0.1597,
                                                                     -23.87))
         self.image = image.ImageData(
-            fitsfile.data, fitsfile.beam, fitsfile.wcs, Conf(ImgConf(radius=100), {})
+            fitsfile.data, fitsfile.beam, fitsfile.wcs, Conf(ImgConf(
+                radius=100,
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ), {})
         )
         self.results = self.image.extract(det=5, anl=3.0)
 
@@ -142,8 +170,19 @@ class FitToPointTestCase(unittest.TestCase):
                                                               beam=(2. * 500.099 / 3600,
                                                                     2. * 319.482 / 3600,
                                                                     168.676))
-        self.my_im = image.ImageData(fitsfile.data, fitsfile.beam,
-                                     fitsfile.wcs)
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
+        self.my_im = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=conf,
+        )
 
     def tearDown(self):
         del self.my_im

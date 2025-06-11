@@ -6,6 +6,7 @@ from sourcefinder import accessors
 from sourcefinder.accessors.amicasaimage import AmiCasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from .conftest import DATAPATH
 
 
@@ -19,8 +20,19 @@ class TestAmiLaCasaImage(unittest.TestCase):
         cls.accessor = AmiCasaImage(casatable)
 
     def test_casaimage(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
+
         results = self.accessor.extract_metadata()
-        sfimage = accessors.sourcefinder_image_from_accessor(self.accessor)
+        sfimage = accessors.sourcefinder_image_from_accessor(
+            self.accessor,
+            conf=conf,
+        )
 
         known_bmaj, known_bmin, known_bpa = (4.002118682861328,
                                             2.4657058715820312,
@@ -61,4 +73,3 @@ class TestAmiLaCasaImage(unittest.TestCase):
         #  => Approx 0.15 arcseconds drift across 512 pixels
         # (Probably OK).
         self.assertAlmostEqual(abs(coord_dist_deg), abs(pix_dist_deg), places=6)
-

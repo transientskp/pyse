@@ -6,6 +6,7 @@ from sourcefinder import accessors
 from sourcefinder.accessors.kat7casaimage import Kat7CasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from .conftest import DATAPATH
 
 
@@ -19,8 +20,18 @@ class TestKat7CasaImage(unittest.TestCase):
         cls.accessor = Kat7CasaImage(casatable)
 
     def test_casaimage(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         results = self.accessor.extract_metadata()
-        sfimage = accessors.sourcefinder_image_from_accessor(self.accessor)
+        sfimage = accessors.sourcefinder_image_from_accessor(
+            self.accessor,
+            conf=conf,
+        )
 
         known_bmaj, known_bmin, known_bpa = 3.33, 3.33, 0
         bmaj, bmin, bpa = self.accessor.beam
@@ -58,4 +69,3 @@ class TestKat7CasaImage(unittest.TestCase):
         #  => Approx 0.15 arcseconds drift across 512 pixels
         # (Probably OK).
         self.assertAlmostEqual(abs(coord_dist_deg), abs(pix_dist_deg), places=6)
-

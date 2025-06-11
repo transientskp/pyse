@@ -19,6 +19,7 @@ import unittest
 import numpy as np
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
+from sourcefinder.config import Conf, ImgConf
 
 import sourcefinder.accessors
 from sourcefinder import image
@@ -41,8 +42,16 @@ class SourceParameters(unittest.TestCase):
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        img = image.ImageData(fitsfile.data, fitsfile.beam,
-                              fitsfile.wcs)
+        conf = conf=Conf(ImgConf(
+            # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+            allow_multiprocessing=False,
+        ), {})
+        img = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=conf,
+        )
 
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background

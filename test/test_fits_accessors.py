@@ -9,6 +9,7 @@ from sourcefinder import accessors
 from sourcefinder.accessors.fitsimage import FitsImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.decorators import requires_database
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 from .conftest import DATAPATH
 
 
@@ -48,9 +49,18 @@ class PyfitsFitsImage(unittest.TestCase):
 
     @requires_data(os.path.join(DATAPATH, 'observed-all.fits'))
     def testSFImageFromFITS(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         fits_file = os.path.join(DATAPATH, 'observed-all.fits')
         image = FitsImage(fits_file, beam=(54./3600, 54./3600, 0.))
-        sfimage = accessors.sourcefinder_image_from_accessor(image)
+        sfimage = accessors.sourcefinder_image_from_accessor(
+            image, conf=conf
+        )
 
 
 
@@ -91,9 +101,18 @@ class TestFitsImage(unittest.TestCase):
 
     @requires_data(os.path.join(DATAPATH, 'observed-all.fits'))
     def testSFImageFromFITS(self):
+        conf = Conf(
+            image=ImgConf(
+                # Disallow multiprocessing to enable parallel running of tests using pytest-xdist
+                allow_multiprocessing=False
+            ),
+            export=ExportSettings()
+        )
         image = FitsImage(os.path.join(DATAPATH, 'observed-all.fits'),
                                    beam=(54./3600, 54./3600, 0.))
-        sfimage = accessors.sourcefinder_image_from_accessor(image)
+        sfimage = accessors.sourcefinder_image_from_accessor(
+            image, conf=conf
+        )
 
 
 
