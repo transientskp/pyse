@@ -1198,7 +1198,8 @@ class ImageData(object):
                 with Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
-                fit_results = [fit_islands_partial(island) for island in island_list]
+                fit_results = [fit_islands_partial(island) for island in
+                               island_list]
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
@@ -1213,9 +1214,11 @@ class ImageData(object):
                                             eps_dec=self.conf.image.eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
-                        logger.warning('Bad fit from blind extraction at pixel coords:'
+                        logger.warning('Bad fit from blind extraction at '
+                                       'pixel coords:'
                                        '%f %f - measurement discarded'
-                                       '(increase fitting margin?)', det.x, det.y)
+                                       '(increase fitting margin?)',
+                                       det.x, det.y)
                     else:
                         results.append(det)
                 except RuntimeError as e:
