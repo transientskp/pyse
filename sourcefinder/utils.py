@@ -14,7 +14,7 @@ from numba import njit, prange, guvectorize
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
-    """
+    r"""
     Generate a series of ``num_thresholds`` logarithmically spaced values
     in the range (min_value, max_value) (both exclusive).
     First, we calculate a logarithmically spaced sequence between exp(0.0)
@@ -24,18 +24,31 @@ def generate_subthresholds(min_value, max_value, num_thresholds):
     (max_value - min_value).
     We add min to that to get the range between min and max.
 
-    Parameters:
-    min_value (float): The minimum value of the range, but not returned.
-    max_value (float): The maximum value of the range, but not returned.
-    num_thresholds (int): The number of values between min_value and max_value
-                          to generate.
-    Returns:
-    np.ndarray: An array of logarithmically spaced values from
-                e ** (log(max_value + 1 - min_value) /
-                     (num_thresholds + 1)) + min_value - 1 to
-                to
-                e ** (log(max_value + 1 - min_value) *
-                     num_thresholds / (num_thresholds + 1)) + min_value - 1
+    This formula sets the subthreshold levels:
+
+    .. math::
+
+        t_i = \exp\left(
+            \frac{i \cdot \log(\text{max\_value} + 1 - \text{min\_value})}
+                 {\text{num\_thresholds} + 1}
+        \right) + \text{min\_value} - 1
+
+    for :math:`i = 1, 2, \ldots, \text{num\_thresholds}`.
+
+    Parameters
+    ----------
+    min_value : float
+        The minimum value of the range (not included in the output).
+    max_value : float
+        The maximum value of the range (not included in the output).
+    num_thresholds : int
+        The number of threshold values to generate.
+
+    Returns
+    -------
+    np.ndarray
+        An array of logarithmically spaced values between min_value and
+        max_value (exclusive).
     """
     subthrrange = np.logspace(
         0.0,
