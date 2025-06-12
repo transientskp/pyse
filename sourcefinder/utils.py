@@ -149,6 +149,7 @@ def generate_result_maps(data, sourcelist):
     -------
     tuple of np.ndarray
         A tuple containing two 2D arrays:
+
         - The first array shows the Gaussian reconstructions of the sources.
         - The second array shows the residuals from the subtractions of these
           reconstructions from the image data.
