@@ -154,6 +154,7 @@ class CasaImage(DataAccessor):
         -------
         tuple
             A tuple containing:
+            
             - semimajor : float
                 The semi-major axis of the beam in degrees.
             - semiminor : float
