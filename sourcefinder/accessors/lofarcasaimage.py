@@ -313,6 +313,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         subtable and the "NAME" column from the LOFAR_ANTENNA subtable to
         determine which
         stations were used. Stations are categorized based on their names:
+
         - Core stations start with "CS".
         - Remote stations start with "RS".
         - International stations have other prefixes.
