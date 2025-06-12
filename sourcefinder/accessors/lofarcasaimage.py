@@ -265,9 +265,9 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         The method uses the clock frequency and its unit to calculate the
         subband width. The clock frequency is divided by 1024 to determine
         the subband width. For more details, see:
-        http://www.lofar.org/operations/doku.php?id=operator:
-        background_to_observations&s[]=subband&s[]=width&s[]=clock&s[]=
-        frequency
+        https://www.astron.nl/lofarwiki/doku.php?id=public:documents:
+        raw_olap_data_formats&s[]=subband
+        'base_subband_hz = clock_hz / 1024'
         """
         freq_units = {
             'Hz': 1,
