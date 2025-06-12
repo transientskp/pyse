@@ -47,6 +47,7 @@ def jac_gaussian(gaussianargs):
     ----------
     gaussianargs : list or tuple
         A list containing the six Gaussian parameters:
+
         - height (float): (z-)value of the 2D Gaussian.
         - center_x (float): x center of the Gaussian.
         - center_y (float): y center of the Gaussian.
