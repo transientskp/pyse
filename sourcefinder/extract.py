@@ -1113,7 +1113,8 @@ class Detection(object):
     smin : Uncertain instance
         The semi-minor axis of the source in units of pixels.
     theta : Uncertain instance
-        The position angle of the source in radians.
+        The position angle of the major axis in radians, measured from the
+        positive y-axis towards the negative x-axis.
     dc_imposs : int
         The number of elliptical axes that could not be deconvolved,
         minimum = 0, maximum = 2
