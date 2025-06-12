@@ -15,7 +15,7 @@ from numba import njit, prange, guvectorize
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
     """
-    Generate a series of "num_thresholds" logarithmically spaced values
+    Generate a series of ``num_thresholds`` logarithmically spaced values
     in the range (min_value, max_value) (both exclusive).
     First, we calculate a logarithmically spaced sequence between exp(0.0)
     and (max_value - min_value + 1). That is, the total range is between 1 and
