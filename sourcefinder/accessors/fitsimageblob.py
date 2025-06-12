@@ -82,6 +82,7 @@ class FitsImageBlob(FitsImage):
         ----------
         *args : tuple
             Positional arguments where:
+
             - args[0] is the HDU list (astropy.io.fits.HDUList).
             - args[1] is the index of the HDU to use.
             - args[2] is the plane index (int) if the data is a datacube.
