@@ -38,6 +38,7 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     -------
     tuple
         A tuple containing:
+
         - real major axis (float)
         - real minor axis (float)
         - real position angle of the major axis (float)
