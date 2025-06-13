@@ -241,7 +241,7 @@ class ImgConf(_Validate):
     # direction, see paragraph 5.2.3 of the NVSS paper. Note that this
     # parameter is currently not applied in PySE, because it should be
     # considered a final step before entering source parameters in a catalog,
-    # i.e. it is simply returned to allow for  systematic positional offset
+    # i.e. it is simply returned to allow for systematic positional offset
     # cf. the NVSS. Therefore, its unit (degrees, arcseconds) is up to the
     # user.
     ns_sys_err: float = 0.                 # Systematic error in north-south
