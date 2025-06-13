@@ -140,11 +140,26 @@ _source_params = [
 class ImgConf(_Validate):
     """Configuration that should cover all the specifications for processing the image."""
 
-    interpolate_order: int = 1  # Order of interpolation to use (e.g. 1 for linear)
-    median_filter: int = 0      # Size of the median filter to apply to background and RMS grids prior to interpolating. Use 0 to disable.
-    mf_threshold: int = 0       # Threshold used with the median filter if median_filter is non-zero. Sources below this are discarded.
-    rms_filter: float = 0.001   # Minimum RMS value to use as filter for the image noise.
-    deblend_mincont: float = 0.005  # Minimum contrast for deblending islands into separate sources.
+    interpolate_order: int = 1  # Order of interpolation to use for
+    # the background mean and background standard deviation (rms) maps (e.g. 1
+    # for linear)
+    median_filter: int = 0      # Size of the median filter to apply to
+    # background and RMS grids prior to interpolating. This is used to
+    # discard outliers. Use 0 to disable.
+    mf_threshold: int = 0       # Threshold (Jy/beam) used with the median
+    # filter if median_filter is non-zero. This is used to only discard
+    # outliers (i.e. extreme background mean or rms node values) beyond a
+    # certain threshold. Use 0 to disable.
+    rms_filter: float = 0.001   # Any interpolated background standard
+    # deviation (rms) value should be above this threshold times the mean of
+    # all background standard deviation (rms) node values. This is used to
+    # avoid picking up sources towards the edges of the image where the values
+    # of the background rms map may be the result of poor interpolation,
+    # i.e. are the result of extrapolation rather than interpolation. Use 0 to
+    # disable.
+    deblend_mincont: float = 0.005  # Minimum flux density fraction (relative
+    # to the original, i.e. unblended, island) required for a subisland to be
+    # considered a valid deblended component.
 
     # The "structuring element" defines island connectivity as in
     # "4-connectivity" and "8-connectivity". These two are the only reasonable
@@ -154,30 +169,89 @@ class ImgConf(_Validate):
     structuring_element: list[list[int]] = field(
         default_factory=lambda: _structuring_element
     )
-    vectorized: bool = False               # Use vectorized operations where applicable (faster, but skips Gaussian fitting).
-    allow_multiprocessing: bool = True     # Allow multiprocessing for Gaussian fitting in parallel.
-    margin: int = 0                        # Margin in pixels to ignore around the edge of the image.
-    radius: float = 0.0                    # Radius in pixels around sources to include in analysis.
-    back_size_x: int | None = 32           # Background estimation box size (X direction).
-    back_size_y: int | None = 32           # Background estimation box size (Y direction).
-    eps_ra: float = 0.0                    # RA matching tolerance in arcseconds.
-    eps_dec: float = 0.0                   # Dec matching tolerance in arcseconds.
-    detection: float = 10.0                # Detection threshold.
-    analysis: float = 3.0                  # Analysis threshold.
-    fdr: bool = False                      # Use False Detection Rate (FDR) algorithm.
-    alpha: float = 1e-2                    # FDR alpha value (significance level).
-    deblend_thresholds: int = 0            # Number of deblending subthresholds; 0 to disable.
-    grid: int | None = None                # Background grid segment size used as fallback for back-size-x and back-size-y.
-    bmaj: float | None = None              # Set beam: Major axis of beam (degrees).
-    bmin: float | None = None              # Set beam: Minor axis of beam (degrees).
-    bpa: float | None = None               # Set beam: Beam position angle (degrees).
-    force_beam: bool = False               # Force fit axis lengths to beam size.
-    detection_image: str | None = None     # Path to image used for detection (can be different from analysis image).
-    fixed_posns: str | None = None         # JSON list of coordinates to force-fit (disables blind extraction).
-    fixed_posns_file: str | None = None    # Path to file with coordinates to force-fit (disables blind extraction).
-    ffbox: float = 3.0                     # Forced fitting box size as a multiple of beam width.
-    ew_sys_err: float = 0.                 # Systematic error in east-west direction
-    ns_sys_err: float = 0.                 # Systematic error in north-south direction
+    vectorized: bool = False               # Measure sources in a vectorized
+    # way. Expect peak spectral brightnesses with a lower bias (downwards) than
+    # for Gaussian fits (also downwards), but with a higher bias (upwards
+    # for both) for the elliptical axes.
+    allow_multiprocessing: bool = True     # Allow multiprocessing for Gaussian
+    # fitting in parallel.
+    margin: int = 0                        # Margin in pixels to ignore around
+    # the edge of the image.
+    radius: float = 0.0                    # Radius in pixels (from
+    # image center around sources to include in analysis.
+    back_size_x: int | None = 32           # Subimage size for estimation of
+    # background node values (X direction). The nodes are centred on the
+    # subimages.
+    back_size_y: int | None = 32            # Subimage size for estimation of
+    # background node values (Y direction). The nodes are centred on the
+    # subimages.
+    eps_ra: float = 0.0                    # Calibration uncertainty in right
+    # ascension (degrees), see equation 27a of the NVSS paper.
+    eps_dec: float = 0.0                   # Calibration uncertainty in
+    # declination (degrees), see equation 27b of the NVSS paper.
+    detection: float = 10.0                # Detection threshold as multiple of
+    # the background standard deviation (rms) map, after the background mean
+    # values have been subtracted from the image.
+    analysis: float = 3.0                  # Analysis threshold as multiple of
+    # the background standard deviation (rms) map, after the background mean
+    # values have been subtracted from the image.
+    fdr: bool = False                      # Use False Detection Rate (FDR)
+    # algorithm for determining detection threshold.
+    alpha: float = 1e-2                    # FDR alpha value (float,
+    # default 0.01) that sets an upper limit on the fraction of pixels
+    # erroneously detected as source pixels, relative to all source pixels.
+    # This requirement should be met when averaged over a large ensemble of
+    # images, but problems were encountered with alpha as low as 0.001,
+    # see paragraph 3.6 of Spreeuw's thesis.
+    deblend_thresholds: int = 0            # Number of deblending
+    # subthresholds; 0 to disable.
+    grid: int | None = None                # Background subimage size used
+    # as fallback for back_size_x and back_size_y. If both are not set,
+    # this implies back_size_x=backsize_y=grid, i.e. the subimages are squares.
+    bmaj: float | None = None              # Set beam: Major axis of
+    # restoring beam (degrees).
+    bmin: float | None = None              # Set beam: Minor axis of
+    # restoring beam (degrees).
+    bpa: float | None = None               # Set beam: Restoring beam position
+    # angle (degrees).
+    force_beam: bool = False               # Force source shape to align
+    # restoring beam shape (bmaj, bmin, bpa) for Gauss fits and vetorized
+    # source measurement, i.e. when vectorized=True (as of 2025-06-13:
+    # upcoming, issue #131).
+    detection_image: str | None = None     # Path to detection map. PySE will
+    # identify sources and the positions of pixels which comprise them on the
+    # detection image, but then use the corresponding pixels on the target
+    # images to perform measurements. Of course, the detection image and
+    # the target image(s) must have the same pixel dimensions. Note that only
+    # a single detection image may be specified, and the same pixels are then
+    # used on all target images. Note further that this detection-image option
+    # is incompatible with --fdr
+    fixed_posns: str | None = None         # JSON __list__ of RA, Dec pairs of
+    # coordinates to measure sources at (disables blind extraction and
+    # vectorized source measurements).
+    fixed_posns_file: str | None = None    # Path to JSON file with RA, Dec
+    # pairs of coordinates to measure sources at (disables blind extraction
+    # and vectorized source measurements).
+    ffbox: float = 3.0                     # When fitting to a fixed position,
+    # a square “box” of pixels is chosen around the requested position, and the
+    # optimization procedure allows the source position to vary within that
+    # box. The size of the box may be changed with this option. Note that this
+    # parameter is given in units of the major axis of the beam in pixels.
+    ew_sys_err: float = 0.                 # Systematic error in east-west
+    # direction, see paragraph 5.2.3 of the NVSS paper. Note that this
+    # parameter is currently not applied in PySE, because it should be
+    # considered a final step before entering source parameters in a catalog,
+    # i.e. it is simply returned to allow for  systematic positional offset
+    # cf. the NVSS. Therefore, its unit (degrees, arcseconds) is up to the
+    # user.
+    ns_sys_err: float = 0.                 # Systematic error in north-south
+    # direction, see paragraph 5.2.3 of the NVSS paper. Note that this
+    # parameter is currently not applied in PySE, because it should be
+    # considered a final step before entering source parameters in a catalog,
+    # i.e. it is simply returned to allow for systematic positional offset
+    # cf. the NVSS. Therefore, its unit (degrees, arcseconds) is up to the
+    # user.
+
 
 
 @dataclass(frozen=True)
