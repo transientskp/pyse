@@ -34,7 +34,8 @@ class ImageData(object):
     facilities for source extraction and measurement, etc.
     """
 
-    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(), export=ExportSettings())):
+    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(),
+                 export=ExportSettings())):
         """
         Initializes an ImageData object.
 
@@ -90,9 +91,11 @@ class ImageData(object):
         # radians.
         # These three quantities are only dependent on the beam, so should be
         # calculated once the beam is known and not for each source separately.
-        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1],
+                                                        beam[2])
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
-        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0],
+                                                                       beam[1])
         self.clip: dict[float, np.ndarray] = {}
         self.labels: dict[float, tuple[np.ndarray, int]] = {}
         self.freq_low = 1
@@ -153,10 +156,12 @@ class ImageData(object):
         mask = np.zeros((self.xdim, self.ydim))
         if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
-            margin_mask[self.conf.image.margin:-self.conf.image.margin, self.conf.image.margin:-self.conf.image.margin] = 0
+            margin_mask[self.conf.image.margin:-self.conf.image.margin,
+            self.conf.image.margin:-self.conf.image.margin] = 0
             mask = np.logical_or(mask, margin_mask)
         if self.conf.image.radius:
-            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.conf.image.radius)
+            radius_mask = utils.circular_mask(self.xdim, self.ydim,
+                                              self.conf.image.radius)
             mask = np.logical_or(mask, radius_mask)
         mask = np.logical_or(mask, np.isnan(self.rawdata))
         return np.ma.array(self.rawdata, mask=mask)
@@ -348,7 +353,8 @@ class ImageData(object):
             f_grid = ndimage.median_filter(grid, self.conf.image.median_filter)
             if self.conf.image.mf_threshold:
                 grid = np.where(
-                    np.fabs(f_grid - grid) > self.conf.image.mf_threshold, f_grid, grid
+                    np.fabs(f_grid - grid) > self.conf.image.mf_threshold,
+                    f_grid, grid
                 )
             else:
                 grid = f_grid
@@ -619,7 +625,8 @@ class ImageData(object):
         return (slice(x - ibr, x + ibr + 1),
                 slice(y - ibr, y + ibr + 1))
 
-    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float, fixed: str):
+    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float,
+                     fixed: str):
         """
         Fit an elliptical Gaussian to a specified point on the image.
 
@@ -910,7 +917,8 @@ class ImageData(object):
         if self.conf.image.rms_filter:
             clipped_data = np.ma.where(
                 (self.data_bgsubbed > analysisthresholdmap) &
-                (self.rmsmap >= (self.conf.image.rms_filter * self.grids["rms"].mean())), 1, 0
+                (self.rmsmap >= (self.conf.image.rms_filter *
+                                 self.grids["rms"].mean())), 1, 0
             ).filled(fill_value=0)
         else:
             clipped_data = np.ma.where(
@@ -918,7 +926,7 @@ class ImageData(object):
             ).filled(fill_value=0)
 
         labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  self.conf.image.structuring_element)
+                                        self.conf.image.structuring_element)
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
@@ -1029,22 +1037,22 @@ class ImageData(object):
             integer values and zeroes for all background pixels.
         label : int
             The label (integer value) corresponding to the slice encompassing
-            the island. Or actually it should be the other way round, since there
-            can be multiple islands within one rectangular slice.
+            the island. Or actually it should be the other way round, since
+            there can be multiple islands within one rectangular slice.
         dummy : np.ndarray
             Artefact of the implementation of guvectorize: Empty array with the
             same shape as maxpos. It is needed because of a missing feature in
-            guvectorize: There is no other way to tell guvectorize what the shape
-            of the output array will be. Therefore, we define an otherwise
-            redundant input array with the same shape as the desired output
-            array. Defined as int32, but could be any type.
+            guvectorize: There is no other way to tell guvectorize what the
+            shape of the output array will be. Therefore, we define an
+            otherwise redundant input array with the same shape as the
+            desired output array. Defined as int32, but could be any type.
         maxpos : np.ndarray
             Array of two integers indicating the indices of the highest pixel
             value of the island with label = label relative to the position of
             pixel [0, 0] of the image.
         maxi : np.float32
-            Float32 equal to the highest pixel value of the island with label =
-            label.
+            Float32 equal to the highest pixel value of the island with
+            label=label.
         npix : np.int32
             Integer indicating the number of pixels of the island.
 
