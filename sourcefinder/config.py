@@ -20,6 +20,7 @@ from typing import Container
 from typing import Type
 from typing import TypeVar
 from warnings import warn
+from enum import Enum
 
 T = TypeVar("T")
 
@@ -113,27 +114,80 @@ class _Validate:
 
 
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
-_source_params = [
-    "ra",
-    "ra_err",
-    "dec",
-    "dec_err",
-    "smaj_asec",
-    "smaj_asec_err",
-    "smin_asec",
-    "smin_asec_err",
-    "theta_celes",
-    "theta_celes_err",
-    "flux",
-    "flux_err",
-    "peak",
-    "peak_err",
-    "x",
-    "y",
-    "sig",
-    "reduced_chisq"
-]
 
+class SourceParam(str, Enum):
+    RA = "ra"
+    RA_ERR = "ra_err"
+    DEC = "dec"
+    DEC_ERR = "dec_err"
+    SMAJ_ASEC = "smaj_asec"
+    SMAJ_ASEC_ERR = "smaj_asec_err"
+    SMIN_ASEC = "smin_asec"
+    SMIN_ASEC_ERR = "smin_asec_err"
+    THETA_CELES = "theta_celes"
+    THETA_CELES_ERR = "theta_celes_err"
+    FLUX = "flux"
+    FLUX_ERR = "flux_err"
+    PEAK = "peak"
+    PEAK_ERR = "peak_err"
+    X = "x"
+    Y = "y"
+    SIG = "sig"
+    REDUCED_CHISQ = "reduced_chisq"
+
+    def describe(self):
+        return {
+            "ra": "Right ascension of the source (degrees)",
+            "ra_err": "1-sigma uncertainty in right ascension (degrees)",
+            "dec": "Declination of the source (degrees)",
+            "dec_err": "1-sigma uncertainty in declination (degrees)",
+            "smaj_asec": ("Semi-major axis of the Gaussian profile, "
+                          "not deconvolved from the clean beam (arcseconds)"),
+            "smaj_asec_err": ("1-sigma uncertainty in the semi-major axis, "
+                              "not deconvolved from the clean beam "
+                              "(arcseconds)"),
+            "smin_asec": ("Semi-minor axis of the Gaussian profile, "
+                          "not deconvolved from the clean beam (arcsecond)"),
+            "smin_asec_err": ("1-sigma uncertainty in the semi-minor axis, "
+                              "not deconvolved from the clean beam "
+                              "(arcseconds)"),
+            "theta_celes": ("Position angle of the major axis of the "
+                           "Gaussian profile, measured east from local north "
+                           "(degrees)"),
+            "theta_celes_err": ("1-sigma uncertainty in the position angle "
+                                "of the major axis of the Gaussian profile, "
+                                "measured east from local north (degrees)"),
+            "flux": ("Flux density of the source, calculated as 'pi * peak "
+                     "spectral brightness * semi- major axis * semi-minor "
+                     "axis / beamsize' (Jy)"),
+            "flux_err": "1-sigma uncertainty in the flux density (Jy)",
+            "peak": "Peak spectral brightness of the source (Jy/beam)",
+            "peak_err": ("1-sigma uncertainty in the peak spectral "
+                         "brightness of the source (Jy/beam)"),
+            "x": ("x-position (float) of the barycenter of the source, "
+                  "correponding to the row index of the Numpy array with "
+                  "image data. After loading a FITS image, the data is "
+                  "transposed such that x and y are aligned with ds9 viewing, "
+                  "except for an offset of 1 pixel, since the bottom left "
+                  "pixel in ds9 has x=y=1"),
+            "y": ("y-position (float) of the barycenter of the source, "
+                  "correponding to the column index of the Numpy array with "
+                  "image data. After loading a FITS image, the data is "
+                  "transposed such that x and y are aligned with ds9 viewing, "
+                  "except for an offset of 1 pixel, since the bottom left "
+                  "pixel in ds9 has x=y=1"),
+            "sig": ("The significance of a detection (float) is defined as "
+                    "the maximum signal-to-noise ratio across the island. "
+                    "Often this will be the ratio of the maximum pixel value "
+                    "of the source divided by the noise at that position."),
+            "reduced_chisq": ("The reduced chi-squared value of the Gaussian "
+                              "model relative to the data (float). Can be a "
+                              "Gaussian model derived from a fit or from "
+                              "moments. See the measuring.goodness_of_fit "
+                              "docstring for some important notes.")
+        }[self.value]
+
+_source_params = [p.value for p in SourceParam.__members__.values()]
 
 
 @dataclass(frozen=True)
