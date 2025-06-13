@@ -10,56 +10,60 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DataAccessor:
-    # Sphinx only picks up the class docstring if it's under an __init__
-    # *le sigh*
     """
-    Base class for accessors used with
-    :class:`sourcefinder.image.ImageData`.
-
-    Data accessors provide a uniform way for the ImageData class (ie,
+    Base class for accessors used with :class:`sourcefinder.image.ImageData`.
+    
+    Data accessors provide a uniform way for the ImageData class (i.e.,
     generic image representation) to access the various ways in which
     images may be stored (FITS files, arrays in memory, potentially HDF5,
     etc).
-
+    
     This class cannot be instantiated directly, but should be subclassed
     and the abstract properties provided. Note that all abstract
     properties are required to provide a valid accessor.
-
+    
     Additional properties may also be provided by subclasses. However,
     TraP components are required to degrade gracefully in the absence of
-    this optional properties.
-
-    The required attributes are as follows:
-
-    Attributes:
-        beam (tuple): Restoring beam. Tuple of three floats:
-            semi-major axis (in pixels), semi-minor axis (pixels)
-            and position angle (radians).
-        centre_ra (float): Right ascension at the central pixel of the image.
-            Units of J2000 decimal degrees.
-        centre_decl (float): Declination at the central pixel of the image.
-            Units of J2000 decimal degrees.
-        data(numpy.ndarray): Two dimensional numpy.ndarray of floating point
-            pixel values.
-            (TODO: Definitive statement on orientation/transposing.)
-        freq_bw(float): The frequency bandwidth of this image in Hz.
-        freq_eff(float): Effective frequency of the image in Hz.
-            That is, the mean frequency of all the visibility data which
-            comprises this image.
-        pixelsize(tuple): (x, y) tuple representing the size of a pixel
-            along each axis in units of degrees.
-        tau_time(float): Total time on sky in seconds.
-        taustart_ts(float): Timestamp of the first integration which
-            constitutes part of this image. MJD in seconds.
-        url(string): A (string) URL representing the location of the image
-            at time of processing.
-        wcs(:class:`sourcefinder.utility.coordinates.WCS`): An instance of
-            :py:class:`sourcefinder.utility.coordinates.WCS`,
-            describing the mapping from data pixels to sky-coordinates.
-
-    The class also provides some common functionality:
-    static methods used for parsing datafiles, and an 'extract_metadata'
-    function which provides key info in a simple dict format.
+    these optional properties.
+    
+    Attributes
+    ----------
+    beam : tuple
+        Restoring beam. Tuple of three floats: semi-major axis (in pixels),
+        semi-minor axis (pixels), and position angle (radians).
+    centre_ra : float
+        Right ascension at the central pixel of the image. Units of J2000
+        decimal degrees.
+    centre_decl : float
+        Declination at the central pixel of the image. Units of J2000
+        decimal degrees.
+    data : numpy.ndarray
+        Two-dimensional numpy.ndarray of floating point pixel values.
+    freq_bw : float
+        The frequency bandwidth of this image in Hz.
+    freq_eff : float
+        Effective frequency of the image in Hz. That is, the mean frequency
+        of all the visibility data which comprises this image.
+    pixelsize : tuple
+        (x, y) tuple representing the size of a pixel along each axis in
+        units of degrees.
+    tau_time : float
+        Total time on sky in seconds.
+    taustart_ts : float
+        Timestamp of the first integration which constitutes part of this
+        image. MJD in seconds.
+    url : str
+        A URL representing the location of the image at the time of
+        processing.
+    wcs : :class:`sourcefinder.utility.coordinates.WCS`
+        An instance of :py:class:`sourcefinder.utility.coordinates.WCS`,
+        describing the mapping from data pixels to sky-coordinates.
+    
+    Notes
+    -----
+    The class also provides some common functionality: static methods used
+    for parsing data files, and an 'extract_metadata' function which
+    provides key info in a simple dict format.
     """
 
     beam: tuple
@@ -83,6 +87,12 @@ class DataAccessor:
         to the actual image data.
 
         May be extended by subclasses to return additional data.
+
+        Returns
+        -------
+        dict
+            A dictionary containing key-value pairs of class attributes
+            formatted for database storage.
         """
         return {
             'tau_time': self.tau_time,
@@ -101,11 +111,12 @@ class DataAccessor:
 
     def parse_pixelsize(self):
         """
-
-        Returns:
-          - deltax: pixel size along the x axis in degrees
-          - deltay: pixel size along the x axis in degrees
-
+        Returns
+        -------
+        deltax : float
+            Pixel size along the x axis in degrees.
+        deltay : float
+            Pixel size along the y axis in degrees.
         """
         wcs = self.wcs
         # Check that pixels are square
@@ -124,27 +135,38 @@ class DataAccessor:
         eps = 1e-7
         if abs(abs(deltax) - abs(deltay)) > eps:
             raise ValueError("Image WCS header suggests non-square pixels."
-                             "This is an untested use case, and may break things -"
-                             "specifically the skyregion tracking but possibly other stuff too.")
+                             "This is an untested use case, and may break "
+                             "things - specifically the skyregion tracking "
+                             "but possibly other stuff too.")
         return deltax, deltay
 
     @staticmethod
     def degrees2pixels(bmaj, bmin, bpa, deltax, deltay):
         """
         Convert beam in degrees to beam in pixels and radians.
-        For example Fits beam parameters are in degrees.
+        For example, FITS beam parameters are in degrees.
 
-        Arguments:
-          - bmaj:   Beam major axis in degrees
-          - bmin:   Beam minor axis in degrees
-          - bpa:    Beam position angle in degrees
-          - deltax: Pixel size along the x axis in degrees
-          - deltay: Pixel size along the y axis in degrees
+        Parameters
+        ----------
+        bmaj : float
+            Beam major axis in degrees.
+        bmin : float
+            Beam minor axis in degrees.
+        bpa : float
+            Beam position angle in degrees.
+        deltax : float
+            Pixel size along the x axis in degrees.
+        deltay : float
+            Pixel size along the y axis in degrees.
 
-        Returns:
-          - semimaj: Beam semi-major axis in pixels
-          - semimin: Beam semi-minor axis in pixels
-          - theta:   Beam position angle in radians
+        Returns
+        -------
+        semimaj : float
+            Beam semi-major axis in pixels.
+        semimin : float
+            Beam semi-minor axis in pixels.
+        theta : float
+            Beam position angle in radians.
         """
         theta = pi * bpa / 180
         semimaj = (bmaj / 2.) * (sqrt(
@@ -155,4 +177,4 @@ class DataAccessor:
             (cos(theta) ** 2) / (deltax ** 2) +
             (sin(theta) ** 2) / (deltay ** 2))
         )
-        return (semimaj, semimin, theta)
+        return semimaj, semimin, theta

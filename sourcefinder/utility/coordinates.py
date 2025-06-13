@@ -36,15 +36,20 @@ def julian_date(time=None, modified=False):
     """
     Calculate the Julian date at a given timestamp.
 
+    Parameters
+    ----------
+    time : datetime.datetime, default: None
+        Timestamp to calculate JD for. If not provided, the current UTC time
+        will be used.
+    modified : bool, default: False
+        If True, return the Modified Julian Date, which is the number of days
+        (including fractions) that have elapsed between the start of
+        17 November 1858 AD and the specified time.
 
-
-    Args:
-        time (datetime.datetime): Timestamp to calculate JD for.
-        modified (bool): If True, return the Modified Julian Date:
-            the number of days (including fractions) which have elapsed between
-            the start of 17 November 1858 AD and the specified time.
-    Returns:
-        float: Julian date value.
+    Returns
+    -------
+    float
+        Julian date value.
     """
     if not time:
         time = datetime.datetime.now(pytz.utc)
@@ -62,6 +67,16 @@ def mjd2datetime(mjd):
     Convert a Modified Julian Date to datetime via 'unix time' representation.
 
     NB 'unix time' is defined by the casacore/casacore package.
+
+    Parameters
+    ----------
+    mjd : float
+        Modified Julian Date to be converted.
+
+    Returns
+    -------
+    datetime.datetime
+        A datetime object representing the given Modified Julian Date.
     """
     q = quantity("%sd" % mjd)
     return datetime.datetime.fromtimestamp(q.to_unix_time())
@@ -73,8 +88,17 @@ def mjd2lst(mjd, position=None):
     seconds at a given position. If position is None, we default to the
     reference position of CS002.
 
-    mjd -- Modified Julian Date (float, in days)
-    position -- Position (casacore measure)
+    Parameters
+    ----------
+    mjd : float
+        Modified Julian Date in days.
+    position : casacore measure, default: None
+        Position for the LST calculation.
+
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     dm = measures()
     position = position or dm.position(
@@ -90,9 +114,17 @@ def mjds2lst(mjds, position=None):
     """
     As mjd2lst(), but takes an argument in seconds rather than days.
 
-    Args:
-        mjds (float):Modified Julian Date (in seconds)
-        position (casacore measure): Position for LST calcs
+    Parameters
+    ----------
+    mjds : float
+        Modified Julian Date (in seconds).
+    position : casacore measure, default: None
+        Position for Local Sidereal Time calculations.
+
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     return mjd2lst(mjds / SECONDS_IN_DAY, position)
 
@@ -102,10 +134,18 @@ def jd2lst(jd, position=None):
     Converts a Julian Date into Local Apparent Sidereal Time in seconds at a
     given position. If position is None, we default to the reference position
     of CS002.
+    
+    Parameters
+    ----------
+    jd : float
+        Julian Date to be converted.
+    position : casacore measure, default: None
+        Position for Local Sidereal Time calculations.
 
-    Args:
-        jd (float): Julian Date
-        position (casacore measure): Position for LST calcs.
+    Returns
+    -------
+    float
+        Local Apparent Sidereal Time in seconds.
     """
     return mjd2lst(jd - 2400000.5, position)
 
@@ -127,14 +167,18 @@ unix_epoch = quantity("1970-01-01T00:00:00").get_value('s')
 
 def julian2unix(timestamp):
     """
-    Convert a modifed julian timestamp (number of seconds since 17 November
+    Convert a modified Julian timestamp (number of seconds since 17 November
     1858) to Unix timestamp (number of seconds since 1 January 1970).
 
-    Args:
-        timestamp (numbers.Number): Number of seconds since the Unix epoch.
+    Parameters
+    ----------
+    timestamp : numbers.Number
+        Number of seconds since the Unix epoch.
 
-    Returns:
-        numbers.Number: Number of seconds since the modified Julian epoch.
+    Returns
+    -------
+    numbers.Number
+        Number of seconds since the modified Julian epoch.
     """
     return timestamp - unix_epoch
 
@@ -144,37 +188,90 @@ def unix2julian(timestamp):
     Convert a Unix timestamp (number of seconds since 1 January 1970) to a
     modified Julian timestamp (number of seconds since 17 November 1858).
 
-    Args:
-        timestamp (numbers.Number): Number of seconds since the modified
-            Julian epoch.
+    Parameters
+    ----------
+    timestamp : numbers.Number
+        Number of seconds since the Unix epoch.
 
-    Returns:
-        numbers.Number: Number of seconds since the Unix epoch.
+    Returns
+    -------
+    numbers.Number
+        Number of seconds since the modified Julian epoch.
     """
     return timestamp + unix_epoch
 
 
 def sec2deg(seconds):
-    """Seconds of time to degrees of arc"""
+    """
+    Convert seconds of time to degrees of arc.
+
+    Parameters
+    ----------
+    seconds : float
+        Time in seconds to be converted to degrees of arc.
+
+    Returns
+    -------
+    float
+        Equivalent value in degrees of arc.
+    """
     return 15.0 * seconds / 3600.0
 
 
 def sec2days(seconds):
-    """Seconds to number of days"""
+    """
+    Convert seconds to the equivalent number of days.
+
+    Parameters
+    ----------
+    seconds : float
+        Time duration in seconds.
+
+    Returns
+    -------
+    float
+        Equivalent time duration in days.
+    """
     return seconds / (24.0 * 3600)
 
 
 def sec2hms(seconds):
-    """Seconds to hours, minutes, seconds"""
+    """
+    Convert seconds to hours, minutes, and seconds.
+
+    Returns
+    -------
+    tuple
+        A tuple containing hours (int), minutes (int), and seconds (float).
+    """
     hours, seconds = divmod(seconds, 60 ** 2)
     minutes, seconds = divmod(seconds, 60)
-    return (int(hours), int(minutes), seconds)
+    return int(hours), int(minutes), seconds
 
 
 def altaz(mjds, ra, dec, lat=CORE_LAT):
-    """Calculates the azimuth and elevation of source from time and position
-    on sky.  Takes MJD in seconds and ra, dec in degrees.  Returns (alt, az) in
-    degrees."""
+    """
+    Calculate the azimuth and elevation of a source from time and position
+    on the sky.
+
+    Parameters
+    ----------
+    mjds : float
+        Modified Julian Date in seconds.
+    ra : float
+        Right Ascension of the source in degrees.
+    dec : float
+        Declination of the source in degrees.
+    lat : float, default : CORE_LAT
+        Latitude of the observer in degrees.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - alt (float): Altitude of the source in degrees.
+        - az (float): Azimuth of the source in degrees.
+    """
 
     # compute hour angle in degrees
     ha = mjds2lst(mjds) - ra
@@ -204,15 +301,18 @@ def altaz(mjds, ra, dec, lat=CORE_LAT):
 
 
 def ratohms(radegs):
-    """Convert RA in decimal degrees format to hours, minutes,
-    seconds format.
+    """
+    Convert RA in decimal degrees format to hours, minutes, seconds format.
 
-    Keyword arguments:
-    radegs -- RA in degrees format
+    Parameters
+    ----------
+    radegs : float
+        RA in degrees format.
 
-    Return value:
-    ra -- tuple of 3 values, [hours,minutes,seconds]
-
+    Returns
+    -------
+    tuple
+        A tuple of three values: (hours, minutes, seconds).
     """
 
     radegs %= 360
@@ -221,15 +321,19 @@ def ratohms(radegs):
 
 
 def dectodms(decdegs):
-    """Convert Declination in decimal degrees format to hours, minutes,
-    seconds format.
+    """
+    Convert Declination in decimal degrees format to hours, minutes, seconds
+    format.
 
-    Keyword arguments:
-    decdegs -- Dec. in degrees format
+    Parameters
+    ----------
+    decdegs : float
+        Declination in decimal degrees format.
 
-    Return value:
-    dec -- list of 3 values, [degrees,minutes,seconds]
-
+    Returns
+    -------
+    tuple
+        A tuple containing three values: (degrees, minutes, seconds).
     """
 
     sign = -1 if decdegs < 0 else 1
@@ -262,20 +366,33 @@ def dectodms(decdegs):
 
 def propagate_sign(val1, val2, val3):
     """
+    Determine the sign of the input values and ensure consistency.
+
     casacore (reasonably enough) demands that a minus sign (if required)
     comes at the start of the quantity. Thus "-0D30M" rather than "0D-30M".
     Python regards "-0" as equal to "0"; we need to split off a separate sign
     field.
 
     If more than one of our inputs is negative, it's not clear what the user
-    meant: we raise.
+    meant: we raise an exception.
 
-    Args:
-        val1(float): (,val2,val3) input values (hour/min/sec or deg/min/sec)
+    Parameters
+    ----------
+    val1 : float
+        First input value (hours or degrees).
+    val2 : float
+        Second input value (minutes).
+    val3 : float
+        Third input value (seconds).
 
-    Returns:
-        tuple: "+" or "-" string denoting sign,
-            val1, val2, val3 (numeric) denoting absolute values of inputs.
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - str: "+" or "-" string denoting the sign.
+        - float: Absolute value of `val1`.
+        - float: Absolute value of `val2`.
+        - float: Absolute value of `val3`.
     """
     signs = [x < 0 for x in (val1, val2, val3)]
     if signs.count(True) == 0:
@@ -288,15 +405,22 @@ def propagate_sign(val1, val2, val3):
 
 
 def hmstora(rah, ram, ras):
-    """Convert RA in hours, minutes, seconds format to decimal
-    degrees format.
+    """
+    Convert RA in hours, minutes, seconds format to decimal degrees format.
 
-    Keyword arguments:
-    rah,ram,ras -- RA values (h,m,s)
+    Parameters
+    ----------
+    rah : float
+        Right Ascension hours.
+    ram : float
+        Right Ascension minutes.
+    ras : float
+        Right Ascension seconds.
 
-    Return value:
-    radegs -- RA in decimal degrees
-
+    Returns
+    -------
+    float
+        RA in decimal degrees.
     """
     sign, rah, ram, ras = propagate_sign(rah, ram, ras)
     ra = quantity("%s%dH%dM%f" % (sign, rah, ram, ras)).get_value()
@@ -306,15 +430,22 @@ def hmstora(rah, ram, ras):
 
 
 def dmstodec(decd, decm, decs):
-    """Convert Dec in degrees, minutes, seconds format to decimal
-    degrees format.
+    """
+    Convert Dec in degrees, minutes, seconds format to decimal degrees format.
 
-    Keyword arguments:
-    decd, decm, decs -- list of Dec values (d,m,s)
+    Parameters
+    ----------
+    decd : int
+        Degrees component of the Declination.
+    decm : int
+        Minutes component of the Declination.
+    decs : float
+        Seconds component of the Declination.
 
-    Return value:
-    decdegs -- Dec in decimal degrees
-
+    Returns
+    -------
+    float
+        Declination in decimal degrees.
     """
     sign, decd, decm, decs = propagate_sign(decd, decm, decs)
     dec = quantity("%s%dD%dM%f" % (sign, decd, decm, decs)).get_value()
@@ -324,20 +455,45 @@ def dmstodec(decd, decm, decs):
 
 
 def cmp(a, b):
+    """
+    Compare two values and return an integer indicating their relationship.
+
+    Parameters
+    ----------
+    a : Any
+        The first value to compare.
+    b : Any
+        The second value to compare.
+
+    Returns
+    -------
+    int
+        1 if `a` is greater than `b`, -1 if `a` is less than `b`,
+        and 0 if they are equal.
+    """
     return bool(a > b) - bool(a < b)
 
 
 def angsep(ra1, dec1, ra2, dec2):
-    """Find the angular separation of two sources, in arcseconds,
-    using the proper spherical trig formula
+    """
+    Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trigonometry formula.
 
-    Keyword arguments:
-    ra1,dec1 - RA and Dec of the first source, in decimal degrees
-    ra2,dec2 - RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra1 : float
+        Right Ascension of the first source, in decimal degrees.
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    ra2 : float
+        Right Ascension of the second source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation between the two sources, in arcseconds.
     """
 
     b = (math.pi / 2) - math.radians(dec1)
@@ -356,22 +512,47 @@ def angsep(ra1, dec1, ra2, dec2):
 
 @njit
 def cmp_jitted(a, b):
+    """
+    Compare two values and return an integer indicating their relationship.
+
+    Parameters
+    ----------
+    a : Any
+        The first value to compare.
+    b : Any
+        The second value to compare.
+
+    Returns
+    -------
+    int
+        1 if `a` is greater than `b`, -1 if `a` is less than `b`,
+        and 0 if they are equal.
+    """
     return bool(a > b) - bool(a < b)
 
 
 @guvectorize([(float64[:], float64[:], float64[:])],
              '(n), (n) -> ()', nopython=True)
 def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
-    """Find the angular separation of two sources, in arcseconds,
-    using the proper spherical trig formula
+    """
+    Find the angular separation of two sources, in arcseconds,
+    using the proper spherical trigonometry formula.
 
-    Positional arguments:
-        ra_dec1 (ndarray)- RA and Dec of the first source, in decimal degrees
-        ra_dec2 (ndarray)- RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra_dec1 : ndarray
+        RA and Dec of the first source, in decimal degrees.
+    ra_dec2 : ndarray
+        RA and Dec of the second source, in decimal degrees.
+    angular_separation : float
+        Angular separation between the two sources, in arcseconds.
+        This value is assigned within the function due to the guvectorize
+        decorator.
 
-    Return value: None, because of the guvectorize decorator, but
-        angular_separation (float, arcseconds) is assigned a value.
-
+    Returns
+    -------
+    None
+        The result is stored in the `angular_separation` parameter.
     """
     ra1, dec1 = ra_dec1
     ra2, dec2 = ra_dec2
@@ -391,45 +572,70 @@ def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
 
 
 def alphasep(ra1, ra2, dec1, dec2):
-    """Find the angular separation of two sources in RA, in arcseconds
+    """
+    Find the angular separation of two sources in RA, in arcseconds.
 
-    Keyword arguments:
-    ra1,dec1 - RA and Dec of the first source, in decimal degrees
-    ra2,dec2 - RA and Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    ra1 : float
+        Right ascension of the first source, in decimal degrees.
+    ra2 : float
+        Right ascension of the second source, in decimal degrees.
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation in RA, in arcseconds.
     """
 
     return 3600 * (ra1 - ra2) * math.cos(math.radians((dec1 + dec2) / 2.0))
 
 
 def deltasep(dec1, dec2):
-    """Find the angular separation of two sources in Dec, in arcseconds
+    """
+    Find the angular separation of two sources in declination, in arcseconds.
 
-    Keyword arguments:
-    dec1 - Dec of the first source, in decimal degrees
-    dec2 - Dec of the second source, in decimal degrees
+    Parameters
+    ----------
+    dec1 : float
+        Declination of the first source, in decimal degrees.
+    dec2 : float
+        Declination of the second source, in decimal degrees.
 
-    Return value:
-    angsep - Angular separation, in arcseconds
-
+    Returns
+    -------
+    float
+        Angular separation in declination, in arcseconds.
     """
 
     return 3600 * (dec1 - dec2)
 
 
-# Find angular separation in Dec of 2 positions, in arcseconds
 def alpha(l, m, alpha0, delta0):
-    """Convert a coordinate in l,m into an coordinate in RA
+    """
+    Convert a coordinate in l, m into a coordinate in RA.
 
-    Keyword arguments:
-    l,m -- direction cosines, given by (offset in cells) x cellsi (radians)
-    alpha_0, delta_0 -- centre of the field
+    Parameters
+    ----------
+    l : float
+        Direction cosine along the l-axis, given by offset in cells times
+        cell size (in radians).
+    m : float
+        Direction cosine along the m-axis, given by offset in cells times
+        cell size (in radians).
+    alpha0 : float
+        Right ascension of the centre of the field, in decimal degrees.
+    delta0 : float
+        Declination of the centre of the field, in decimal degrees.
 
-    Return value:
-    alpha -- RA in decimal degrees
+    Returns
+    -------
+    float
+        Right Ascension (RA) in decimal degrees.
     """
     return (alpha0 + (math.degrees(math.atan2(l, (
         (math.sqrt(1 - (l * l) - (m * m)) * math.cos(math.radians(delta0))) -
@@ -437,17 +643,25 @@ def alpha(l, m, alpha0, delta0):
 
 
 def alpha_inflate(theta, decl):
-    """Compute the ra expansion for a given theta at a given declination
-    
-    Keyword arguments:
-    theta, decl are both in decimal degrees.
-    
-    Return value:
-    alpha -- RA inflation in decimal degrees
+    """
+    Compute the RA expansion for a given theta at a given declination.
 
-    For a derivation, see MSR TR 2006 52, Section 2.1
+    Parameters
+    ----------
+    theta : float
+        Angular distance from the center, in decimal degrees.
+    decl : float
+        Declination of the source, in decimal degrees.
+
+    Returns
+    -------
+    float
+        RA inflation in decimal degrees.
+
+    Notes
+    -----
+    For a derivation, see MSR TR 2006 52, Section 2.1:
     http://research.microsoft.com/apps/pubs/default.aspx?id=64524
-
     """
     if abs(decl) + theta > 89.9:
         return 180.0
@@ -458,16 +672,25 @@ def alpha_inflate(theta, decl):
                     math.radians(decl + theta)))))))
 
 
-# Find the RA of a point in a radio image, given l,m and field centre
 def delta(l, m, delta0):
-    """Convert a coordinate in l, m into an coordinate in Dec
+    """
+    Convert a coordinate in l, m into a coordinate in declination.
 
-    Keyword arguments:
-    l, m -- direction cosines, given by (offset in cells) x cellsi (radians)
-    alpha_0, delta_0 -- centre of the field
+    Parameters
+    ----------
+    l : float
+        Direction cosine along the l-axis, given by offset in cells times cell 
+        size (in radians).
+    m : float
+        Direction cosine along the m-axis, given by offset in cells times cell 
+        size (in radians).
+    delta0 : float
+        Declination of the center of the field, in decimal degrees.
 
-    Return value:
-    delta -- Dec in decimal degrees
+    Returns
+    -------
+    float
+        Declination in decimal degrees.
     """
     return math.degrees(math.asin(m * math.cos(math.radians(delta0)) +
                                   (math.sqrt(1 - (l * l) - (m * m)) *
@@ -475,32 +698,50 @@ def delta(l, m, delta0):
 
 
 def l(ra, dec, cra, incr):
-    """Convert a coordinate in RA,Dec into a direction cosine l
+    """
+    Convert a coordinate in RA, Dec into a direction cosine l.
 
-    Keyword arguments:
-    ra,dec -- Source location
-    cra -- RA centre of the field
-    incr -- number of degrees per pixel (negative in the case of RA)
+    Parameters
+    ----------
+    ra : float
+        Right ascension of the source, in decimal degrees.
+    dec : float
+        Declination of the source, in decimal degrees.
+    cra : float
+        Right ascension of the centre of the field, in decimal degrees.
+    incr : float
+        Number of degrees per pixel (negative in the case of RA).
 
-    Return value:
-    l -- Direction cosine
-
+    Returns
+    -------
+    float
+        Direction cosine l.
     """
     return ((math.cos(math.radians(dec)) * math.sin(math.radians(ra - cra))) /
             (math.radians(incr)))
 
 
 def m(ra, dec, cra, cdec, incr):
-    """Convert a coordinate in RA,Dec into a direction cosine m
+    """
+    Convert a coordinate in RA, Dec into a direction cosine m.
 
-    Keyword arguments:
-    ra,dec -- Source location
-    cra,cdec -- centre of the field
-    incr -- number of degrees per pixel
+    Parameters
+    ----------
+    ra : float
+        Right ascension of the source, in decimal degrees.
+    dec : float
+        Declination of the source, in decimal degrees.
+    cra : float
+        Right ascension of the center of the field, in decimal degrees.
+    cdec : float
+        Declination of the center of the field, in decimal degrees.
+    incr : float
+        Number of degrees per pixel.
 
-    Return value:
-    m -- direction cosine
-
+    Returns
+    -------
+    float
+        Direction cosine m.
     """
     return ((math.sin(math.radians(dec)) * math.cos(math.radians(cdec))) -
             (math.cos(math.radians(dec)) * math.sin(math.radians(cdec)) *
@@ -509,11 +750,32 @@ def m(ra, dec, cra, cdec, incr):
 
 def lm_to_radec(ra0, dec0, l, m):
     """
-    Find the l direction cosine in a radio image, given an RA and Dec and the
-    field centre
+    Find the l direction cosine of a source in a radio image, given the RA and
+    Dec of the field centre.
+    
+    Parameters
+    ----------
+    ra0 : float
+        Right ascension of the field center, in decimal degrees.
+    dec0 : float
+        Declination of the field center, in decimal degrees.
+    l : float
+        Direction cosine of the source along the l-axis.
+    m : float
+        Direction cosine of the source along the m-axis.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - ra (float): Right ascension in decimal degrees.
+        - dec (float): Declination in decimal degrees.
+    
+    Notes
+    -----
+    This function should be the inverse of radec_to_lmn, but it is
+    not. There is likely an error here.
     """
-    # This function should be the inverse of radec_to_lmn, but it is
-    # not. There is likely an error here.
 
     sind0 = math.sin(dec0)
     cosd0 = math.cos(dec0)
@@ -522,7 +784,7 @@ def lm_to_radec(ra0, dec0, l, m):
     d0 = dm * dm * sind0 * sind0 + dl * dl - 2 * dm * cosd0 * sind0
     sind = math.sqrt(abs(sind0 * sind0 - d0))
     cosd = math.sqrt(abs(cosd0 * cosd0 + d0))
-    if (sind0 > 0):
+    if sind0 > 0:
         sind = abs(sind)
     else:
         sind = -abs(sind)
@@ -532,17 +794,39 @@ def lm_to_radec(ra0, dec0, l, m):
     if l != 0:
         ra = math.atan2(-dl, (cosd0 - dm * sind0)) + ra0
     else:
-        ra = math.atan2((1e-10), (cosd0 - dm * sind0)) + ra0
+        ra = math.atan2(1e-10, (cosd0 - dm * sind0)) + ra0
 
         # Calculate RA,Dec from l,m and phase center.  Note: As done in
         # Meqtrees, which seems to differ from l, m functions above.  Meqtrees
         # equation may have problems, judging from my difficulty fitting a
         # fringe to L4086 data.  Pandey's equation is now used in radec_to_lmn
 
-    return (ra, dec)
+    return ra, dec
 
 
 def radec_to_lmn(ra0, dec0, ra, dec):
+    """
+    Convert equatorial coordinates (RA, Dec) to direction cosines (l, m, n).
+
+    Parameters
+    ----------
+    ra0 : float
+        Right ascension of the reference point (in decimal degrees).
+    dec0 : float
+        Declination of the reference point (in decimal degrees).
+    ra : float
+        Right Ascension of the target point (in decimal degrees).
+    dec : float
+        Declination of the target point (in decimal degrees).
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - l (float): Direction cosine along the l-axis.
+        - m (float): Direction cosine along the m-axis.
+        - n (float): Direction cosine along the n-axis.
+    """
     l = math.cos(dec) * math.sin(ra - ra0)
     sind0 = math.sin(dec0)
     if sind0 != 0:
@@ -552,19 +836,26 @@ def radec_to_lmn(ra0, dec0, ra, dec):
     else:
         m = 0
     n = math.sqrt(1 - l ** 2 - m ** 2)
-    return (l, m, n)
+    return l, m, n
 
 
 def eq_to_gal(ra, dec):
-    """Find the Galactic co-ordinates of a source given the equatorial
-    co-ordinates
+    """
+    Find the Galactic coordinates of a source given the equatorial coordinates.
 
-    Keyword arguments:
-    (alpha,delta) -- RA, Dec in decimal degrees
+    Parameters
+    ----------
+    ra : float
+        Right ascension (RA) in decimal degrees.
+    dec : float
+        Declination (Dec) in decimal degrees.
 
-    Return value:
-    (l,b) -- Galactic longitude and latitude, in decimal degrees
-
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - Galactic longitude in decimal degrees.
+        - Galactic latitude in decimal degrees.
     """
     dm = measures()
 
@@ -579,15 +870,23 @@ def eq_to_gal(ra, dec):
 
 
 def gal_to_eq(lon_l, lat_b):
-    """Find the Galactic co-ordinates of a source given the equatorial
-    co-ordinates
-
-    Keyword arguments:
-    (l, b) -- Galactic longitude and latitude, in decimal degrees
-
-    Return value:
-    (alpha, delta) -- RA, Dec in decimal degrees
-
+    """
+    Find the equatorial coordinates of a source given the Galactic
+    coordinates.
+    
+    Parameters
+    ----------
+    lon_l : float
+        Galactic longitude in decimal degrees.
+    lat_b : float
+        Galactic latitude in decimal degrees.
+    
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - Right ascension (RA) in decimal degrees.
+        - Declination (Dec) in decimal degrees.
     """
     dm = measures()
 
@@ -602,9 +901,24 @@ def gal_to_eq(lon_l, lat_b):
 
 
 def eq_to_cart(ra, dec):
-    """Find the cartesian co-ordinates on the unit sphere given the eq. co-ords.
+    """
+    Find the cartesian coordinates on the unit sphere given the equatorial
+    coordinates.
 
-        ra, dec should be in degrees.
+    Parameters
+    ----------
+    ra : float
+        Right ascension (RA) in decimal degrees.
+    dec : float
+        Declination (Dec) in decimal degrees.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - x (float): Cartesian x-coordinate.
+        - y (float): Cartesian y-coordinate.
+        - z (float): Cartesian z-coordinate.
     """
     return (
     math.cos(math.radians(dec)) * math.cos(math.radians(ra)),  # Cartesian x
@@ -620,7 +934,26 @@ class CoordSystem:
 
 
 def coordsystem(name):
-    """Given a string, return a constant from class CoordSystem."""
+    """
+    Given a string, return a constant from class CoordSystem.
+
+    Parameters
+    ----------
+    name : str
+        The name of the coordinate system (e.g., 'j2000', 'fk5', 'b1950',
+        'fk4').
+
+    Returns
+    -------
+    str
+        A constant from the CoordSystem class representing the coordinate
+        system.
+
+    Raises
+    ------
+    KeyError
+        If the provided name does not match any known coordinate system.
+    """
     mappings = {
         'j2000': CoordSystem.FK5,
         'fk5': CoordSystem.FK5,
@@ -635,6 +968,33 @@ def coordsystem(name):
 def convert_coordsystem(ra, dec, insys, outsys):
     """
     Convert RA & dec (given in decimal degrees) between equinoxes.
+
+    This function takes right Ascension (RA) and declination (Dec) coordinates
+    in decimal degrees and converts them between different equinoxes, such as
+    B1950 and J2000. The input and output equinoxes are specified as parameters.
+
+    Parameters
+    ----------
+    ra : float
+        Right ascension in decimal degrees.
+    dec : float
+        Declination in decimal degrees.
+    insys : str
+        Input equinox, e.g., 'B1950' or 'J2000'.
+    outsys : str
+        Output equinox, e.g., 'B1950' or 'J2000'.
+
+    Returns
+    -------
+    tuple
+        A tuple containing:
+        - ra (float): Converted right ascension in decimal degrees.
+        - dec (float): Converted declination in decimal degrees.
+
+    Raises
+    ------
+    Exception
+        If the input or output equinox is unknown.
     """
     dm = measures()
 
@@ -689,7 +1049,7 @@ class WCS:
         if attrname in self.WCS_ATTRS:
             # Account for arbitrary coordinate rotations in images pointing at
             # the North Celestial Pole. We set the reference direction to
-            # infintesimally less than 90 degrees to avoid any ambiguity. See
+            # infinitesimally less than 90 degrees to avoid any ambiguity. See
             # discussion at #4599.
             if attrname == "crval" and (
                     value[1] == 90 or value[1] == math.pi / 2):
@@ -705,14 +1065,25 @@ class WCS:
 
     def p2s(self, pixpos):
         """
-        Pixel to spatial coordinate conversion.
-
-        Args:
-            pixpos [list]:  [x, y] pixel position.
-
-        Returns:
-            tuple: ra (float) Right ascension corresponding to position [x, y]
-                   dec (float) Declination corresponding to position [x, y]
+        Convert pixel coordinates to spatial coordinates.
+        
+        This function converts a given pixel position (x, y) into spatial
+        coordinates (right ascension and declination).
+        
+        Parameters
+        ----------
+        pixpos : list or tuple
+            A list or tuple of two floats containing the pixel position as
+            [x, y].
+        
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - ra (float): Right ascension corresponding to the pixel position 
+            in decimal degrees.
+            - dec (float): Declination corresponding to the pixel position 
+            in decimal degrees.
         """
         ra, dec = self.wcs.wcs_pix2world(pixpos[0], pixpos[1], self.ORIGIN)
         if math.isnan(ra) or math.isnan(dec):
@@ -721,15 +1092,26 @@ class WCS:
 
     def s2p(self, spatialpos):
         """
-        Spatial to Pixel coordinate conversion.
-
-        Args:
-            pixpos (tuple):  [ra, dec] spatial position
-
-        Returns:
-            tuple: X pixel value corresponding to position [ra, dec],
-                   Y pixel value corresponding to position [ra, dec]
+        Convert spatial coordinates to pixel coordinates.
+        
+        This function converts a given spatial position (right ascension and
+        declination) into pixel coordinates (x, y).
+        
+        Parameters
+        ----------
+        spatialpos : tuple
+            A tuple containing:
+            - ra (float): Right ascension in decimal degrees.
+            - dec (float): Declination in decimal degrees.
+        
+        Returns
+        -------
+        tuple
+            A tuple containing:
+            - x (float): X pixel value corresponding to the spatial position.
+            - y (float): Y pixel value corresponding to the spatial position.
         """
+
         x, y = self.wcs.wcs_world2pix(spatialpos[0], spatialpos[1], self.ORIGIN)
         if math.isnan(x) or math.isnan(y):
             raise RuntimeError("Pixel position is not a number")
@@ -741,16 +1123,20 @@ class WCS:
         all_pix2world from astropy. This will save time when thousands of
         sources are detected.
 
-        Args:
-            array_of_pixpos ((N, 2) array):  array of [x, y] pixel
-            positions.
+        Parameters
+        ----------
+        array_of_pixpos : ndarray
+            A (N, 2) array where each row represents [x, y] pixel positions.
 
-        Returns:
-            (N, 2) array: each row has an entry for Right ascension (float)
-                          and Declination (float)
-
+        Returns
+        -------
+        ndarray
+            A (N, 2) array where each row contains:
+            - Right ascension (float) in decimal degrees.
+            - Declination (float) in decimal degrees.
         """
-        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
+        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos,
+                                                 self.ORIGIN)
         if numpy.isnan(sky_coordinates).any():
             raise RuntimeError("Spatial position is not a number")
         # Mimic conditional from extract.Detection._physical_coordinates

@@ -2,7 +2,7 @@
 Data accessors.
 
 These can be used to populate ImageData objects based on some data source
-(FITS file, array in memory... etc).
+(FITS file, array in memory... etc.).
 """
 
 import os
@@ -17,16 +17,34 @@ from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.image import ImageData
 
 
-def sourcefinder_image_from_accessor(image, conf: Conf=Conf(image=ImgConf(), export=ExportSettings())):
-    """Create a source finder ImageData object from an image 'accessor'
+def sourcefinder_image_from_accessor(
+            image,
+            conf: Conf = Conf(
+                image=ImgConf(),
+                export=ExportSettings()
+            ),
+    ):
 
-    Args:
+    """
+    Create a sourcefinder.image.ImageData object from an image 'accessor'.
 
-        - image (DataAccessor): FITS/AIPS/HDF5 image available through
-          an accessor.
+    This function initializes a `sourcefinder.image.ImageData` object using
+    the data, beam, and WCS information provided by the given image accessor.
 
-    Returns:
-        (:class:`sourcefinder.image.ImageData`): a source finder image.
+    Parameters
+    ----------
+    image : DataAccessor
+        FITS/AIPS/HDF5 image available through an accessor.
+    conf : Conf, default: Conf(image=ImgConf(), export=ExportSettings())
+        Configuration options for source finding. This includes settings
+        related to image processing (e.g., background and rms
+        noise estimation, thresholds) as well as export options (e.g., source
+        parameters and output maps).
+
+    Returns
+    -------
+    ImageData
+        A sourcefinder.image.ImageData object.
     """
     image = ImageData(image.data, image.beam, image.wcs, conf=conf)
     return image
@@ -36,8 +54,23 @@ def writefits(data, filename, header={}):
     """
     Dump a NumPy array to a FITS file.
 
-    Key/value pairs for the FITS header can be supplied in the optional
-    header argument as a dictionary.
+    This function writes a given NumPy array to a FITS file, optionally
+    including header information. The header can be provided as a dictionary
+    containing key-value pairs to be added to the FITS file's metadata.
+
+    Parameters
+    ----------
+    data : numpy.ndarray
+        The NumPy array to be written to the FITS file.
+    filename : str
+        The path to the output FITS file.
+    header : dict, default: {}
+        A dictionary containing key-value pairs for the FITS header.
+
+    Raises
+    ------
+    OSError
+        If the file cannot be written due to permission issues or other errors.
     """
     if header.__class__.__name__ == 'Header':
         pyfits.writeto(filename, data.transpose(), header)
@@ -52,14 +85,35 @@ def open(path, *args, **kwargs):
     """
     Returns an accessor object (if available) for the file or directory 'path'.
 
-    We try all the possible accessors in order from most specific to least
-    specific. That is, if possible, we prefer an accessor providing
-    LofarAccessor to one providing DataAccessor, but we accept the latter if
-    that's the only possible match.
+    This function attempts to find an appropriate accessor for the given file
+    or directory path. Accessors are tried in order from most specific to least
+    specific. For example, an accessor providing `LofarAccessor` is preferred
+    over one providing `DataAccessor`, but the latter will be used if no better
+    match is found.
 
-    Will raise an exception if something went wrong or no matching accessor
-    class is found.
+    Parameters
+    ----------
+    path : str or HDUList
+        The file path or HDUList object to be processed.
+    *args : tuple
+        Additional positional arguments to pass to the accessor constructor.
+    **kwargs : dict
+        Additional keyword arguments to pass to the accessor constructor.
+
+    Returns
+    -------
+    DataAccessor or subclass
+        An accessor object for the given file or directory.
+
+    Raises
+    ------
+    OSError
+        If the file does not exist, cannot be read, or no matching accessor
+        class is found.
+    Exception
+        If the `path` parameter is neither a string nor an `HDUList`.
     """
+
     if type(path) == HDUList:
         return FitsImageBlob(path, *args, **kwargs)
     elif type(path) == str:

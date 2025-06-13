@@ -6,28 +6,30 @@ from numpy import exp, log, cos, sin
 
 
 def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
-    """Return a 2D Gaussian function with the given parameters.
-
-    Args:
-
-        height (float): (z-)value of the 2D Gaussian
-
-        center_x (float): x center of the Gaussian
-
-        center_y (float): y center of the Gaussian
-
-        semimajor (float): major axis of the Gaussian
-
-        semiminor (float): minor axis of the Gaussian
-
-        theta (float): angle of the 2D Gaussian in radians, measured
-            between the semi-major and y axes, in counterclockwise
-            direction.
-
-    Returns:
-        lambda: 2D Gaussian (function of pixel coords ``(x,y)``)
     """
+    Return a 2D Gaussian function with the given parameters.
 
+    Parameters
+    ----------
+    height : float
+        (z-)value of the 2D Gaussian.
+    center_x : float
+        x center of the Gaussian.
+    center_y : float
+        y center of the Gaussian.
+    semimajor : float
+        Semi-major axis of the Gaussian.
+    semiminor : float
+        Semi-minor axis of the Gaussian.
+    theta : float
+        Angle of the 2D Gaussian in radians, measured between the semi-major
+        and y axes, in counterclockwise direction.
+
+    Returns
+    -------
+    function
+        2D Gaussian function of pixel coordinates (x, y).
+    """
     return lambda x, y: height * exp(
         -log(2.0) * (((cos(theta) * (x - center_x) +
                        sin(theta) * (y - center_y)) /
@@ -38,36 +40,33 @@ def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
 
 
 def jac_gaussian(gaussianargs):
-    """Return the Jacobian of a 2D anisotropic Gaussian
+    """
+    Return the Jacobian of a 2D anisotropic Gaussian.
 
-    Args:
-        gaussianargs. This is a list containing the usual six
-        Gaussian parameters:
+    Parameters
+    ----------
+    gaussianargs : list or tuple
+        A list containing the six Gaussian parameters:
 
-            height (float): (z-)value of the 2D Gaussian
+        - height (float): (z-)value of the 2D Gaussian.
+        - center_x (float): x center of the Gaussian.
+        - center_y (float): y center of the Gaussian.
+        - semimajor (float): Major axis of the Gaussian.
+        - semiminor (float): Minor axis of the Gaussian.
+        - theta (float): Angle of the 2D Gaussian in radians, measured
+          between the semi-major and y axes, in counterclockwise direction.
 
-            center_x (float): x center of the Gaussian
-
-            center_y (float): y center of the Gaussian
-
-            semimajor (float): major axis of the Gaussian
-
-            semiminor (float): minor axis of the Gaussian
-
-            theta (float): angle of the 2D Gaussian in radians, measured
-                between the semi-major and y axes, in counterclockwise
-                direction.
-
-    Returns:
-        function: Jacobian of Gaussian, i.e. the derivatives along each of these
-                six parameters of the Gaussian, as a function of pixel
-                coordinates x and y, so six functions are returned.
-
+    Returns
+    -------
+    dict
+        A dictionary containing the Jacobian of the Gaussian, i.e., the
+        derivatives along each of the six parameters of the Gaussian as
+        functions of pixel coordinates (x, y).
     """
     height, center_x, center_y, semimajor, semiminor, theta = gaussianargs
 
     # First define some auxiliary quantities, which will return in many of the
-    # partial derivatives.
+    # partial derivatives
     def a(x):
         return center_x - x
 
@@ -102,8 +101,9 @@ def jac_gaussian(gaussianargs):
     def common(x, y):
         return 2 * g * height * expon(x, y)
 
-    # Partial derivative of the Gausian along height.
-    def dg_dh(x, y): return expon(x, y)
+    # Partial derivative of the Gaussian with respect to height
+    def dg_dh(x, y):
+        return expon(x, y)
 
     # Along center_x
     def dg_dx0(x, y):
@@ -117,20 +117,22 @@ def jac_gaussian(gaussianargs):
     def dg_dsmaj(x, y):
         return common(x, y) * term2(x, y) ** 2 / b
 
-    # Along the semi-minor axus
+    # Along the semi-minor axis
     def dg_dsmin(x, y):
         return common(x, y) * term1(x, y) ** 2 / d
 
     # Along the position angle
     def dg_dtheta(x, y):
-        return common(x, y) * term3(x, y) * term4(x, y) * (1 / b ** 2
-                                                           - 1 / d ** 2)
+        return common(x, y) * term3(x, y) * term4(x, y) * (1 / b ** 2 -
+                                                           1 / d ** 2)
 
-    jacobian = {"peak": dg_dh,
-                "xbar": dg_dx0,
-                "ybar": dg_dy0,
-                "semimajor": dg_dsmaj,
-                "semiminor": dg_dsmin,
-                "theta": dg_dtheta}
+    jacobian = {
+        "peak": dg_dh,
+        "xbar": dg_dx0,
+        "ybar": dg_dy0,
+        "semimajor": dg_dsmaj,
+        "semiminor": dg_dsmin,
+        "theta": dg_dtheta
+    }
 
     return jacobian

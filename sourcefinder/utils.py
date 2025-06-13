@@ -14,15 +14,42 @@ from numba import njit, prange, guvectorize
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
-    """
+    r"""
     Generate a series of ``num_thresholds`` logarithmically spaced values
     in the range (min_value, max_value) (both exclusive).
+    First, we calculate a logarithmically spaced sequence between exp(0.0)
+    and (max_value - min_value + 1). That is, the total range is between 1 and
+    one greater than the difference between max_value and min_value.
+    We subtract 1 from this to get the range between 0 and
+    (max_value - min_value).
+    We add min to that to get the range between min and max.
+
+    This formula sets the subthreshold levels:
+
+    .. math::
+
+        t_i = \exp\left(
+            \frac{i \cdot \log(\text{max\_value} + 1 - \text{min\_value})}
+                 {\text{num\_thresholds} + 1}
+        \right) + \text{min\_value} - 1
+
+    for :math:`i = 1, 2, \ldots, \text{num\_thresholds}`.
+
+    Parameters
+    ----------
+    min_value : float
+        The minimum value of the range (not included in the output).
+    max_value : float
+        The maximum value of the range (not included in the output).
+    num_thresholds : int
+        The number of threshold values to generate.
+
+    Returns
+    -------
+    np.ndarray
+        An array of logarithmically spaced values between min_value and
+        max_value (exclusive).
     """
-    # First, we calculate a logarithmically spaced sequence between exp(0.0)
-    # and (max - min + 1). That is, the total range is between 1 and one
-    # greater than the difference between max and min.
-    # We subtract 1 from this to get the range between 0 and (max-min).
-    # We add min to that to get the range between min and max.
     subthrrange = np.logspace(
         0.0,
         np.log(max_value + 1 - min_value),
@@ -39,6 +66,29 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
     Estimate an absolute angular error on the position (x_value, y_value)
     with the given errors.
 
+    Parameters
+    ----------
+    wcs : object
+        The WCS (World Coordinate System) object used for transforming pixel
+        coordinates to sky coordinates.
+    x_value : float
+        Position along first pixel coordinate (row index of ndarray with image
+        data).
+    x_error : float
+        The 1-sigma error in x-value.
+    y_value : float
+        Position along second pixel coordinate (column index of ndarray with 
+        image data).
+    y_error : float
+        The 1-sigma error in y-value.
+        
+    Returns
+    -------
+    float
+        The estimated absolute angular error in arcseconds.
+
+    Notes
+    -----
     This is a pessimistic estimate, because we take sum of the error
     along the X and Y axes. Better might be to project them both back on
     to the major/minor axes of the elliptical fit, but this should do for
@@ -70,20 +120,52 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
 
 def circular_mask(xdim, ydim, radius):
     """
-    Returns a numpy array of shape (xdim, ydim). All points with radius of
+    Returns a numpy array of shape (xdim, ydim). All points within radius from
     the centre are set to 0; outside that region, they are set to 1.
+    
+    Parameters
+    ----------
+    xdim : int
+        The dimension of the array along the x-axis.
+    ydim : int
+        The dimension of the array along the y-axis.
+    radius : float
+        The radius from the center within which points are set to 0.
+
+    Returns
+    -------
+    np.ndarray
+        A 2D ndarray with points within the radius set to 0 and outside set to
+        1. 
     """
     centre_x, centre_y = (xdim - 1) / 2.0, (ydim - 1) / 2.0
-    x, y = np.ogrid[-centre_x:xdim - centre_x, -centre_y:ydim - centre_y]
+    x, y = np.ogrid[-centre_x: xdim - centre_x, -centre_y: ydim - centre_y]
     return x * x + y * y >= radius * radius
 
 
 def generate_result_maps(data, sourcelist):
-    """Return a source and residual image
+    """Return an image with Gaussian reconstructions of the sources and the 
+    corresponding residual image.
 
     Given a data array (image) and list of sources, return two images, one
     showing the sources themselves and the other the residual after the
     sources have been removed from the input data.
+    
+    Parameters
+    ----------
+    data : np.ndarray
+        The input data array (image).
+    sourcelist : list
+        A list of sources to be removed from the input data.
+
+    Returns
+    -------
+    tuple of np.ndarray
+        A tuple containing two 2D arrays:
+
+        - The first array shows the Gaussian reconstructions of the sources.
+        - The second array shows the residuals from the subtractions of these
+          reconstructions from the image data.
     """
     residual_map = np.array(data)  # array constructor copies by default
     gaussian_map = np.zeros(residual_map.shape)
@@ -108,9 +190,9 @@ def generate_result_maps(data, sourcelist):
             src.theta.value
         )(
             np.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
-                                              lower_bound_y:upper_bound_y],
+                                           lower_bound_y:upper_bound_y],
             np.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
-                                              lower_bound_y:upper_bound_y]
+                                           lower_bound_y:upper_bound_y]
         )
 
         gaussian_map[lower_bound_x:upper_bound_x,
@@ -122,42 +204,78 @@ def generate_result_maps(data, sourcelist):
 
 
 def calculate_correlation_lengths(semimajor, semiminor):
-    """Calculate the Condon correlation length
+    """Calculate the Condon correlation lengths.
 
-    In order to derive the error bars from Gauss fitting from the
-    Condon (1997, PASP 109, 116C) formulae, one needs the so called
-    correlation length. The Condon formulae assumes a circular area
-    with diameter theta_N (in pixels) for the correlation. This was
-    later generalized by Hopkins et al. (2003, AJ 125, 465) for
-    correlation areas which are not axisymmetric.
+    In order to derive the error bars for Gaussian fits from the
+    Condon (1997, PASP 109, 116C) formulae, one needs a quantity called the
+    correlation length. The Condon formulae assume a circular area
+    with diameter theta_N (in pixels) for the correlation: i.e. all noise
+    within that area is assumed completely correlated while outside that area
+    all noise is assumed completely uncorrelated. This was later generalized
+    by Hopkins et al. (2003, AJ 125, 465, paragraph 3) for correlation areas
+    which are not circular, i.e. for anisotropic restoring beams.
 
     Basically one has theta_N^2 = theta_B*theta_b.
 
     Good estimates in general are:
 
-    + theta_B = 2.0 * semimajar
+    + theta_B = 2.0 * semimajor
 
     + theta_b = 2.0 * semiminor
+
+    but we have included this function to provide a convenient way of altering
+    these dependencies.
+
+    Parameters
+    ----------
+    semimajor : float
+        The semi-major axis length in pixels.
+    semiminor : float
+        The semi-minor axis length in pixels.
+
+    Returns
+    -------
+    tuple of float
+        A tuple containing the correlation lengths (theta_B, theta_b), in
+        pixels.
     """
 
     return 2.0 * semimajor, 2.0 * semiminor
 
 
 def calculate_beamsize(semimajor, semiminor):
-    """Calculate the beamsize based on the semi major and minor axes"""
+    """
+    Calculate the beamsize based on the semi-major and minor axes.
+
+    Parameters
+    ----------
+    semimajor : float
+        The semi-major axis length in pixels.
+    semiminor : float
+        The semi-minor axis length in pixels.
+
+    Returns
+    -------
+    float
+        The calculated beamsize.
+    """    
+    
 
     return np.pi * semimajor * semiminor
 
 
 def fudge_max_pix(semimajor, semiminor, theta):
-    """Estimate peak flux correction at pixel of maximum flux
+    """Estimate peak spectral brightness correction at pixel of maximum spectral
+    brightness.
 
     Previously, we adopted Rengelink's correction for the
     underestimate of the peak of the Gaussian by the maximum pixel
     method: fudge_max_pix = 1.06. See the WENSS paper
-    (1997A&AS..124..259R) or his thesis.  (The peak of the Gaussian
+    (1997A&AS..124..259R) or his thesis.  The peak of the Gaussian
     is, of course, never at the exact center of the pixel, that's why
-    the maximum pixel method will always underestimate it.)
+    the maximum pixel method will underestimate it, when averaged over an
+    ensemble. This effect is smaller when the clean beam is more densely 
+    sampled.
 
     But, instead of just taking 1.06 one can make an estimate of the
     overall correction by assuming that the true peak is at a random
@@ -166,17 +284,26 @@ def fudge_max_pix(semimajor, semiminor, theta):
     so strictly speaking only accurate for unresolved sources.
     After some investigation, it turns out that this method requires not only
     unresolved sources, but also a circular beam shape. With the general
-    elliptical beam, the peak source pixel may be located more than half a
+    elliptical beam, the peak pixel may be located more than half a
     pixel away from the true peak. In that case the integral below will not
     suffice as a correction. Calculating an overall correction for an ensemble
     of sources will, in the case of an elliptical beam shape, become much
     more involved.
-    """
+    
+    Parameters
+    ----------
+    semimajor : float
+        The semi-major axis length in pixels.
+    semiminor : float
+        The semi-minor axis length in pixels.
+    theta : float
+        The position angle of the major axis in radians.
 
-    # scipy.integrate.dblquad: Computes a double integral
-    # from the scipy docs:
-    #   Return the double (definite) integral of f1(y,x) from x=a..b
-    #   and y=f2(x)..f3(x).
+    Returns
+    -------
+    correction: float
+        The estimated peak spectral brightness correction.
+    """
 
     log20 = np.log(2.0)
     cos_theta = np.cos(theta)
@@ -205,7 +332,22 @@ def flatten(nested_list):
     it into a list, like this::
 
         flattened = list(flatten(nested)).
+
+    Parameters
+    ----------
+    nested_list : list
+        A list that may contain other lists or tuples.
+
+    Yields
+    ------
+    element
+        The next element in the flattened list.
+
+    Notes
+    -----
+        The keyword "yield" is used; i.e. a generator object is returned.
     """
+
     for elem in nested_list:
         if isinstance(elem, (tuple, list, np.ndarray)):
             for i in flatten(elem):

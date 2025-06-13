@@ -1,5 +1,5 @@
 """
-Source fitting routines.
+Source measuring routines.
 """
 
 import math
@@ -38,30 +38,32 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     Parameters
     ----------
     data : np.ma.MaskedArray or np.ndarray
-        Actual 2D image data.
-
+        A rectangular region of 2D observational image data, typically with
+        the mean background subtracted. Units: spectral brightness, usually
+        Jy/beam.
     fudge_max_pix_factor : float
         Correct for the underestimation of the peak by taking the maximum
-        pixel value.
-
+        pixel value. This factor is slightly larger than 1.
     beam : 3-tuple
         tuple of 3 floats: (semimajor axis, semiminor axis, theta).
         The axes are in units of pixels and theta, the position angle of the
         major axis wrt the positive y-axis, is in radians.
-
     beamsize : float
-        The FWHM size of the clean beam.
-
+        The FWHM size of the clean beam in square pixels.
     threshold : float, default: 0
         Source parameters like the semimajor and semiminor axes derived
         from moments can be underestimated if one does not take account of
-        the threshold that was used to segment the source islands.
+        the threshold that was used to segment the source islands. This
+        threshold is typically the value of the analysisthresholdmap at the
+        position of the island pixel with the highest spectral brightness.
 
     Returns
     -------
     dict
-        Dictionary containing peak, total, x barycenter, y barycenter,
-        semimajor axis, semiminor axis, and theta.
+        Dictionary with seven items, i.e. peak spectral brightness, flux
+        density, barycenter position in x and y, i.e. in pixel coordinates,
+        semimajor and semiminor axes in pixel units and the position angle
+        of the semi-major axis measured east from local north in radians.
 
     Raises
     ------
@@ -341,11 +343,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     chisq : float
         Chi-squared statistic indicating goodness-of-fit, derived in the same 
-        way as in the `fitting.goodness_of_fit` method.
+        way as in the `measuring.goodness_of_fit` method.
 
     reduced_chisq : float
         Reduced chi-squared statistic indicating goodness-of-fit, derived in 
-        the same way as in the `fitting.goodness_of_fit` method.
+        the same way as in the `measuring.goodness_of_fit` method.
 
     Returns
     -------
@@ -589,22 +591,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
     if errortheta > np.pi:
         errortheta = np.pi
 
-    # The peak from "moments" is just the value of the maximum pixel
-    # times a correction, fudge_max_pix, for the fact that the
-    # centre of the Gaussian is not at the centre of the pixel.
-    # This correction is performed in fitting.py. The maximum pixel
-    # method introduces a peak dependent error corresponding to the last
-    # term in the expression below for errorpeaksq.
-    # To this, we add, in quadrature, the errors corresponding
-    # to the first and last term of the rhs of equation 37 of the
-    # NVSS paper. The middle term in that equation 37 is heuristically
-    # replaced by noise**2 since the threshold should not affect
-    # the error from the (corrected) maximum pixel method,
-    # while it is part of the expression for rho_sq above.
-    # errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
-    #                clean_bias_error ** 2 + noise ** 2 +
-    #                utils.maximum_pixel_method_variance(
-    #                    beam[0], beam[1], beam[2]) * peak ** 2)
+    # This should reflect the equivalent of equation 37 of the NVSS paper for
+    # moments calculations. The middle term in that equation 37 is heuristically
+    # replaced by noise**2 since the threshold should not affect the error from 
+    # the (corrected) maximum pixel method, while it is part of the expression 
+    # for rho_sq above.
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                    clean_bias_error ** 2 + noise ** 2)
     errorpeak = np.sqrt(errorpeaksq)
@@ -617,7 +608,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     """Deconvolve from the clean beam"""
 
-    # If the fitted axes are smaller than the clean beam
+    # If the fitted axes are larger than the clean beam
     # (=restoring beam) axes, the axes and position angle
     # can be deconvolved from it.
     fmaj = 2. * smaj

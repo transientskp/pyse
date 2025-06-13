@@ -34,26 +34,35 @@ class ImageData(object):
     facilities for source extraction and measurement, etc.
     """
 
-    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(), export=ExportSettings())):
+    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(),
+                 export=ExportSettings())):
         """
         Initializes an ImageData object.
 
         Parameters
         ----------
         data : 2D np.ndarray
-            Actual image data.
+            Observational image data. Must be a regular np.ndarray, since image
+            data read from e.g. a FITS file is not a MaskedArray.
         beam : tuple
-            Beam shape specification as (semimajor, semiminor, theta).
+            Clean beam specification as (semi-major axis, semi-minor axis,
+            position angle) with the axes in pixel coordinates and the position
+            angle in radians
         wcs : utility.coordinates.wcs
-            World coordinate system specification.
+            World coordinate system specification, in our case it is always
+            about sky coordinates.
         margin : int, default: 0
-            Margin value.
+            Margin applied to each edge of image (in pixels). Introduces a mask.
         radius : float, default: 0
-            Radius value.
+            Radius of usable portion of image (in pixels). Introduces a mask.
         back_size_x : int, default: 32
-            Background size in the x-direction.
+            Subimage size along rows. Subimages are centered on the nodes of the
+            background grid and serve to derive the mean and standard deviation
+            of the background pixels.
         back_size_y : int, default: 32
-            Background size in the y-direction.
+            Subimage size along columns. Subimages are centered on the nodes of
+            the background grid and serve to derive the mean and standard
+            deviation of the background pixels.
         residuals : bool, default: False
             Whether to save Gaussian residuals, at the pixels corresponding to
             the islands, as an image. Other pixel values will be zero.
@@ -77,12 +86,16 @@ class ImageData(object):
         # single precision is good enough in all cases.
         self.rawdata = np.ascontiguousarray(data, dtype=np.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
-        self.beam = beam  # tuple of (semimaj, semimin, theta) in pixel coordinates.
-        # These three quantities are only dependent on the beam, so should be calculated
-        # once the beam is known and not for each source separately.
-        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1], beam[2])
+        self.beam = beam  # tuple of (semimaj, semimin, theta) with semimaj and
+        # semimin in pixel coordinates and theta, the position angle, in
+        # radians.
+        # These three quantities are only dependent on the beam, so should be
+        # calculated once the beam is known and not for each source separately.
+        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1],
+                                                        beam[2])
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
-        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0], beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0],
+                                                                       beam[1])
         self.clip: dict[float, np.ndarray] = {}
         self.labels: dict[float, tuple[np.ndarray, int]] = {}
         self.freq_low = 1
@@ -143,10 +156,12 @@ class ImageData(object):
         mask = np.zeros((self.xdim, self.ydim))
         if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
-            margin_mask[self.conf.image.margin:-self.conf.image.margin, self.conf.image.margin:-self.conf.image.margin] = 0
+            margin_mask[self.conf.image.margin:-self.conf.image.margin,
+            self.conf.image.margin:-self.conf.image.margin] = 0
             mask = np.logical_or(mask, margin_mask)
         if self.conf.image.radius:
-            radius_mask = utils.circular_mask(self.xdim, self.ydim, self.conf.image.radius)
+            radius_mask = utils.circular_mask(self.xdim, self.ydim,
+                                              self.conf.image.radius)
             mask = np.logical_or(mask, radius_mask)
         mask = np.logical_or(mask, np.isnan(self.rawdata))
         return np.ma.array(self.rawdata, mask=mask)
@@ -226,10 +241,12 @@ class ImageData(object):
         # Use 'back-size-x' and 'back-size-y' if available, fall back to 'grid'.
         back_size_x = self.conf.image.back_size_x or self.conf.image.grid
         if back_size_x is None:
-            raise ValueError("Expected either back-size-x or grid to be set in the config object")
+            raise ValueError(("Expected either back-size-x or grid to be set "
+                              "in the config object"))
         back_size_y = self.conf.image.back_size_y or self.conf.image.grid
         if back_size_y is None:
-            raise ValueError("Expected either back-size-y or grid to be set in the config object")
+            raise ValueError(("Expected either back-size-y or grid to be set "
+                              "in the config object"))
         # We should divide up the image into subimages such that each grid
         # node is centered on a subimage. This is only possible if
         # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
@@ -338,7 +355,8 @@ class ImageData(object):
             f_grid = ndimage.median_filter(grid, self.conf.image.median_filter)
             if self.conf.image.mf_threshold:
                 grid = np.where(
-                    np.fabs(f_grid - grid) > self.conf.image.mf_threshold, f_grid, grid
+                    np.fabs(f_grid - grid) > self.conf.image.mf_threshold,
+                    f_grid, grid
                 )
             else:
                 grid = f_grid
@@ -609,7 +627,8 @@ class ImageData(object):
         return (slice(x - ibr, x + ibr + 1),
                 slice(y - ibr, y + ibr + 1))
 
-    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float, fixed: str):
+    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float,
+                     fixed: str):
         """
         Fit an elliptical Gaussian to a specified point on the image.
 
@@ -883,7 +902,7 @@ class ImageData(object):
                    None, None, None, None, None, None)
 
         # At this point, we select all the data which is eligible for
-        # sourcefitting. We are actually using three separate filters, which
+        # source fitting. We are actually using three separate filters, which
         # exclude:
         #
         # 1. Anything which has been masked before we reach this point;
@@ -900,7 +919,8 @@ class ImageData(object):
         if self.conf.image.rms_filter:
             clipped_data = np.ma.where(
                 (self.data_bgsubbed > analysisthresholdmap) &
-                (self.rmsmap >= (self.conf.image.rms_filter * self.grids["rms"].mean())), 1, 0
+                (self.rmsmap >= (self.conf.image.rms_filter *
+                                 self.grids["rms"].mean())), 1, 0
             ).filled(fill_value=0)
         else:
             clipped_data = np.ma.where(
@@ -908,7 +928,7 @@ class ImageData(object):
             ).filled(fill_value=0)
 
         labelled_data, num_labels = ndimage.label(clipped_data,
-                                                  self.conf.image.structuring_element)
+                                        self.conf.image.structuring_element)
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
@@ -1019,22 +1039,22 @@ class ImageData(object):
             integer values and zeroes for all background pixels.
         label : int
             The label (integer value) corresponding to the slice encompassing
-            the island. Or actually it should be the other way round, since there
-            can be multiple islands within one rectangular slice.
+            the island. Or actually it should be the other way round, since
+            there can be multiple islands within one rectangular slice.
         dummy : np.ndarray
             Artefact of the implementation of guvectorize: Empty array with the
             same shape as maxpos. It is needed because of a missing feature in
-            guvectorize: There is no other way to tell guvectorize what the shape
-            of the output array will be. Therefore, we define an otherwise
-            redundant input array with the same shape as the desired output
-            array. Defined as int32, but could be any type.
+            guvectorize: There is no other way to tell guvectorize what the
+            shape of the output array will be. Therefore, we define an
+            otherwise redundant input array with the same shape as the
+            desired output array. Defined as int32, but could be any type.
         maxpos : np.ndarray
             Array of two integers indicating the indices of the highest pixel
             value of the island with label = label relative to the position of
             pixel [0, 0] of the image.
         maxi : np.float32
-            Float32 equal to the highest pixel value of the island with label =
-            label.
+            Float32 equal to the highest pixel value of the island with
+            label=label.
         npix : np.int32
             Integer indicating the number of pixels of the island.
 
@@ -1188,7 +1208,8 @@ class ImageData(object):
                 with Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
-                fit_results = [fit_islands_partial(island) for island in island_list]
+                fit_results = [fit_islands_partial(island) for island in
+                               island_list]
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
@@ -1203,9 +1224,11 @@ class ImageData(object):
                                             eps_dec=self.conf.image.eps_dec)
                     if (det.ra.error == float('inf') or
                             det.dec.error == float('inf')):
-                        logger.warning('Bad fit from blind extraction at pixel coords:'
+                        logger.warning('Bad fit from blind extraction at '
+                                       'pixel coords:'
                                        '%f %f - measurement discarded'
-                                       '(increase fitting margin?)', det.x, det.y)
+                                       '(increase fitting margin?)',
+                                       det.x, det.y)
                     else:
                         results.append(det)
                 except RuntimeError as e:

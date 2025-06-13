@@ -42,34 +42,53 @@ from sourcefinder.accessors import writefits as tkp_writefits
 from sourcefinder.config import Conf, ImgConf, read_conf
 from sourcefinder.utils import generate_result_maps
 
+def parse_monitoringlist_positions(args, str_name="monitor_coords",
+                                   list_name="monitor_list"):
+    """
+    Load a list of monitoring list (RA, Dec) tuples from command line
+    arguments.
 
-def parse_monitoringlist_positions(
-    args, str_name="monitor_coords", list_name="monitor_list"
-):
-    """Loads a list of monitoringlist (RA,Dec) tuples from cmd line args object.
+    This function processes the flags `--monitor-coords` and `--monitor-list`.
+    It does not handle units, which should be matched against the requirements
+    of the consuming code.
 
-    Processes the flags "--monitor-coords" and "--monitor-list"
-    NB This is just a dumb function that does not care about units,
-    those should be matched against whatever uses the resulting values...
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The command line arguments object.
+    str_name : str, default: "monitor_coords"
+        The name of the argument containing the JSON string of coordinates.
+    list_name : str, default: "monitor_list"
+        The name of the argument containing the file path to a JSON file with
+        coordinates.
+
+    Returns
+    -------
+    list of tuple
+        A list of (RA, Dec) tuples parsed from the input arguments.
+
+    Raises
+    ------
+    json.JSONDecodeError
+        If the JSON string or file content cannot be parsed.
     """
     monitor_coords = []
     if hasattr(args, str_name) and getattr(args, str_name):
         try:
             monitor_coords.extend(json.loads(getattr(args, str_name)))
-        except ValueError:
-            logging.error(
-                "Could not parse monitor-coords from command line:"
-                "string passed was:\n%s" % (getattr(args, str_name),)
-            )
+        except json.JSONDecodeError:
+            logging.error("Could not parse monitor-coords from command line:"
+                          "string passed was:\n%s" % (getattr(args, str_name),)
+                          )
             raise
     if hasattr(args, list_name) and getattr(args, list_name):
         try:
-            mon_list = json.load(open(getattr(args, list_name)))
+            with open(getattr(args, list_name)) as file:
+                mon_list = json.load(file)
             monitor_coords.extend(mon_list)
-        except ValueError:
-            logging.error(
-                "Could not parse monitor-coords from file: " + getattr(args, list_name)
-            )
+        except json.JSONDecodeError:
+            logging.error("Could not parse monitor-coords from file: "
+                          + getattr(args, list_name))
             raise
     return monitor_coords
 
@@ -172,13 +191,13 @@ def construct_argument_parser():
     image_group.add_argument(
         "--back-size-x",
         type=int,
-        help="Size of the background estimation box in the X direction.",
+        help="Size of the background subimage in the X direction.",
     )
 
     image_group.add_argument(
         "--back-size-y",
         type=int,
-        help="Size of the background estimation box in the Y direction.",
+        help="Size of the background subimage in the Y direction.",
     )
 
     image_group.add_argument(
@@ -188,8 +207,10 @@ def construct_argument_parser():
     image_group.add_argument(
         "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
     )
-    image_group.add_argument("--detection", type=float, help="Detection threshold")
-    image_group.add_argument("--analysis", type=float, help="Analysis threshold")
+    image_group.add_argument("--detection", type=float,
+                             help="Detection threshold")
+    image_group.add_argument("--analysis", type=float,
+                             help="Analysis threshold")
     image_group.add_argument(
         "--fdr", action="store_true", help="Use False Detection Rate algorithm"
     )
@@ -199,7 +220,8 @@ def construct_argument_parser():
         type=int,
         help="Number of deblending subthresholds; 0 to disable",
     )
-    image_group.add_argument("--grid", type=int, help="Background grid segment size")
+    image_group.add_argument("--grid", type=int,
+                             help="Background grid segment size")
     image_group.add_argument(
         "--bmaj", type=float, help="Set beam: Major axis of beam (deg)"
     )
@@ -210,7 +232,8 @@ def construct_argument_parser():
         "--bpa", type=float, help="Set beam: Beam position angle (deg)"
     )
     image_group.add_argument(
-        "--force-beam", action="store_true", help="Force fit axis lengths to beam size"
+        "--force-beam", action="store_true",
+        help="Force fit axis lengths to beam size"
     )
     image_group.add_argument(
         "--detection-image", type=str, help="Find islands on different image"
@@ -231,8 +254,10 @@ def construct_argument_parser():
         type=float,
         help="Forced fitting positional box size as a multiple of beam width.",
     )
-    image_group.add_argument("--ew-sys-err", type=float, help="Systematic error in east-west direction")
-    image_group.add_argument("--ns-sys-err", type=float, help="Systematic error in north-south direction")
+    image_group.add_argument("--ew-sys-err", type=float,
+                             help="Systematic error in east-west direction")
+    image_group.add_argument("--ns-sys-err", type=float,
+                             help="Systematic error in north-south direction")
 
 
     # Arguments relating to output:
@@ -254,7 +279,8 @@ def construct_argument_parser():
     export_group.add_argument(
         "--regions", action="store_true", help="Generate DS9 region file(s)"
     )
-    export_group.add_argument("--rmsmap", action="store_true", help="Generate RMS map")
+    export_group.add_argument("--rmsmap", action="store_true",
+                              help="Generate RMS map")
     export_group.add_argument(
         "--sigmap", action="store_true", help="Generate significance map"
     )
@@ -283,7 +309,8 @@ def regions(sourcelist):
     )
     print("image", file=output)
     for source in sourcelist:
-        # NB, here we convert from internal 0-origin indexing to DS9 1-origin indexing
+        # NB, here we convert from internal 0-origin indexing to DS9 1-origin
+        # indexing
         print(
             "ellipse(%f, %f, %f, %f, %f)"
             % (
@@ -300,7 +327,8 @@ def regions(sourcelist):
 
 def skymodel(sourcelist, ref_freq=73800000):
     """
-    Return a string containing a skymodel from the extracted sources for use in self-calibration.
+    Return a string containing a skymodel from the extracted sources for use
+    in self-calibration.
     """
     output = StringIO()
     print(
@@ -346,11 +374,16 @@ def summary(filename, sourcelist):
     output = StringIO()
     print("** %s **\n" % (filename), file=output)
     for source in sourcelist:
-        print("RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output)
-        print("Error radius (arcsec): %s" % (str(source.error_radius)), file=output)
-        print("Semi-major axis (arcsec): %s" % (str(source.smaj_asec)), file=output)
-        print("Semi-minor axis (arcsec): %s" % (str(source.smin_asec)), file=output)
-        print("Position angle: %s" % (str(source.theta_celes)), file=output)
+        print("RA: %s, dec: %s" % (str(source.ra), str(source.dec)),
+              file=output)
+        print("Error radius (arcsec): %s" % (str(source.error_radius)),
+              file=output)
+        print("Semi-major axis (arcsec): %s" % (str(source.smaj_asec)),
+              file=output)
+        print("Semi-minor axis (arcsec): %s" % (str(source.smin_asec)),
+              file=output)
+        print("Position angle: %s" % (str(source.theta_celes)),
+              file=output)
         print("Flux: %s" % (str(source.flux)), file=output)
         print("Peak: %s\n" % (str(source.peak)), file=output)
     return output.getvalue()
@@ -365,10 +398,12 @@ def handle_args(args=None):
     arguments = parser.parse_args()
     unstructured_args = vars(arguments)
 
-    # Extract file paths, which are only to be supplied via command line, not config
+    # Extract file paths, which are only to be supplied via command line,
+    # not config
     files = unstructured_args.pop("files")
 
-    # Automatically start the debugger on an unhandled exception if specified
+    # Automatically start the debugger on an unhandled exception if
+    # specified
     debug_on_error = unstructured_args.pop("pdb")
     if debug_on_error:
 
@@ -389,14 +424,17 @@ def handle_args(args=None):
             cli_args[section_name] = dict()
         arg_name = argument.dest
         if arg_name in unstructured_args:
-            # Default arguments like '--help' and arguments popped from unstructured args like "--pdb" should be skipped
+            # Default arguments like '--help' and arguments popped from
+            # unstructured args like "--pdb" should be skipped
             cli_value = unstructured_args[arg_name]
             if cli_value is not None:
-                # For argparse arguments where no value is provided in the command line we get a None value, ignore these
+                # For argparse arguments where no value is provided in the
+                # command line we get a None value, ignore these
                 cli_args[section_name][arg_name] = cli_value
 
     # Note: Dataclass replace is not recursive for stacked dataclasses.
-    #       Replace one by one to avoid arguments being reset to their defaults.
+    #       Replace one by one to avoid arguments being reset to their
+    #       defaults.
     conf_image = replace(conf.image, **cli_args["Image parameters"])
     conf_export = replace(conf.export, **cli_args["Export parameters"])
     conf = replace(conf, image=conf_image, export=conf_export)
@@ -500,7 +538,8 @@ def run_sourcefinder(files, conf, mode):
         labels, labelled_data = [], None
 
     for counter, filename in enumerate(files):
-        print("Processing %s (file %d of %d)." % (filename, counter + 1, len(files)))
+        print("Processing %s (file %d of %d)." % (filename, counter + 1,
+                                                  len(files)))
         imagename = os.path.splitext(os.path.basename(filename))[0]
         ff = open_accessor(filename, beam=beam, plane=0)
         imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
@@ -508,7 +547,8 @@ def run_sourcefinder(files, conf, mode):
         if mode == "fixed":
             # FIXME: conf.image.fixed_coords does not exist
             sr = imagedata.fit_fixed_positions(
-                conf.image.fixed_coords, conf.image.ffbox * max(imagedata.beam[0:2])
+                conf.image.fixed_coords,
+                conf.image.ffbox * max(imagedata.beam[0:2])
             )
 
         else:
@@ -559,17 +599,20 @@ def run_sourcefinder(files, conf, mode):
         if conf.export.residuals:
             residualfile = export_dir / (imagename + ".residuals.fits")
             writefits(
-                residualfile, imagedata.Gaussian_residuals, pyfits.getheader(filename)
+                residualfile, imagedata.Gaussian_residuals,
+                pyfits.getheader(filename)
             )
         if conf.export.islands:
             islandfile = export_dir / (imagename + ".islands.fits")
             writefits(
-                islandfile, imagedata.Gaussian_islands, pyfits.getheader(filename)
+                islandfile, imagedata.Gaussian_islands,
+                pyfits.getheader(filename)
             )
         if conf.export.rmsmap:
             rmsfile = export_dir / (imagename + ".rms.fits")
             writefits(
-                rmsfile, numpy.array(imagedata.rmsmap), pyfits.getheader(filename)
+                rmsfile, numpy.array(imagedata.rmsmap),
+                pyfits.getheader(filename)
             )
         if conf.export.sigmap:
             sigfile = export_dir / (imagename + ".sig.fits")
@@ -579,7 +622,8 @@ def run_sourcefinder(files, conf, mode):
                 pyfits.getheader(filename),
             )
         if conf.export.skymodel:
-            with open(export_dir / (imagename + ".skymodel"), "w") as skymodelfile:
+            with (open(export_dir / (imagename + ".skymodel"), "w") as
+                  skymodelfile):
                 if ff.freq_eff:
                     skymodelfile.write(skymodel(sr, ff.freq_eff))
                 else:

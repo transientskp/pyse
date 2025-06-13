@@ -82,9 +82,6 @@ class Uncertain(object):
     def __round__(self, pos):
         return round(self.value, pos)
 
-    def __div__(self, other):
-        return self * (1. / other)  # other.__div__ and __mul__
-
     def __truediv__(self, other):
         return self * (1. / other)
 
@@ -109,14 +106,6 @@ class Uncertain(object):
         # otherwise other.__pow__ would have been called
         return Uncertain(other ** self.value,
                          self.error * math.log(other) * other ** self.value)
-
-    def __cmp__(self, compare):
-        try:
-            return cmp(self.value, compare.value) # noqa: F821 
-            # Comment above needed since flake8 erroreously reports F821 
-            # undefined name 'cmp'
-        except AttributeError:
-            return cmp(self.value, compare)
 
     def __lt__(self, compare):
         try:

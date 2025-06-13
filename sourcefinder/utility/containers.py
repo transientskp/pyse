@@ -19,6 +19,8 @@ class ObjectContainer(list):
     a given object in a given image stack) and lightcurves (ie, all
     the sources associated with a given object through time).
 
+    Notes
+    -----
     You probably don't want to use this on it's own: see ExtractionResults,
     TargetList or source for more useful derived classes.
     """
