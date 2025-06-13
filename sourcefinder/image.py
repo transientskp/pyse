@@ -223,14 +223,22 @@ class ImageData(object):
         useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
         assert (len(useful_chunk) == 1)
         x_dim, y_dim  = self.data[useful_chunk[0]].shape
+        # Use 'back-size-x' and 'back-size-y' if available, fall back to 'grid'.
+        back_size_x = self.conf.image.back_size_x or self.conf.image.grid
+        if back_size_x is None:
+            raise ValueError("Expected either back-size-x or grid to be set in the config object")
+        back_size_y = self.conf.image.back_size_y or self.conf.image.grid
+        if back_size_y is None:
+            raise ValueError("Expected either back-size-y or grid to be set in the config object")
         # We should divide up the image into subimages such that each grid
         # node is centered on a subimage. This is only possible if
         # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
         # respectively. If not, we need to select a frame within useful_chunk
         # that does have the appropriate dimensions. At the same time, it should
         # be as large as possible and centered within useful_chunk.
-        rem_row = np.mod(x_dim, self.conf.image.back_size_x)
-        rem_col = np.mod(y_dim, self.conf.image.back_size_y)
+        rem_row = np.mod(x_dim, back_size_x)
+        rem_col = np.mod(y_dim, back_size_y)
+
         start_offset_row, rem_rem_row = divmod(rem_row, 2)
         start_offset_col, rem_rem_col = divmod(rem_col, 2)
         end_offset_row = start_offset_row + rem_rem_row
@@ -245,8 +253,8 @@ class ImageData(object):
 
         # Before proceeding, check that our data has the size of at least
         # one subimage, for both dimensions.
-        if (centred_inds[1] - centred_inds[0] > self.conf.image.back_size_x and
-            centred_inds[3] - centred_inds[2] > self.conf.image.back_size_y):
+        if (centred_inds[1] - centred_inds[0] > back_size_x and
+            centred_inds[3] - centred_inds[2] > back_size_y):
 
             subimages, number_of_elements_for_each_subimage = \
                 utils.make_subimages(self.data.data[centred_inds[0]:
@@ -257,7 +265,7 @@ class ImageData(object):
                                                     centred_inds[1],
                                                     centred_inds[2]:
                                                     centred_inds[3]],
-                                     self.conf.image.back_size_x, self.conf.image.back_size_y)
+                                     back_size_x, back_size_y)
 
             mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
                                  dtype=np.float32)
