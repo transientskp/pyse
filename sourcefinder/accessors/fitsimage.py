@@ -231,9 +231,9 @@ class FitsImage(DataAccessor):
         tuple
             A tuple containing:
             - bmaj: float
-                The major axis of the beam in pixels.
+                The major axis of the beam in degrees.
             - bmin: float
-                The minor axis of the beam in pixels.
+                The minor axis of the beam in degrees.
             - bpa: float
                 The position angle of the beam in degrees.
         Notes
