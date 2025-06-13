@@ -241,10 +241,12 @@ class ImageData(object):
         # Use 'back-size-x' and 'back-size-y' if available, fall back to 'grid'.
         back_size_x = self.conf.image.back_size_x or self.conf.image.grid
         if back_size_x is None:
-            raise ValueError("Expected either back-size-x or grid to be set in the config object")
+            raise ValueError(("Expected either back-size-x or grid to be set "
+                              "in the config object"))
         back_size_y = self.conf.image.back_size_y or self.conf.image.grid
         if back_size_y is None:
-            raise ValueError("Expected either back-size-y or grid to be set in the config object")
+            raise ValueError(("Expected either back-size-y or grid to be set "
+                              "in the config object"))
         # We should divide up the image into subimages such that each grid
         # node is centered on a subimage. This is only possible if
         # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
