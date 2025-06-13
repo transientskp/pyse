@@ -158,8 +158,8 @@ class ImgConf(_Validate):
     allow_multiprocessing: bool = True     # Allow multiprocessing for Gaussian fitting in parallel.
     margin: int = 0                        # Margin in pixels to ignore around the edge of the image.
     radius: float = 0.0                    # Radius in pixels around sources to include in analysis.
-    back_size_x: int = 32                  # Background estimation box size (X direction).
-    back_size_y: int = 32                  # Background estimation box size (Y direction).
+    back_size_x: int | None = 32           # Background estimation box size (X direction).
+    back_size_y: int | None = 32           # Background estimation box size (Y direction).
     eps_ra: float = 0.0                    # RA matching tolerance in arcseconds.
     eps_dec: float = 0.0                   # Dec matching tolerance in arcseconds.
     detection: float = 10.0                # Detection threshold.
@@ -167,7 +167,7 @@ class ImgConf(_Validate):
     fdr: bool = False                      # Use False Detection Rate (FDR) algorithm.
     alpha: float = 1e-2                    # FDR alpha value (significance level).
     deblend_thresholds: int = 0            # Number of deblending subthresholds; 0 to disable.
-    grid: int = 64                         # Background grid segment size.
+    grid: int | None = None                # Background grid segment size used as fallback for back-size-x and back-size-y.
     bmaj: float | None = None              # Set beam: Major axis of beam (degrees).
     bmin: float | None = None              # Set beam: Minor axis of beam (degrees).
     bpa: float | None = None               # Set beam: Beam position angle (degrees).
