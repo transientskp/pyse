@@ -191,13 +191,13 @@ def construct_argument_parser():
     image_group.add_argument(
         "--back-size-x",
         type=int,
-        help="Size of the background estimation box in the X direction.",
+        help="Size of the background subimage in the X direction.",
     )
 
     image_group.add_argument(
         "--back-size-y",
         type=int,
-        help="Size of the background estimation box in the Y direction.",
+        help="Size of the background subimage in the Y direction.",
     )
 
     image_group.add_argument(
