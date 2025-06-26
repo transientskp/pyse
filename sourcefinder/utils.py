@@ -417,7 +417,7 @@ def nearest_nonzero(some_arr, rms):
 # “The make_subimages function has been generated using ChatGPT 4.0.
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
-@njit(parallel=True)
+@njit()
 def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     """
     Reshape the image data such that it is suitable for guvectorized
