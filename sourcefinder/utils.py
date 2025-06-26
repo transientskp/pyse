@@ -10,7 +10,9 @@ from scipy.ndimage import distance_transform_edt
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utility import coordinates
 
-from numba import njit, prange, guvectorize
+from numba import njit, prange, guvectorize, config as numba_config
+
+numba_config.THREADING_LAYER = 'workqueue'
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
