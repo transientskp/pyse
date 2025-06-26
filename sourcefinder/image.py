@@ -16,13 +16,15 @@ from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
 import psutil
-from multiprocessing import Pool
+import multiprocessing
 from functools import cached_property
 from functools import partial
 
 from scipy import ndimage
 from numba import guvectorize, float32, int32
 import os
+
+multiprocessing.set_start_method("forkserver", force=True)
 
 logger = logging.getLogger(__name__)
 
@@ -1205,7 +1207,7 @@ class ImageData(object):
             )
 
             if self.conf.image.allow_multiprocessing:
-                with Pool(psutil.cpu_count()) as p:
+                with multiprocessing.Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
                 fit_results = [fit_islands_partial(island) for island in
