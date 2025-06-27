@@ -40,13 +40,15 @@ class FitsImageBlob(FitsImage):
                    self.freq_eff, self.freq_bw
         self.url = "_".join([str(x) for x in elements])
 
-        if beam:
-            (bmaj, bmin, bpa) = beam
-        else:
-            (bmaj, bmin, bpa) = self.parse_beam()
-        self.beam = self.degrees2pixels(
-            bmaj, bmin, bpa, self.pixelsize[0], self.pixelsize[1]
-        )
+        if not self.beam or beam:
+            # An argument-supplied beam overrides a beam derived from
+            # (bmaj, bmin, bpa) in a config.toml. Only if those two options
+            # are not specified, we parse the beam from the header.
+            bmaj, bmin, bpa = beam if beam else self.parse_beam()
+            self.beam = self.degrees2pixels(
+                bmaj, bmin, bpa, self.pixelsize[0], self.pixelsize[1]
+            )
+
         self.centre_ra, self.centre_decl = self.calculate_phase_centre()
 
         # Bonus attribute

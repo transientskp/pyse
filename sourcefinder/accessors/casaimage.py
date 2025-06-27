@@ -48,12 +48,14 @@ class CasaImage(DataAccessor):
         self.freq_eff, self.freq_bw = self.parse_frequency(table)
         self.pixelsize = self.parse_pixelsize()
 
-        if beam:
-            (bmaj, bmin, bpa) = beam
-        else:
-            bmaj, bmin, bpa = self.parse_beam(table)
-        self.beam = self.degrees2pixels(bmaj, bmin, bpa, self.pixelsize[0],
-                                        self.pixelsize[1])
+        if not self.beam or beam:
+            # An argument-supplied beam overrides a beam derived from
+            # (bmaj, bmin, bpa) in a config.toml. Only if those two options
+            # are not specified, we parse the beam from the header.
+            bmaj, bmin, bpa = beam if beam else self.parse_beam(table)
+            self.beam = self.degrees2pixels(
+                bmaj, bmin, bpa, self.pixelsize[0], self.pixelsize[1]
+            )
 
     def parse_data(self, table, plane=0):
         """

@@ -91,6 +91,7 @@ extend-exclude ='''
 '''
 
 [tool.mypy]
+python_version = "3.12"
 ignore_missing_imports = true
 check_untyped_defs = true
 files = "sourcefinder"

@@ -1,9 +1,12 @@
 import logging
 
 import numpy
+import numbers
 from math import degrees, sqrt, sin, pi, cos
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from sourcefinder.utility.coordinates import WCS
+from sourcefinder.config import ImgConf
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +69,6 @@ class DataAccessor:
     provides key info in a simple dict format.
     """
 
-    beam: tuple
     centre_ra: float
     centre_decl: float
     data: numpy.ndarray
@@ -77,6 +79,22 @@ class DataAccessor:
     taustart_ts: float
     url: str
     wcs: WCS
+    beam: Optional[tuple[float, float, float]] = field(default=None)
+    conf: Optional[ImgConf] = field(default=None, repr=False)
+
+    def __post_init__(self):
+        if self.conf is not None:
+            bmaj, bmin, bpa = self.conf.bmaj, self.conf.bmin, self.conf.bpa
+            if all(isinstance(x, numbers.Real) and x is not None for x in
+                   (bmaj, bmin, bpa)):
+                deltax, deltay = self.pixelsize
+                self.beam = DataAccessor.degrees2pixels(bmaj, bmin, bpa,
+                                                        deltax, deltay)
+            else:
+                print(("WARNING: Partial beam specification ignored; "
+                       "one or more of (bmaj, bmin, bpa) are not "
+                       "specified."))
+                self.beam = None
 
     def extract_metadata(self) -> dict:
         """
@@ -94,20 +112,26 @@ class DataAccessor:
             A dictionary containing key-value pairs of class attributes
             formatted for database storage.
         """
-        return {
+        metadata = {
             'tau_time': self.tau_time,
             'freq_eff': self.freq_eff,
             'freq_bw': self.freq_bw,
             'taustart_ts': self.taustart_ts,
             'url': self.url,
-            'beam_smaj_pix': self.beam[0],
-            'beam_smin_pix': self.beam[1],
-            'beam_pa_rad': self.beam[2],
             'centre_ra': self.centre_ra,
             'centre_decl': self.centre_decl,
             'deltax': self.pixelsize[0],
             'deltay': self.pixelsize[1],
         }
+
+        if self.beam is not None:
+            metadata.update({
+                'beam_smaj_pix': self.beam[0],
+                'beam_smin_pix': self.beam[1],
+                'beam_pa_rad': self.beam[2],
+            })
+
+        return metadata
 
     def parse_pixelsize(self):
         """
