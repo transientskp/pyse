@@ -22,7 +22,8 @@ dependencies = [
     "scipy",
     "tomli; python_version < '3.11'",
     "numba",
-    "sphinx"
+    "sphinx",
+    "pytest"
 ]
 
 [project.urls]
