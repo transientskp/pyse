@@ -1292,11 +1292,13 @@ class ImageData(object):
              theta_celes_values, theta_celes_errors, theta_dc_celes_values,
              theta_dc_celes_errors, Gaussian_islands, Gaussian_residuals,
              sig, chisq, reduced_chisq) = \
-                extract.source_measurements_pixels_and_celestial_vectorised(
-                    num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
-                    self.rmsmap.data, analysisthresholdmap.data, indices,
+                extract.source_measurements_vectorised(
+                    num_islands, npixs, maxposs, maxis,
+                    self.data_bgsubbed.data, self.rmsmap.data,
+                    analysisthresholdmap.data, indices,
                     labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
-                    self.beam, self.beamsize, self.correlation_lengths,
+                    self.beam, self.beamsize, force_beam,
+                    self.correlation_lengths,
                     self.conf.image.eps_ra, self.conf.image.eps_dec)
 
             if self.conf.export.islands:
