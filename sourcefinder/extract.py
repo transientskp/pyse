@@ -1841,6 +1841,13 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         semi-major axis, east from local north, in radians.
     beamsize : float
         Area of the restoring beam, in square pixels.
+    force_beam : bool
+        If True, the restoring beam is used to derive the peak spectral
+        brightnesses of the sources, see equation 2.66 of Spreeuw's (2010)
+        thesis. The sources are then assumed to be unresolved and their
+        shapes are set equal to the restoring beam. If False, the peak
+        spectral brightnesses are derived using equation 2.67 of that thesis
+        and enhanced moments are used to derive the elliptical Gaussian axes.
     correlation_lengths : tuple
         Tuple of 2 floats describing over which distance (in pixels) noise
         should be considered correlated, along both principal axes of the
