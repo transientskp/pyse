@@ -17,9 +17,14 @@ import os
 import unittest
 
 import numpy as np
+from astropy.wcs.utils import proj_plane_pixel_scales
+from astropy.io import fits
+from astropy.wcs import WCS
+from scipy.signal import fftconvolve
+import pytest
+
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
-
 import sourcefinder.accessors
 from sourcefinder import image
 
@@ -127,6 +132,205 @@ class SourceParameters(unittest.TestCase):
         signif_dev_bpa = (TRUE_DECONV_BPA - av_bpa) / av_bpa_err
         self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS)
 
+
+def create_beam_kernel(peak_brightness, bmaj_deg, bmin_deg, bpa_deg, 
+                       pixel_scale_deg, size=15, xoffset=0., yoffset=0.):
+    """Create a peak-normalized elliptical Gaussian kernel for the
+    clean beam."""
+    fwhm_to_sigma = 1.0 / (2 * np.sqrt(2 * np.log(2)))
+    bmaj_pix = bmaj_deg / pixel_scale_deg
+    bmin_pix = bmin_deg / pixel_scale_deg
+    sigma_y = bmaj_pix * fwhm_to_sigma
+    sigma_x = bmin_pix * fwhm_to_sigma
+
+    # Best to have a centrosymmetric grid, which requires size to be odd.
+    if size % 2 == 0:
+        size -= 1
+
+    # Creates indices starting at 0, ending at size - 1.
+    x, y = np.indices((size, size), dtype=float)
+
+    center = (size - 1) // 2
+    # This should ensure that both x.min() and y.min() are integers and equal.
+    x -= center
+    y -= center
+
+    assert x.mean() == 0
+    assert y.mean() == 0
+
+    x_min = x.min()
+    y_min = y.min()
+
+    x += xoffset
+    y += yoffset
+
+    theta_rad = np.deg2rad(bpa_deg)
+    cos_theta, sin_theta = np.cos(theta_rad), np.sin(theta_rad)
+    x_rot = x * cos_theta - y * sin_theta
+    y_rot = x * sin_theta + y * cos_theta
+
+    gauss = np.exp(-0.5 * ((x_rot / sigma_x) ** 2 + (y_rot / sigma_y) ** 2))
+    gauss *= peak_brightness
+
+    # Return the Gaussian profile.
+    # Also return the minimum values of x and y, since they should match
+    # with the lower bounds of the subimage.
+    return gauss, x_min, y_min
+
+
+@pytest.fixture
+@requires_data(os.path.join(DATAPATH, '/Dirty_beam/psf.fits'))
+def generate_artificial_image_with_unresolved_sources(
+    psf_fits_path,
+    output_fits_path,
+    output_truth_path,
+    output_size=4096,
+    peak_brightness=100.0,
+    num_sources=167_281,
+):
+    """Generate FITS image with unresolved sources and save ground truth."""
+    # Load PSF and header
+    with fits.open(psf_fits_path) as hdul:
+        psf_data = hdul[0].data
+        psf_header = hdul[0].header
+        wcs_psf = WCS(psf_header)
+
+    # Extract clean beam parameters
+    bmaj_deg = psf_header["BMAJ"]
+    bmin_deg = psf_header["BMIN"]
+    bpa_deg = psf_header["BPA"]
+
+    pixel_scale_deg = np.mean(proj_plane_pixel_scales(wcs_psf.celestial))
+
+    # Convolve white noise with PSF
+    white_noise = np.random.normal(0, 1, (output_size, output_size))
+    psf_kernel = psf_data.squeeze() / np.sum(psf_data)
+    corr_noise = fftconvolve(white_noise, psf_kernel, mode="same")
+
+    # Normalize to mean 0, std 1 Jy/beam
+    corr_noise = (corr_noise - np.mean(corr_noise)) / np.std(corr_noise)
+
+    coords = []
+
+    # Round num_sources to the nearest squared integer.
+    ns_sqrt = round(np.sqrt(num_sources))
+    ns_sqi = ns_sqrt ** 2
+
+    source_spacing = round(output_size/(ns_sqrt + 1))
+    # Space around the center of the Gaussian.
+    space_ar = (source_spacing - 1) // 2
+
+    for x in np.linspace(space_ar + 1, output_size - space_ar - 1,
+                         num=ns_sqrt, endpoint=True ):
+        for y in np.linspace(space_ar + 1, output_size - space_ar - 1,
+                         num=ns_sqrt, endpoint=True ):
+
+            offset_x = np.random.uniform(-0.5, 0.5)
+            offset_y = np.random.uniform(-0.5, 0.5)
+            
+            roundx = round(x)
+            roundy = round(y)
+
+            pos_x = roundx + offset_x
+            pos_y = roundy + offset_y
+            
+            source_to_be_inserted, x_min, y_min = ( 
+                create_beam_kernel(peak_brightness, bmaj_deg, bmin_deg, 
+                                   bpa_deg, pixel_scale_deg, 
+                                   size=source_spacing,
+                                   xoffset=offset_x, 
+                                   yoffset=offset_y))
+
+            subimage_indices = (
+                slice(roundx - space_ar, roundx + space_ar + 1), 
+                slice(roundy - space_ar, roundy + space_ar + 1))
+
+            # Only add ground-truth values and insert sources if all tests 
+            # pass.
+            all_tests_pass = 1
+
+            try:
+                lowest_x_subimage = subimage_indices[0].start - roundx
+                assert lowest_x_subimage == x_min
+            except AssertionError:
+                print((f"Lower x-bounds not aligned, {lowest_x_subimage = } ,"
+                       f"{x_min = }"))
+                all_tests_pass = 0
+
+            try:
+                lowest_y_subimage = subimage_indices[1].start - roundy
+                assert lowest_y_subimage == y_min
+            except AssertionError:
+                print((f"Lower y-bounds not aligned, {lowest_y_subimage = } ,"
+                       f"{y_min = }"))
+                all_tests_pass = 0
+
+            try:
+                assert (subimage_indices[0].stop - subimage_indices[0].start
+                    == source_to_be_inserted.shape[0])
+                try:
+                    assert (
+                        subimage_indices[1].stop - subimage_indices[1].start
+                        == source_to_be_inserted.shape[1])
+                except AssertionError:
+                    subimage_width_y = (subimage_indices[1].stop - 
+                                        subimage_indices[1].start)
+                    source_inserted_width_y = source_to_be_inserted.shape[1]
+                    print((f"{subimage_width_y = }, "
+                           f"{source_inserted_width_y = }: "
+                            "assertion failed."))
+                    all_tests_pass = 0
+
+            except AssertionError:
+                subimage_width_x = (subimage_indices[0].stop - 
+                                    subimage_indices[0].start)
+                source_inserted_width_x = source_to_be_inserted.shape[0]
+                print((f"{subimage_width_x = }, "
+                       f"{source_inserted_width_x = }: "
+                        "assertion failed."))
+                all_tests_pass = 0
+        
+            if all_tests_pass:
+                # Insert the source in the image, i.e. add it to the 
+                # correlated noise.
+                corr_noise[subimage_indices]  += source_to_be_inserted 
+                coords.append((pos_x, pos_y))
+
+
+    print(f"{source_spacing = }, {space_ar = }")
+
+    # Construct output header
+    out_header = psf_header.copy()
+    out_header["NAXIS1"] = output_size
+    out_header["NAXIS2"] = output_size
+    out_header["CRPIX1"] = output_size // 2
+    out_header["CRPIX2"] = output_size // 2
+    if "DATE-OBS" in out_header and "MJD-OBS" not in out_header:
+        out_header["MJD-OBS"] = Time(out_header["DATE-OBS"]).mjd
+
+    wcs_out = WCS(out_header)
+
+    print(f"Number of sources intended to be inserted = {num_sources}")
+    print(("Number of sources intended to be inserted matching a square "
+          f"regular grid = {ns_sqi}"))
+    coords_px = np.array(coords)
+    print(f"Number of sources actually inserted = {len(coords)}")
+    coords_full = np.zeros((ns_sqi, 4))
+    coords_full[:, 0] = coords_px[:, 0]  # x
+    coords_full[:, 1] = coords_px[:, 1]  # y
+    coords_full[:, 2] = 0                # freq index
+    coords_full[:, 3] = 0                # stokes index
+
+    coords_world = wcs_out.wcs_pix2world(coords_full, 0)
+
+    # Save ground truth RA/Dec
+    np.savez(output_truth_path, ra=coords_world[:, 0], dec=coords_world[:, 1])
+
+    # Save FITS
+    fits.writeto(output_fits_path,
+                 data=corr_noise.astype(np.float32),
+                 header=out_header,
+                 overwrite=True)
 
 if __name__ == '__main__':
     unittest.main()
