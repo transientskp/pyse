@@ -1,6 +1,7 @@
 import logging
 
 import numpy
+import warnings
 from numbers import Real
 from math import degrees, sqrt, sin, pi, cos
 from dataclasses import dataclass, field
@@ -90,9 +91,10 @@ class DataAccessor:
                 self.beam = DataAccessor.degrees2pixels(*beam_tuple,
                                                         deltax, deltay)
             else:
-                print(("WARNING: Partial beam specification ignored; "
+                warnings.warn(("Partial beam specification ignored; "
                        "one or more of (bmaj, bmin, bpa) are not "
-                       "specified."))
+                       "specified, at least not at the level of an "
+                       "ImgConf object. "), RuntimeWarning)
                 self.beam = None
 
     @staticmethod
