@@ -1,12 +1,12 @@
 import logging
 
 import numpy
-import numbers
+from numbers import Real
 from math import degrees, sqrt, sin, pi, cos
 from dataclasses import dataclass, field
 from sourcefinder.utility.coordinates import WCS
 from sourcefinder.config import ImgConf
-from typing import Optional
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -84,17 +84,24 @@ class DataAccessor:
 
     def __post_init__(self):
         if self.conf is not None:
-            bmaj, bmin, bpa = self.conf.bmaj, self.conf.bmin, self.conf.bpa
-            if all(isinstance(x, numbers.Real) and x is not None for x in
-                   (bmaj, bmin, bpa)):
+            beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
+            if self._is_valid_beam_tuple(beam_tuple):
                 deltax, deltay = self.pixelsize
-                self.beam = DataAccessor.degrees2pixels(bmaj, bmin, bpa,
+                self.beam = DataAccessor.degrees2pixels(*beam_tuple,
                                                         deltax, deltay)
             else:
                 print(("WARNING: Partial beam specification ignored; "
                        "one or more of (bmaj, bmin, bpa) are not "
                        "specified."))
                 self.beam = None
+
+    @staticmethod
+    def _is_valid_beam_tuple(b) -> bool:
+        return (
+            isinstance(b, tuple)
+            and len(b) == 3
+            and all(isinstance(x, Real) and x is not None for x in b)
+        )
 
     def extract_metadata(self) -> dict:
         """
@@ -124,16 +131,18 @@ class DataAccessor:
             'deltay': self.pixelsize[1],
         }
 
-        if self.beam is not None:
+
+        if self._is_valid_beam_tuple(self.beam):
+            beam = cast(tuple[float, float, float], self.beam)
             metadata.update({
-                'beam_smaj_pix': self.beam[0],
-                'beam_smin_pix': self.beam[1],
-                'beam_pa_rad': self.beam[2],
+                'beam_smaj_pix': beam[0],
+                'beam_smin_pix': beam[1],
+                'beam_pa_rad': beam[2],
             })
 
         return metadata
 
-    def parse_pixelsize(self):
+    def parse_pixelsize(self) -> tuple[float, float]:
         """
         Returns
         -------
@@ -165,7 +174,8 @@ class DataAccessor:
         return deltax, deltay
 
     @staticmethod
-    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay):
+    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay) -> (
+            tuple)[float, float, float]:
         """
         Convert beam in degrees to beam in pixels and radians.
         For example, FITS beam parameters are in degrees.
@@ -185,12 +195,14 @@ class DataAccessor:
 
         Returns
         -------
-        semimaj : float
-            Beam semi-major axis in pixels.
-        semimin : float
-            Beam semi-minor axis in pixels.
-        theta : float
-            Beam position angle in radians.
+        tuple
+            A tuple containing:
+            - semimaj : float
+                Beam semi-major axis in pixels.
+            - semimin : float
+                Beam semi-minor axis in pixels.
+            - theta : float
+                Beam position angle in radians.
         """
         theta = pi * bpa / 180
         semimaj = (bmaj / 2.) * (sqrt(
