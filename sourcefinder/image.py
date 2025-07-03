@@ -15,6 +15,7 @@ from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
+from sourcefinder.accessors.dataaccessor import DataAccessor
 import psutil
 from multiprocessing import Pool
 from functools import cached_property
@@ -86,9 +87,17 @@ class ImageData(object):
         # single precision is good enough in all cases.
         self.rawdata = np.ascontiguousarray(data, dtype=np.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
-        self.beam = beam  # tuple of (semimaj, semimin, theta) with semimaj and
-        # semimin in pixel coordinates and theta, the position angle, in
-        # radians.
+
+        if DataAccessor.is_valid_beam_tuple(beam):
+            self.beam = beam # tuple of (semimaj, semimin, theta) with
+            # semimaj and semimin in pixel coordinates and theta, the position
+            # angle, in radians.
+        else:
+            raise ValueError(("Partial beam specification: one or more of "
+                              "(bmaj, bmin, bpa) are not specified, "
+                              "adequately, image processing is not possible.",
+                              RuntimeWarning))
+
         # These three quantities are only dependent on the beam, so should be
         # calculated once the beam is known and not for each source separately.
         self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1],
