@@ -4,6 +4,7 @@ This module contain utilities for the source finding routines
 
 import math
 import numpy as np
+from numbers import Real
 import scipy.integrate
 from scipy.ndimage import distance_transform_edt
 
@@ -202,6 +203,12 @@ def generate_result_maps(data, sourcelist):
 
     return gaussian_map, residual_map
 
+def is_valid_beam_tuple(b) -> bool:
+    return (
+            isinstance(b, tuple)
+            and len(b) == 3
+            and all(isinstance(x, Real) and x is not None for x in b)
+    )
 
 def calculate_correlation_lengths(semimajor, semiminor):
     """Calculate the Condon correlation lengths.
