@@ -15,7 +15,6 @@ from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
-from sourcefinder.accessors.dataaccessor import DataAccessor
 import psutil
 from multiprocessing import Pool
 from functools import cached_property
@@ -88,7 +87,7 @@ class ImageData(object):
         self.rawdata = np.ascontiguousarray(data, dtype=np.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
 
-        if DataAccessor.is_valid_beam_tuple(beam):
+        if utils.is_valid_beam_tuple(beam):
             self.beam = beam # tuple of (semimaj, semimin, theta) with
             # semimaj and semimin in pixel coordinates and theta, the position
             # angle, in radians.

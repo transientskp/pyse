@@ -6,8 +6,8 @@ import logging
 import re
 
 import astropy.io.fits as pyfits
-from scipy.sparse import bsr_matrix
 
+from sourcefinder.utils import is_valid_beam_tuple
 from sourcefinder.accessors.dataaccessor import DataAccessor
 from sourcefinder.utility.coordinates import WCS
 
@@ -43,12 +43,11 @@ class FitsImage(DataAccessor):
         self.freq_eff, self.freq_bw = self.parse_frequency()
         self.pixelsize = self.parse_pixelsize()
 
-        if self.is_valid_beam_tuple(beam) or not self.is_valid_beam_tuple(
-                self.beam):
+        if is_valid_beam_tuple(beam) or not is_valid_beam_tuple(self.beam):
             # An argument-supplied beam overrides a beam derived from
             # (bmaj, bmin, bpa) in a config.toml. Only if those two options
             # are not specified, we parse the beam from the header.
-            bmaj, bmin, bpa = beam if self.is_valid_beam_tuple(beam) else (
+            bmaj, bmin, bpa = beam if is_valid_beam_tuple(beam) else (
                 self.parse_beam())
             self.beam = self.degrees2pixels(
                 bmaj, bmin, bpa, self.pixelsize[0], self.pixelsize[1]
