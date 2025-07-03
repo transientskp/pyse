@@ -1,9 +1,12 @@
 import logging
 
-import numpy
+import numpy as np
 from math import degrees, sqrt, sin, pi, cos
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from sourcefinder.utils import is_valid_beam_tuple
 from sourcefinder.utility.coordinates import WCS
+from sourcefinder.config import ImgConf
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +19,7 @@ class DataAccessor:
     Data accessors provide a uniform way for the ImageData class (i.e.,
     generic image representation) to access the various ways in which
     images may be stored (FITS files, arrays in memory, potentially HDF5,
-    etc).
+    etc.).
     
     This class cannot be instantiated directly, but should be subclassed
     and the abstract properties provided. Note that all abstract
@@ -66,10 +69,9 @@ class DataAccessor:
     provides key info in a simple dict format.
     """
 
-    beam: tuple
     centre_ra: float
     centre_decl: float
-    data: numpy.ndarray
+    data: np.ndarray
     freq_bw: float
     freq_eff: float
     pixelsize: tuple
@@ -77,6 +79,16 @@ class DataAccessor:
     taustart_ts: float
     url: str
     wcs: WCS
+    beam: Optional[tuple[float, float, float]] = field(default=None)
+    conf: Optional[ImgConf] = field(default=None, repr=False)
+
+    def __post_init__(self):
+        if self.conf is not None:
+            beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
+            if is_valid_beam_tuple(beam_tuple):
+                deltax, deltay = self.pixelsize
+                self.beam = DataAccessor.degrees2pixels(*beam_tuple,
+                                                        deltax, deltay)
 
     def extract_metadata(self) -> dict:
         """
@@ -94,22 +106,30 @@ class DataAccessor:
             A dictionary containing key-value pairs of class attributes
             formatted for database storage.
         """
-        return {
+        metadata = {
             'tau_time': self.tau_time,
             'freq_eff': self.freq_eff,
             'freq_bw': self.freq_bw,
             'taustart_ts': self.taustart_ts,
             'url': self.url,
-            'beam_smaj_pix': self.beam[0],
-            'beam_smin_pix': self.beam[1],
-            'beam_pa_rad': self.beam[2],
             'centre_ra': self.centre_ra,
             'centre_decl': self.centre_decl,
             'deltax': self.pixelsize[0],
             'deltay': self.pixelsize[1],
         }
 
-    def parse_pixelsize(self):
+
+        if is_valid_beam_tuple(self.beam):
+            beam = cast(tuple[float, float, float], self.beam)
+            metadata.update({
+                'beam_smaj_pix': beam[0],
+                'beam_smin_pix': beam[1],
+                'beam_pa_rad': beam[2],
+            })
+
+        return metadata
+
+    def parse_pixelsize(self) -> tuple[float, float]:
         """
         Returns
         -------
@@ -141,7 +161,8 @@ class DataAccessor:
         return deltax, deltay
 
     @staticmethod
-    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay):
+    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay) -> (
+            tuple)[float, float, float]:
         """
         Convert beam in degrees to beam in pixels and radians.
         For example, FITS beam parameters are in degrees.
@@ -161,12 +182,14 @@ class DataAccessor:
 
         Returns
         -------
-        semimaj : float
-            Beam semi-major axis in pixels.
-        semimin : float
-            Beam semi-minor axis in pixels.
-        theta : float
-            Beam position angle in radians.
+        tuple
+            A tuple containing:
+            - semimaj : float
+                Beam semi-major axis in pixels.
+            - semimin : float
+                Beam semi-minor axis in pixels.
+            - theta : float
+                Beam position angle in radians.
         """
         theta = pi * bpa / 180
         semimaj = (bmaj / 2.) * (sqrt(
