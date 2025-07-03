@@ -86,19 +86,13 @@ class DataAccessor:
     def __post_init__(self):
         if self.conf is not None:
             beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
-            if self._is_valid_beam_tuple(beam_tuple):
+            if self.is_valid_beam_tuple(beam_tuple):
                 deltax, deltay = self.pixelsize
                 self.beam = DataAccessor.degrees2pixels(*beam_tuple,
                                                         deltax, deltay)
-            else:
-                warnings.warn(("Partial beam specification ignored; "
-                       "one or more of (bmaj, bmin, bpa) are not "
-                       "specified, at least not at the level of an "
-                       "ImgConf object. "), RuntimeWarning)
-                self.beam = None
 
     @staticmethod
-    def _is_valid_beam_tuple(b) -> bool:
+    def is_valid_beam_tuple(b) -> bool:
         return (
             isinstance(b, tuple)
             and len(b) == 3
