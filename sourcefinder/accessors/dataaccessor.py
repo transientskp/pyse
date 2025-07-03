@@ -128,7 +128,7 @@ class DataAccessor:
         }
 
 
-        if self._is_valid_beam_tuple(self.beam):
+        if self.is_valid_beam_tuple(self.beam):
             beam = cast(tuple[float, float, float], self.beam)
             metadata.update({
                 'beam_smaj_pix': beam[0],
