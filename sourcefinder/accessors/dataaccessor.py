@@ -1,10 +1,9 @@
 import logging
 
-import numpy
-import warnings
-from numbers import Real
+import numpy as np
 from math import degrees, sqrt, sin, pi, cos
 from dataclasses import dataclass, field
+from sourcefinder.utils import is_valid_beam_tuple
 from sourcefinder.utility.coordinates import WCS
 from sourcefinder.config import ImgConf
 from typing import Optional, cast
@@ -20,7 +19,7 @@ class DataAccessor:
     Data accessors provide a uniform way for the ImageData class (i.e.,
     generic image representation) to access the various ways in which
     images may be stored (FITS files, arrays in memory, potentially HDF5,
-    etc).
+    etc.).
     
     This class cannot be instantiated directly, but should be subclassed
     and the abstract properties provided. Note that all abstract
@@ -72,7 +71,7 @@ class DataAccessor:
 
     centre_ra: float
     centre_decl: float
-    data: numpy.ndarray
+    data: np.ndarray
     freq_bw: float
     freq_eff: float
     pixelsize: tuple
@@ -86,18 +85,10 @@ class DataAccessor:
     def __post_init__(self):
         if self.conf is not None:
             beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
-            if self.is_valid_beam_tuple(beam_tuple):
+            if is_valid_beam_tuple(beam_tuple):
                 deltax, deltay = self.pixelsize
                 self.beam = DataAccessor.degrees2pixels(*beam_tuple,
                                                         deltax, deltay)
-
-    @staticmethod
-    def is_valid_beam_tuple(b) -> bool:
-        return (
-            isinstance(b, tuple)
-            and len(b) == 3
-            and all(isinstance(x, Real) and x is not None for x in b)
-        )
 
     def extract_metadata(self) -> dict:
         """
@@ -128,7 +119,7 @@ class DataAccessor:
         }
 
 
-        if self.is_valid_beam_tuple(self.beam):
+        if is_valid_beam_tuple(self.beam):
             beam = cast(tuple[float, float, float], self.beam)
             metadata.update({
                 'beam_smaj_pix': beam[0],
