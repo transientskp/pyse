@@ -148,7 +148,6 @@ def create_beam_kernel(
     smaj_pix,
     smin_pix,
     theta_rad,
-    pixel_scale_deg,
     size=15,
     xoffset=0.0,
     yoffset=0.0,
