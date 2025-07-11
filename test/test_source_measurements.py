@@ -17,9 +17,11 @@ import os
 import unittest
 
 import numpy as np
+import warnings
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.time import Time
 from scipy.signal import fftconvolve
 import pytest
 
@@ -27,12 +29,13 @@ from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
+from sourcefinder.gaussian import gaussian
 
 MAX_BIAS = 5.0
 NUMBER_INSERTED = 3969
 TRUE_PEAK_FLUX = 1063.67945065
-TRUE_DECONV_SMAJ = 2. * 5.5956 / 2.
-TRUE_DECONV_SMIN = 0.5 * 4.6794 / 2.
+TRUE_DECONV_SMAJ = 2.0 * 5.5956 / 2.0
+TRUE_DECONV_SMIN = 0.5 * 4.6794 / 2.0
 TRUE_DECONV_BPA = -0.5 * (-49.8)
 
 # These are measured from the file CORRELATED_NOISE.FITS.
@@ -44,10 +47,10 @@ BG_STD = 5.3480336747739079
 
 class SourceParameters(unittest.TestCase):
     def setUp(self):
-        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
-                                                            'deconvolved.fits'))
-        img = image.ImageData(fitsfile.data, fitsfile.beam,
-                              fitsfile.wcs)
+        fitsfile = sourcefinder.accessors.open(
+            os.path.join(DATAPATH, "deconvolved.fits")
+        )
+        img = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
 
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background
@@ -59,9 +62,11 @@ class SourceParameters(unittest.TestCase):
         # here are the true values.
 
         extraction_results = img.extract(
-            det=10.0, anl=6.0,
+            det=10.0,
+            anl=6.0,
             noisemap=np.ma.array(BG_STD * np.ones((2048, 2048))),
-            bgmap=np.ma.array(BG_MEAN * np.ones((2048, 2048))))
+            bgmap=np.ma.array(BG_MEAN * np.ones((2048, 2048))),
+        )
         self.number_sources = len(extraction_results)
 
         peak_fluxes = []
@@ -71,12 +76,13 @@ class SourceParameters(unittest.TestCase):
 
         for source in extraction_results:
             peak_fluxes.append([source.peak.value, source.peak.error])
-            deconv_smajaxes.append([source.smaj_dc.value,
-                                    source.smaj_dc.error])
-            deconv_sminaxes.append([source.smin_dc.value,
-                                    source.smin_dc.error])
-            deconv_bpas.append([source.theta_dc.value,
-                                source.theta_dc.error])
+            deconv_smajaxes.append(
+                [source.smaj_dc.value, source.smaj_dc.error]
+            )
+            deconv_sminaxes.append(
+                [source.smin_dc.value, source.smin_dc.error]
+            )
+            deconv_bpas.append([source.theta_dc.value, source.theta_dc.error])
 
         self.peak_fluxes = np.array(peak_fluxes)
         self.deconv_smajaxes = np.array(deconv_smajaxes)
@@ -84,48 +90,52 @@ class SourceParameters(unittest.TestCase):
         self.deconv_bpas = np.array(deconv_bpas)
 
     @duration(100)
-    @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
+    @requires_data(os.path.join(DATAPATH, "deconvolved.fits"))
     def testAllParameters(self):
         # Test all deconvolved
         self.assertEqual(
-            np.where(np.isnan(self.deconv_smajaxes), 1, 0).sum(), 0)
+            np.where(np.isnan(self.deconv_smajaxes), 1, 0).sum(), 0
+        )
         self.assertEqual(
-            np.where(np.isnan(self.deconv_sminaxes), 1, 0).sum(), 0)
-        self.assertEqual(
-            np.where(np.isnan(self.deconv_bpas), 1, 0).sum(), 0)
+            np.where(np.isnan(self.deconv_sminaxes), 1, 0).sum(), 0
+        )
+        self.assertEqual(np.where(np.isnan(self.deconv_bpas), 1, 0).sum(), 0)
 
         # Test number of sources
         self.assertEqual(self.number_sources, NUMBER_INSERTED)
 
         # Test peak fluxes
-        peak_weights = 1. / self.peak_fluxes[:, 1] ** 2
+        peak_weights = 1.0 / self.peak_fluxes[:, 1] ** 2
         sum_peak_weights = np.sum(peak_weights)
-        av_peak = np.sum(self.peak_fluxes[:, 0] * peak_weights /
-                         sum_peak_weights)
+        av_peak = np.sum(
+            self.peak_fluxes[:, 0] * peak_weights / sum_peak_weights
+        )
         av_peak_err = 1 / np.sqrt(sum_peak_weights)
         signif_dev_peak = (TRUE_PEAK_FLUX - av_peak) / av_peak_err
         self.assertTrue(np.abs(signif_dev_peak) < MAX_BIAS)
 
         # Test major axes
-        smaj_weights = 1. / self.deconv_smajaxes[:, 1] ** 2
+        smaj_weights = 1.0 / self.deconv_smajaxes[:, 1] ** 2
         sum_smaj_weights = np.sum(smaj_weights)
-        av_smaj = np.sum(self.deconv_smajaxes[:, 0] * smaj_weights /
-                         sum_smaj_weights)
+        av_smaj = np.sum(
+            self.deconv_smajaxes[:, 0] * smaj_weights / sum_smaj_weights
+        )
         av_smaj_err = 1 / np.sqrt(sum_smaj_weights)
         signif_dev_smaj = (TRUE_DECONV_SMAJ - av_smaj) / av_smaj_err
         self.assertTrue(np.abs(signif_dev_smaj) < MAX_BIAS)
 
         # Test minor axes
-        smin_weights = 1. / self.deconv_sminaxes[:, 1] ** 2
+        smin_weights = 1.0 / self.deconv_sminaxes[:, 1] ** 2
         sum_smin_weights = np.sum(smin_weights)
-        av_smin = np.sum(self.deconv_sminaxes[:, 0] * smin_weights /
-                         sum_smin_weights)
+        av_smin = np.sum(
+            self.deconv_sminaxes[:, 0] * smin_weights / sum_smin_weights
+        )
         av_smin_err = 1 / np.sqrt(sum_smin_weights)
         signif_dev_smin = (TRUE_DECONV_SMIN - av_smin) / av_smin_err
         self.assertTrue(np.abs(signif_dev_smin) < MAX_BIAS)
 
         # Test position angles
-        bpa_weights = 1. / self.deconv_bpas[:, 1] ** 2
+        bpa_weights = 1.0 / self.deconv_bpas[:, 1] ** 2
         sum_bpa_weights = np.sum(bpa_weights)
         av_bpa = np.sum(self.deconv_bpas[:, 0] * bpa_weights / sum_bpa_weights)
         av_bpa_err = 1 / np.sqrt(sum_bpa_weights)
@@ -133,22 +143,29 @@ class SourceParameters(unittest.TestCase):
         self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS)
 
 
-def create_beam_kernel(peak_brightness, bmaj_deg, bmin_deg, bpa_deg, 
-                       pixel_scale_deg, size=15, xoffset=0., yoffset=0.):
+def create_beam_kernel(
+    peak_brightness,
+    smaj_pix,
+    smin_pix,
+    theta_rad,
+    pixel_scale_deg,
+    size=15,
+    xoffset=0.0,
+    yoffset=0.0,
+):
     """Create a peak-normalized elliptical Gaussian kernel for the
     clean beam."""
-    fwhm_to_sigma = 1.0 / (2 * np.sqrt(2 * np.log(2)))
-    bmaj_pix = bmaj_deg / pixel_scale_deg
-    bmin_pix = bmin_deg / pixel_scale_deg
-    sigma_y = bmaj_pix * fwhm_to_sigma
-    sigma_x = bmin_pix * fwhm_to_sigma
 
     # Best to have a centrosymmetric grid, which requires size to be odd.
     if size % 2 == 0:
         size -= 1
 
     # Creates indices starting at 0, ending at size - 1.
-    x, y = np.indices((size, size), dtype=float)
+    # Swap x and y since sourcefinder.gaussian.gaussian has been defined to
+    # provide a fitting function on data that has been loaded using
+    # astropy.io.fits.open and then transposed. There is no transpose in the
+    # setup of this unit test.
+    y, x = np.indices((size, size), dtype=float)
 
     center = (size - 1) // 2
     # This should ensure that both x.min() and y.min() are integers and equal.
@@ -164,31 +181,31 @@ def create_beam_kernel(peak_brightness, bmaj_deg, bmin_deg, bpa_deg,
     x += xoffset
     y += yoffset
 
-    theta_rad = np.deg2rad(bpa_deg)
-    cos_theta, sin_theta = np.cos(theta_rad), np.sin(theta_rad)
-    x_rot = x * cos_theta - y * sin_theta
-    y_rot = x * sin_theta + y * cos_theta
-
-    gauss = np.exp(-0.5 * ((x_rot / sigma_x) ** 2 + (y_rot / sigma_y) ** 2))
-    gauss *= peak_brightness
+    gaussian_function = gaussian(
+        peak_brightness, xoffset, yoffset, smaj_pix, smin_pix, theta_rad
+    )
+    gaussian_profile = gaussian_function(x, y)
 
     # Return the Gaussian profile.
     # Also return the minimum values of x and y, since they should match
     # with the lower bounds of the subimage.
-    return gauss, x_min, y_min
+    return gaussian_profile, x_min, y_min
 
 
 @pytest.fixture
-@requires_data(os.path.join(DATAPATH, '/Dirty_beam/psf.fits'))
+@requires_data(os.path.join(DATAPATH, "/Dirty_beam/psf.fits"))
 def generate_artificial_image_with_unresolved_sources(
-    psf_fits_path,
-    output_fits_path,
-    output_truth_path,
+    psf_fits_path=os.path.join(DATAPATH, "Dirty_beam", "psf.fits"),
+    output_fits_path=os.path.join(DATAPATH, "test_unresolved_sources.fits"),
+    output_truth_path=os.path.join(
+        DATAPATH, "test_unresolved_sources_truth.npz"
+    ),
     output_size=4096,
     peak_brightness=100.0,
     num_sources=167_281,
 ):
     """Generate FITS image with unresolved sources and save ground truth."""
+
     # Load PSF and header
     with fits.open(psf_fits_path) as hdul:
         psf_data = hdul[0].data
@@ -202,6 +219,10 @@ def generate_artificial_image_with_unresolved_sources(
 
     pixel_scale_deg = np.mean(proj_plane_pixel_scales(wcs_psf.celestial))
 
+    smaj_pix = bmaj_deg / pixel_scale_deg / 2
+    smin_pix = bmin_deg / pixel_scale_deg / 2
+    theta_rad = np.deg2rad(bpa_deg)
+
     # Convolve white noise with PSF
     white_noise = np.random.normal(0, 1, (output_size, output_size))
     psf_kernel = psf_data.squeeze() / np.sum(psf_data)
@@ -214,38 +235,47 @@ def generate_artificial_image_with_unresolved_sources(
 
     # Round num_sources to the nearest squared integer.
     ns_sqrt = round(np.sqrt(num_sources))
-    ns_sqi = ns_sqrt ** 2
+    ns_sqi = ns_sqrt**2
 
-    source_spacing = round(output_size/(ns_sqrt + 1))
+    source_spacing = round(output_size / (ns_sqrt + 1))
     # Space around the center of the Gaussian.
     space_ar = (source_spacing - 1) // 2
 
-    for x in np.linspace(space_ar + 1, output_size - space_ar - 1,
-                         num=ns_sqrt, endpoint=True ):
-        for y in np.linspace(space_ar + 1, output_size - space_ar - 1,
-                         num=ns_sqrt, endpoint=True ):
+    for x in np.linspace(
+        space_ar + 1, output_size - space_ar - 1, num=ns_sqrt, endpoint=True
+    ):
+        for y in np.linspace(
+            space_ar + 1,
+            output_size - space_ar - 1,
+            num=ns_sqrt,
+            endpoint=True,
+        ):
 
             offset_x = np.random.uniform(-0.5, 0.5)
             offset_y = np.random.uniform(-0.5, 0.5)
-            
+
             roundx = round(x)
             roundy = round(y)
 
             pos_x = roundx + offset_x
             pos_y = roundy + offset_y
-            
-            source_to_be_inserted, x_min, y_min = ( 
-                create_beam_kernel(peak_brightness, bmaj_deg, bmin_deg, 
-                                   bpa_deg, pixel_scale_deg, 
-                                   size=source_spacing,
-                                   xoffset=offset_x, 
-                                   yoffset=offset_y))
+
+            source_to_be_inserted, x_min, y_min = create_beam_kernel(
+                peak_brightness,
+                smaj_pix,
+                smin_pix,
+                theta_rad,
+                size=source_spacing,
+                xoffset=offset_x,
+                yoffset=offset_y,
+            )
 
             subimage_indices = (
-                slice(roundx - space_ar, roundx + space_ar + 1), 
-                slice(roundy - space_ar, roundy + space_ar + 1))
+                slice(roundx - space_ar, roundx + space_ar + 1),
+                slice(roundy - space_ar, roundy + space_ar + 1),
+            )
 
-            # Only add ground-truth values and insert sources if all tests 
+            # Only add ground-truth values and insert sources if all tests
             # pass.
             all_tests_pass = 1
 
@@ -253,51 +283,69 @@ def generate_artificial_image_with_unresolved_sources(
                 lowest_x_subimage = subimage_indices[0].start - roundx
                 assert lowest_x_subimage == x_min
             except AssertionError:
-                print((f"Lower x-bounds not aligned, {lowest_x_subimage = } ,"
-                       f"{x_min = }"))
+                warnings.warn(
+                    (
+                        f"Lower x-bounds not aligned, {lowest_x_subimage = } ,"
+                        f"{x_min = }"
+                    )
+                )
                 all_tests_pass = 0
 
             try:
                 lowest_y_subimage = subimage_indices[1].start - roundy
                 assert lowest_y_subimage == y_min
             except AssertionError:
-                print((f"Lower y-bounds not aligned, {lowest_y_subimage = } ,"
-                       f"{y_min = }"))
+                warnings.warn(
+                    (
+                        f"Lower y-bounds not aligned, {lowest_y_subimage = } ,"
+                        f"{y_min = }"
+                    )
+                )
                 all_tests_pass = 0
 
             try:
-                assert (subimage_indices[0].stop - subimage_indices[0].start
-                    == source_to_be_inserted.shape[0])
+                assert (
+                    subimage_indices[0].stop - subimage_indices[0].start
+                    == source_to_be_inserted.shape[0]
+                )
                 try:
                     assert (
                         subimage_indices[1].stop - subimage_indices[1].start
-                        == source_to_be_inserted.shape[1])
+                        == source_to_be_inserted.shape[1]
+                    )
                 except AssertionError:
-                    subimage_width_y = (subimage_indices[1].stop - 
-                                        subimage_indices[1].start)
+                    subimage_width_y = (
+                        subimage_indices[1].stop - subimage_indices[1].start
+                    )
                     source_inserted_width_y = source_to_be_inserted.shape[1]
-                    print((f"{subimage_width_y = }, "
-                           f"{source_inserted_width_y = }: "
-                            "assertion failed."))
+                    warnings.warn(
+                        (
+                            f"{subimage_width_y = }, "
+                            f"{source_inserted_width_y = }: "
+                            "assertion failed."
+                        )
+                    )
                     all_tests_pass = 0
 
             except AssertionError:
-                subimage_width_x = (subimage_indices[0].stop - 
-                                    subimage_indices[0].start)
+                subimage_width_x = (
+                    subimage_indices[0].stop - subimage_indices[0].start
+                )
                 source_inserted_width_x = source_to_be_inserted.shape[0]
-                print((f"{subimage_width_x = }, "
-                       f"{source_inserted_width_x = }: "
-                        "assertion failed."))
+                warnings.warn(
+                    (
+                        f"{subimage_width_x = }, "
+                        f"{source_inserted_width_x = }: "
+                        "assertion failed."
+                    )
+                )
                 all_tests_pass = 0
-        
+
             if all_tests_pass:
-                # Insert the source in the image, i.e. add it to the 
+                # Insert the source in the image, i.e. add it to the
                 # correlated noise.
-                corr_noise[subimage_indices]  += source_to_be_inserted 
+                corr_noise[subimage_indices] += source_to_be_inserted
                 coords.append((pos_x, pos_y))
-
-
-    print(f"{source_spacing = }, {space_ar = }")
 
     # Construct output header
     out_header = psf_header.copy()
@@ -311,15 +359,19 @@ def generate_artificial_image_with_unresolved_sources(
     wcs_out = WCS(out_header)
 
     print(f"Number of sources intended to be inserted = {num_sources}")
-    print(("Number of sources intended to be inserted matching a square "
-          f"regular grid = {ns_sqi}"))
+    print(
+        (
+            "Number of sources intended to be inserted matching a square "
+            f"regular grid = {ns_sqi}"
+        )
+    )
     coords_px = np.array(coords)
     print(f"Number of sources actually inserted = {len(coords)}")
     coords_full = np.zeros((ns_sqi, 4))
     coords_full[:, 0] = coords_px[:, 0]  # x
     coords_full[:, 1] = coords_px[:, 1]  # y
-    coords_full[:, 2] = 0                # freq index
-    coords_full[:, 3] = 0                # stokes index
+    coords_full[:, 2] = 0  # freq index
+    coords_full[:, 3] = 0  # stokes index
 
     coords_world = wcs_out.wcs_pix2world(coords_full, 0)
 
@@ -327,10 +379,13 @@ def generate_artificial_image_with_unresolved_sources(
     np.savez(output_truth_path, ra=coords_world[:, 0], dec=coords_world[:, 1])
 
     # Save FITS
-    fits.writeto(output_fits_path,
-                 data=corr_noise.astype(np.float32),
-                 header=out_header,
-                 overwrite=True)
+    fits.writeto(
+        output_fits_path,
+        data=corr_noise.astype(np.float32),
+        header=out_header,
+        overwrite=True,
+    )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
