@@ -20,6 +20,7 @@ import warnings
 from pathlib import Path
 import pytest
 from scipy.signal import fftconvolve
+import pandas as pd
 
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.io import fits
@@ -369,8 +370,6 @@ def generate_artificial_image():
         out_header["NAXIS2"] = output_size
         out_header["CRPIX1"] = output_size // 2
         out_header["CRPIX2"] = output_size // 2
-        if "DATE-OBS" in out_header and "MJD-OBS" not in out_header:
-            out_header["MJD-OBS"] = Time(out_header["DATE-OBS"]).mjd
 
         wcs_out = WCS(out_header)
 
@@ -391,12 +390,17 @@ def generate_artificial_image():
 
         coords_world = wcs_out.wcs_pix2world(coords_full, 0)
 
-        # Save ground truth RA/Dec
-        np.savez(
-            output_truth_path, ra=coords_world[:, 0], dec=coords_world[:, 1]
+        df_truth = pd.DataFrame(
+            {
+                "ra": coords_world[:, 0],
+                "dec": coords_world[:, 1],
+            }
         )
 
-        # Save FITS
+        # Save ground truth to HDF5
+        df_truth.to_hdf(output_truth_path, key="truth", mode="w")
+
+        # Save FITS image.
         fits.writeto(
             output_fits_path,
             data=corr_noise.astype(np.float32),
@@ -412,7 +416,7 @@ def test_generated_files_unresolved(tmp_path, generate_artificial_image):
     Test of de testbestanden succesvol zijn gegenereerd.
     """
     image_path = tmp_path / "image_unresolved.fits"
-    truth_path = tmp_path / "truth_unresolved.npz"
+    truth_path = tmp_path / "truth_unresolved.h5"
 
     generate_artificial_image(
         output_fits_path=image_path, output_truth_path=truth_path
