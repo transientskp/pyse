@@ -23,7 +23,9 @@ dependencies = [
     "tomli; python_version < '3.11'",
     "numba",
     "sphinx",
-    "pytest"
+    "pytest",
+    "pandas",
+    "tables"
 ]
 
 [project.urls]
