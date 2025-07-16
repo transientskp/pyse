@@ -1266,13 +1266,18 @@ class Detection(object):
         of the maximum pixel value within the source island divided by the
         noise at that position.
     imagedata : an image.ImageData instance
-        This is the same object passed as the `imagedata` parameter.
+        This instance contains the observational image data, as well as the
+        objects that describe how that data should be perceived, e.g. the
+        resolving beam and the WCS information.
     chunk : tuple of slices or None, default: None
-        This is the same object passed as the `chunk` parameter.
+        The rectangular region of the image encompassing the source pixels
+        above the analysis threshold.
     eps_ra : float, default: 0
-        This is the same object passed as the `eps_ra` parameter.
+        Extra positional uncertainty (degrees) from calibration errors along
+        right ascension, following equation 27a from the NVSS paper.
     eps_dec : float, default: 0
-        This is the same object passed as the `eps_dec` parameter.
+        Extra positional uncertainty (degrees) from calibration errors along
+        declination, following equation 27b from the NVSS paper.
     """
 
     def __init__(self, paramset, imagedata, chunk=None, eps_ra=0, eps_dec=0):
@@ -1601,7 +1606,7 @@ class Detection(object):
             if param_name == "ew_sys_err":
                 return conf.image.ew_sys_err
 
-            # Return the error value
+            # Return the 1-sigma error bar of the measured parameter
             if param_name.endswith("_err"):
                 base_name = param_name[:-4]
                 try:
@@ -1613,7 +1618,7 @@ class Detection(object):
                         f"Parameter '{base_name}' has no associated error value"
                     ) from e
 
-            # Return the normal value
+            # Return the measured parameter.
             try:
                 param_val = getattr(self, param_name)
                 if hasattr(param_val, "value"):
@@ -1955,12 +1960,6 @@ def source_measurements_vectorised(
 
     Parameters
     ----------
-    eps_ra : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        right ascension, following equation 27a from the NVSS paper.
-    eps_dec : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        declination, following equation 27b from the NVSS paper.
     num_islands : int
         Number of islands detected.
     npixs : np.ndarray
@@ -2039,6 +2038,12 @@ def source_measurements_vectorised(
         Tuple of 2 floats describing over which distance (in pixels) noise
         should be considered correlated, along both principal axes of the
         Gaussian profile of the restoring beam.
+    eps_ra : float
+        Extra positional uncertainty (degrees) from calibration errors along
+        right ascension, following equation 27a from the NVSS paper.
+    eps_dec : float
+        Extra positional uncertainty (degrees) from calibration errors along
+        declination, following equation 27b from the NVSS paper.
 
     Returns
     -------
