@@ -5,6 +5,7 @@ Gaussian deconvolution.
 from math import sin, cos, atan, sqrt, pi
 from numba import njit
 
+
 @njit
 def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     """
@@ -22,27 +23,35 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     Parameters
     ----------
     fmaj : float
-        Fitted major axis.
+        Fitted major axis (pixels).
     fmin : float
-        Fitted minor axis.
+        Fitted minor axis (pixels).
     fpa : float
-        Fitted position angle of the major axis.
+        Fitted position angle of the major axis (degrees).
     cmaj : float
-        Clean beam major axis.
+        Clean beam major axis (pixels).
     cmin : float
-        Clean beam minor axis.
+        Clean beam minor axis (pixels).
     cpa : float
-        Clean beam position angle of the major axis.
+        Clean beam position angle of the major axis (degrees).
 
     Returns
     -------
     tuple
         A tuple containing:
 
-        - real major axis (float)
-        - real minor axis (float)
-        - real position angle of the major axis (float)
+        - real major axis (float, pixels)
+        - real minor axis (float, pixels)
+        - real position angle of the major axis (float, degrees)
         - number of components which failed to deconvolve (int)
+
+    Notes
+    -----
+    Instead of fmaj, fmin, cmaj and cmin all in pixels, one could use any
+    arbitrary unit of sky angular distance, such as arcseconds or radians.
+    The first two elements of the returned tuple would then have that same
+    unit, while the third element (the position angle) would still be in
+    degrees.
     """
     HALF_RAD = 90.0 / pi
     cmaj2 = cmaj * cmaj
@@ -58,8 +67,9 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
 
     if abs(rhoc) > 0.0:
         sigic2 = atan((fmaj2 - fmin2) * sin(theta) / rhoc)
-        rhoa = (((cmaj2 - cmin2) - (fmaj2 - fmin2) * cos(theta)) /
-                (2.0 * cos(sigic2)))
+        rhoa = ((cmaj2 - cmin2) - (fmaj2 - fmin2) * cos(theta)) / (
+            2.0 * cos(sigic2)
+        )
 
     rpa = sigic2 * HALF_RAD + cpa
     rmaj = det - rhoa
