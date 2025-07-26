@@ -1,5 +1,4 @@
 from collections import defaultdict
-from dataclasses import asdict
 from dataclasses import astuple
 from dataclasses import dataclass
 from dataclasses import field
@@ -21,6 +20,8 @@ from typing import Type
 from typing import TypeVar
 from warnings import warn
 from enum import Enum
+
+from sourcefinder.utils import _source_params_descriptions
 
 T = TypeVar("T")
 
@@ -110,14 +111,22 @@ def validate_types(key: str, value, type_: type):
 @dataclass(frozen=True)
 class _Validate:
     def __post_init__(self):
-        for (key, type_), val in zip(get_type_hints(self).items(), astuple(self)):
+        for (key, type_), val in zip(
+            get_type_hints(self).items(), astuple(self)
+        ):
             validate_types(key, val, type_)
 
 
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 
-class SourceParam(str, Enum):
+class SourceParams(str, Enum):
+    PEAK = "peak"
+    PEAK_ERR = "peak_err"
+    FLUX = "flux"
+    FLUX_ERR = "flux_err"
+    X = "x"
+    Y = "y"
     RA = "ra"
     RA_ERR = "ra_err"
     DEC = "dec"
@@ -128,93 +137,41 @@ class SourceParam(str, Enum):
     SMIN_ASEC_ERR = "smin_asec_err"
     THETA_CELES = "theta_celes"
     THETA_CELES_ERR = "theta_celes_err"
-    FLUX = "flux"
-    FLUX_ERR = "flux_err"
-    PEAK = "peak"
-    PEAK_ERR = "peak_err"
-    X = "x"
-    Y = "y"
     SIG = "sig"
     REDUCED_CHISQ = "reduced_chisq"
 
-    def describe(self):
-        return {
-            "ra": "Right ascension of the source (degrees)",
-            "ra_err": "1-sigma uncertainty in right ascension (degrees)",
-            "dec": "Declination of the source (degrees)",
-            "dec_err": "1-sigma uncertainty in declination (degrees)",
-            "smaj_asec": (
-                "Semi-major axis of the Gaussian profile, "
-                "not deconvolved from the clean beam (arcseconds)"
-            ),
-            "smaj_asec_err": (
-                "1-sigma uncertainty in the semi-major axis, "
-                "not deconvolved from the clean beam "
-                "(arcseconds)"
-            ),
-            "smin_asec": (
-                "Semi-minor axis of the Gaussian profile, "
-                "not deconvolved from the clean beam (arcsecond)"
-            ),
-            "smin_asec_err": (
-                "1-sigma uncertainty in the semi-minor axis, "
-                "not deconvolved from the clean beam "
-                "(arcseconds)"
-            ),
-            "theta_celes": (
-                "Position angle of the major axis of the "
-                "Gaussian profile, measured east from local north "
-                "(degrees)"
-            ),
-            "theta_celes_err": (
-                "1-sigma uncertainty in the position angle "
-                "of the major axis of the Gaussian profile, "
-                "measured east from local north (degrees)"
-            ),
-            "flux": (
-                "Flux density of the source, calculated as 'pi * peak "
-                "spectral brightness * semi- major axis * semi-minor "
-                "axis / beamsize' (Jy)"
-            ),
-            "flux_err": "1-sigma uncertainty in the flux density (Jy)",
-            "peak": "Peak spectral brightness of the source (Jy/beam)",
-            "peak_err": (
-                "1-sigma uncertainty in the peak spectral "
-                "brightness of the source (Jy/beam)"
-            ),
-            "x": (
-                "x-position (float) of the barycenter of the source, "
-                "correponding to the row index of the Numpy array with "
-                "image data. After loading a FITS image, the data is "
-                "transposed such that x and y are aligned with ds9 viewing, "
-                "except for an offset of 1 pixel, since the bottom left "
-                "pixel in ds9 has x=y=1"
-            ),
-            "y": (
-                "y-position (float) of the barycenter of the source, "
-                "correponding to the column index of the Numpy array with "
-                "image data. After loading a FITS image, the data is "
-                "transposed such that x and y are aligned with ds9 viewing, "
-                "except for an offset of 1 pixel, since the bottom left "
-                "pixel in ds9 has x=y=1"
-            ),
-            "sig": (
-                "The significance of a detection (float) is defined as "
-                "the maximum signal-to-noise ratio across the island. "
-                "Often this will be the ratio of the maximum pixel value "
-                "of the source divided by the noise at that position."
-            ),
-            "reduced_chisq": (
-                "The reduced chi-squared value of the Gaussian "
-                "model relative to the data (float). Can be a "
-                "Gaussian model derived from a fit or from "
-                "moments. See the measuring.goodness_of_fit "
-                "docstring for some important notes."
-            ),
-        }[self.value]
+    def describe(self) -> str:
+        """Return a description of the source parameter."""
+        return _source_params_descriptions[self.value]
 
 
-_source_params = [p.value for p in SourceParam.__members__.values()]
+_source_params = [p.value for p in SourceParams.__members__.values()]
+
+assert all(p.value in _source_params_descriptions for p in SourceParams)
+
+# Set default set of source parameters to store in  file, e.g. CSV.
+_file_fields = [
+    "PEAK",
+    "PEAK_ERR",
+    "FLUX",
+    "FLUX_ERR",
+    "X",
+    "Y",
+    "RA",
+    "RA_ERR",
+    "DEC",
+    "DEC_ERR",
+    "SMAJ_ASEC",
+    "SMAJ_ASEC_ERR",
+    "SMIN_ASEC",
+    "SMIN_ASEC_ERR",
+    "THETA_CELES",
+    "THETA_CELES_ERR",
+    "SIG",
+    "REDUCED_CHISQ",
+]
+
+_source_params_file = [SourceParams[field].value for field in _file_fields]
 
 
 @dataclass(frozen=True)
@@ -428,7 +385,6 @@ class ImgConf(_Validate):
 
     """
 
-
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
     """Selection of output, related to detected sources and/or intermediate image processing products"""
@@ -498,7 +454,11 @@ def read_conf(path: str | Path):
             case {"tool": {"pyse": dict(), **_rest1}, **_rest2}:
                 raise KeyError("tool.pyse: empty section in config file")
             case {"tool": dict(), **_rest}:
-                raise KeyError("tool.pyse: section for PySE missing in config file")
+                raise KeyError(
+                    "tool.pyse: section for PySE missing in config file"
+                )
             case _:
-                raise KeyError("tool: top-level section missing in config file")
+                raise KeyError(
+                    "tool: top-level section missing in config file"
+                )
     return Conf(**conf)
