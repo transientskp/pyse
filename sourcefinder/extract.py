@@ -849,7 +849,7 @@ class ParamSet(MutableMapping):
         return self
 
     def deconvolve_from_clean_beam(self, beam):
-        """Deconvolve with the clean beam.
+        """Deconvolve from the clean beam.
 
         Parameters
         ----------
@@ -1609,7 +1609,7 @@ class Detection(object):
         """Distance from the center."""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
-    def serialize(self, conf=Conf):
+    def serialize(self, conf=Conf, file=False):
         """Return source properties suitable for database storage.
 
         We manually add ew_sys_err, ns_sys_err as defined in conf.image.
@@ -1648,7 +1648,14 @@ class Detection(object):
             except KeyError as e:
                 raise KeyError(f"Unknown parameter '{param_name}'") from e
 
-        result = [_get_param(name) for name in conf.export.source_params]
+        result = [
+            _get_param(name)
+            for name in (
+                conf.export.source_params_file
+                if file
+                else conf.export.source_params
+            )
+        ]
         return result
 
 
