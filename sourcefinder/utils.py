@@ -13,7 +13,7 @@ from sourcefinder.utility import coordinates
 
 from numba import njit, prange, guvectorize, config as numba_config
 
-numba_config.THREADING_LAYER = 'workqueue'
+numba_config.THREADING_LAYER = "workqueue"
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
@@ -58,9 +58,9 @@ def generate_subthresholds(min_value, max_value, num_thresholds):
         np.log(max_value + 1 - min_value),
         num=num_thresholds + 1,  # first value == min_value
         base=np.e,
-        endpoint=False  # do not include max_value
+        endpoint=False,  # do not include max_value
     )[1:]
-    subthrrange += (min_value - 1)
+    subthrrange += min_value - 1
     return subthrrange
 
 
@@ -80,11 +80,11 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
     x_error : float
         The 1-sigma error in x-value.
     y_value : float
-        Position along second pixel coordinate (column index of ndarray with 
+        Position along second pixel coordinate (column index of ndarray with
         image data).
     y_error : float
         The 1-sigma error in y-value.
-        
+
     Returns
     -------
     float
@@ -106,18 +106,18 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
             (x_value + x_error, y_value + y_error),
             (x_value - x_error, y_value + y_error),
             (x_value + x_error, y_value - y_error),
-            (x_value - x_error, y_value - y_error)
+            (x_value - x_error, y_value - y_error),
         ]:
             error_ra, error_dec = wcs.p2s(pixpos)
             error_radius = max(
                 error_radius,
-                coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec)
+                coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec),
             )
     except RuntimeError:
         # We get a runtime error from wcs.p2s if the errors place the
         # limits outside the image, in which case we set the angular
         # uncertainty to infinity.
-        error_radius = float('inf')
+        error_radius = float("inf")
     return error_radius
 
 
@@ -125,7 +125,7 @@ def circular_mask(xdim, ydim, radius):
     """
     Returns a numpy array of shape (xdim, ydim). All points within radius from
     the centre are set to 0; outside that region, they are set to 1.
-    
+
     Parameters
     ----------
     xdim : int
@@ -139,21 +139,21 @@ def circular_mask(xdim, ydim, radius):
     -------
     np.ndarray
         A 2D ndarray with points within the radius set to 0 and outside set to
-        1. 
+        1.
     """
     centre_x, centre_y = (xdim - 1) / 2.0, (ydim - 1) / 2.0
-    x, y = np.ogrid[-centre_x: xdim - centre_x, -centre_y: ydim - centre_y]
+    x, y = np.ogrid[-centre_x : xdim - centre_x, -centre_y : ydim - centre_y]
     return x * x + y * y >= radius * radius
 
 
 def generate_result_maps(data, sourcelist):
-    """Return an image with Gaussian reconstructions of the sources and the 
+    """Return an image with Gaussian reconstructions of the sources and the
     corresponding residual image.
 
     Given a data array (image) and list of sources, return two images, one
     showing the sources themselves and the other the residual after the
     sources have been removed from the input data.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -178,11 +178,13 @@ def generate_result_maps(data, sourcelist):
         box_size = 6 * src.smaj.value / math.sqrt(2 * math.log(2))
 
         lower_bound_x = max(0, int(src.x.value - 1 - box_size))
-        upper_bound_x = min(residual_map.shape[0],
-                            int(src.x.value - 1 + box_size))
+        upper_bound_x = min(
+            residual_map.shape[0], int(src.x.value - 1 + box_size)
+        )
         lower_bound_y = max(0, int(src.y.value - 1 - box_size))
-        upper_bound_y = min(residual_map.shape[1],
-                            int(src.y.value - 1 + box_size))
+        upper_bound_y = min(
+            residual_map.shape[1], int(src.y.value - 1 + box_size)
+        )
 
         local_gaussian = gaussian(
             src.peak.value,
@@ -190,27 +192,33 @@ def generate_result_maps(data, sourcelist):
             src.y.value,
             src.smaj.value,
             src.smin.value,
-            src.theta.value
+            src.theta.value,
         )(
-            np.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
-                                           lower_bound_y:upper_bound_y],
-            np.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
-                                           lower_bound_y:upper_bound_y]
+            np.indices(residual_map.shape)[
+                0, lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+            ],
+            np.indices(residual_map.shape)[
+                1, lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+            ],
         )
 
-        gaussian_map[lower_bound_x:upper_bound_x,
-                     lower_bound_y:upper_bound_y] += local_gaussian
-        residual_map[lower_bound_x:upper_bound_x,
-                     lower_bound_y:upper_bound_y] -= local_gaussian
+        gaussian_map[
+            lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+        ] += local_gaussian
+        residual_map[
+            lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+        ] -= local_gaussian
 
     return gaussian_map, residual_map
 
+
 def is_valid_beam_tuple(b) -> bool:
     return (
-            isinstance(b, tuple)
-            and len(b) == 3
-            and all(isinstance(x, Real) and x is not None for x in b)
+        isinstance(b, tuple)
+        and len(b) == 3
+        and all(isinstance(x, Real) and x is not None for x in b)
     )
+
 
 def calculate_correlation_lengths(semimajor, semiminor):
     """Calculate the Condon correlation lengths.
@@ -267,8 +275,7 @@ def calculate_beamsize(semimajor, semiminor):
     -------
     float
         The calculated beamsize.
-    """    
-    
+    """
 
     return np.pi * semimajor * semiminor
 
@@ -283,7 +290,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
     (1997A&AS..124..259R) or his thesis.  The peak of the Gaussian
     is, of course, never at the exact center of the pixel, that's why
     the maximum pixel method will underestimate it, when averaged over an
-    ensemble. This effect is smaller when the clean beam is more densely 
+    ensemble. This effect is smaller when the clean beam is more densely
     sampled.
 
     But, instead of just taking 1.06 one can make an estimate of the
@@ -298,7 +305,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
     suffice as a correction. Calculating an overall correction for an ensemble
     of sources will, in the case of an elliptical beam shape, become much
     more involved.
-    
+
     Parameters
     ----------
     semimajor : float
@@ -323,9 +330,9 @@ def fudge_max_pix(semimajor, semiminor, theta):
         down = math.pow(((cos_theta * y - sin_theta * x) / semimajor), 2)
         return np.exp(log20 * (up + down))
 
-    (correction, abserr) = scipy.integrate.dblquad(landscape, -0.5, 0.5,
-                                                   lambda ymin: -0.5,
-                                                   lambda ymax: 0.5)
+    (correction, abserr) = scipy.integrate.dblquad(
+        landscape, -0.5, 0.5, lambda ymin: -0.5, lambda ymax: 0.5
+    )
 
     return correction
 
@@ -388,7 +395,7 @@ def nearest_nonzero(some_arr, rms):
     """
     if some_arr.shape != rms.shape:
         raise ValueError("some_arr and rms must have the same shape.")
-    
+
     # Handle empty array.
     if some_arr.size == 0:
         return some_arr
@@ -410,14 +417,15 @@ def nearest_nonzero(some_arr, rms):
     zero_mask = rms == 0
 
     # Calculate the distance transform and nearest non-zero indices
-    distances, nearest_indices = distance_transform_edt(zero_mask,
-                                                        return_indices=True)
+    distances, nearest_indices = distance_transform_edt(
+        zero_mask, return_indices=True
+    )
 
     nearest_values = some_arr[nearest_indices[0], nearest_indices[1]]
     # Use nearest indices from rms to update some_arr
     result = some_arr.copy()
     result[zero_mask] = nearest_values[zero_mask]
-    
+
     return result
 
 
@@ -462,10 +470,14 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     for i in prange(p):
         for j in range(r):
             # Extract the subimage (data and mask)
-            subimage_data = a_data[i * back_size_x:(i + 1) * back_size_x,
-                            j * back_size_y:(j + 1) * back_size_y]
-            subimage_mask = a_mask[i * back_size_x:(i + 1) * back_size_x,
-                            j * back_size_y:(j + 1) * back_size_y]
+            subimage_data = a_data[
+                i * back_size_x : (i + 1) * back_size_x,
+                j * back_size_y : (j + 1) * back_size_y,
+            ]
+            subimage_mask = a_mask[
+                i * back_size_x : (i + 1) * back_size_x,
+                j * back_size_y : (j + 1) * back_size_y,
+            ]
 
             # Preallocate an array for unmasked values (max size d*d)
             unmasked_values = np.empty(subimage_size, dtype=a_data.dtype)
@@ -491,10 +503,13 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 # Define the row-wise interpolation function with guvectorize.
-@guvectorize( 
-    ["void(float32[:], float32[:], float32[:], float32[:])"], 
-    "(n),(n),(k)->(k)", 
-    target="parallel", nopython=True, cache=True)
+@guvectorize(
+    ["void(float32[:], float32[:], float32[:], float32[:])"],
+    "(n),(n),(k)->(k)",
+    target="parallel",
+    nopython=True,
+    cache=True,
+)
 def interp_per_row(grid_row, y_initial, y_sought, interp_row):
     """
     Interpolate one row of the grid along the second dimension (y-axis).
@@ -539,25 +554,27 @@ def two_step_interp(grid, new_xdim, new_ydim):
     """
     # Define the main function for upsampling
     # Original grid coordinates
-    x_initial = np.linspace(0, grid.shape[0] - 1, grid.shape[0],
-                            dtype=np.float32)
-    y_initial = np.linspace(0, grid.shape[1] - 1, grid.shape[1],
-                            dtype=np.float32)
+    x_initial = np.linspace(
+        0, grid.shape[0] - 1, grid.shape[0], dtype=np.float32
+    )
+    y_initial = np.linspace(
+        0, grid.shape[1] - 1, grid.shape[1], dtype=np.float32
+    )
 
     # Target grid coordinates
-    x_sought = np.linspace(-0.5, grid.shape[0] - 0.5, new_xdim,
-                           dtype=np.float32)
-    y_sought = np.linspace(-0.5, grid.shape[1] - 0.5, new_ydim,
-                           dtype=np.float32)
+    x_sought = np.linspace(
+        -0.5, grid.shape[0] - 0.5, new_xdim, dtype=np.float32
+    )
+    y_sought = np.linspace(
+        -0.5, grid.shape[1] - 0.5, new_ydim, dtype=np.float32
+    )
 
     # Step 1: Interpolation per row.
-    interp_rows = np.empty((grid.shape[0], new_ydim),
-                           dtype=np.float32)
+    interp_rows = np.empty((grid.shape[0], new_ydim), dtype=np.float32)
     interp_per_row(grid, y_initial, y_sought, interp_rows)
 
     # Step 2: Interpolation along columns (reuse interpolate_rows)
-    interp_cols = np.empty((new_xdim, new_ydim),
-                           dtype=np.float32)
+    interp_cols = np.empty((new_xdim, new_ydim), dtype=np.float32)
     interp_per_row(interp_rows.T, x_initial, x_sought, interp_cols.T)
 
     return interp_cols
@@ -567,8 +584,9 @@ def two_step_interp(grid, new_xdim, new_ydim):
 # ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 @njit
-def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
-                               tol=1e-8, max_iter=100, *args):
+def newton_raphson_root_finder(
+    f, sigma0, min_sigma, max_sigma, tol=1e-8, max_iter=100, *args
+):
     """
     Solve the transcendental equation for sigma using Newton's method with
     interval safeguards.
@@ -696,3 +714,79 @@ def complement_gaussian_args(initial_params, fixed_params, fit_params):
             gaussian_args.append(paramlist.pop(0))
 
     return gaussian_args
+
+
+_source_params_descriptions = {
+    "peak": "Peak spectral brightness of the source (Jy/beam)",
+    "peak_err": (
+        "1-sigma uncertainty in the peak spectral "
+        "brightness of the source (Jy/beam)"
+    ),
+    "flux": (
+        "Flux density of the source, calculated as 'pi * peak "
+        "spectral brightness * semi- major axis * semi-minor "
+        "axis / beamsize' (Jy)"
+    ),
+    "flux_err": "1-sigma uncertainty in the flux density (Jy)",
+    "x": (
+        "x-position (float) of the barycenter of the source, "
+        "correponding to the row index of the Numpy array with "
+        "image data. After loading a FITS image, the data is "
+        "transposed such that x and y are aligned with ds9 viewing, "
+        "except for an offset of 1 pixel, since the bottom left "
+        "pixel in ds9 has x=y=1"
+    ),
+    "y": (
+        "y-position (float) of the barycenter of the source, "
+        "correponding to the column index of the Numpy array with "
+        "image data. After loading a FITS image, the data is "
+        "transposed such that x and y are aligned with ds9 viewing, "
+        "except for an offset of 1 pixel, since the bottom left "
+        "pixel in ds9 has x=y=1"
+    ),
+    "ra": "Right ascension of the source (degrees)",
+    "ra_err": "1-sigma uncertainty in right ascension (degrees)",
+    "dec": "Declination of the source (degrees)",
+    "dec_err": "1-sigma uncertainty in declination (degrees)",
+    "smaj_asec": (
+        "Semi-major axis of the Gaussian profile, "
+        "not deconvolved from the clean beam (arcseconds)"
+    ),
+    "smaj_asec_err": (
+        "1-sigma uncertainty in the semi-major axis, "
+        "not deconvolved from the clean beam "
+        "(arcseconds)"
+    ),
+    "smin_asec": (
+        "Semi-minor axis of the Gaussian profile, "
+        "not deconvolved from the clean beam (arcsecond)"
+    ),
+    "smin_asec_err": (
+        "1-sigma uncertainty in the semi-minor axis, "
+        "not deconvolved from the clean beam "
+        "(arcseconds)"
+    ),
+    "theta_celes": (
+        "Position angle of the major axis of the "
+        "Gaussian profile, measured east from local north "
+        "(degrees)"
+    ),
+    "theta_celes_err": (
+        "1-sigma uncertainty in the position angle "
+        "of the major axis of the Gaussian profile, "
+        "measured east from local north (degrees)"
+    ),
+    "sig": (
+        "The significance of a detection (float) is defined as "
+        "the maximum signal-to-noise ratio across the island. "
+        "Often this will be the ratio of the maximum pixel value "
+        "of the source divided by the noise at that position."
+    ),
+    "reduced_chisq": (
+        "The reduced chi-squared value of the Gaussian "
+        "model relative to the data (float). Can be a "
+        "Gaussian model derived from a fit or from "
+        "moments. See the measuring.goodness_of_fit "
+        "docstring for some important notes."
+    ),
+}
