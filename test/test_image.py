@@ -66,29 +66,33 @@ class TestFitFixedPositions(unittest.TestCase):
     """Test various fitting cases where the pixel position is predetermined"""
 
     @requires_data(
-        os.path.join(DATAPATH, 'NCP_sample_image_1.fits'),
-        os.path.join(DATAPATH,
-                     'GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits'))
+        os.path.join(DATAPATH, "NCP_sample_image_1.fits"),
+        os.path.join(
+            DATAPATH, "GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits"
+        ),
+    )
     def setUp(self):
         """
         Source positions / background positions were simply picked out by
         eye in DS9
         """
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(
-                os.path.join(DATAPATH, 'NCP_sample_image_1.fits'))
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
         )
         self.assertListEqual(list(self.image.data.shape), [1024, 1024])
-        self.boxsize = BOX_IN_BEAMPIX * max(self.image.beam[0],
-                                            self.image.beam[1])
+        self.boxsize = BOX_IN_BEAMPIX * max(
+            self.image.beam[0], self.image.beam[1]
+        )
         self.bright_src_posn = (35.76726, 86.305771)  # RA, DEC
         self.background_posn = (6.33731, 82.70002)  # RA, DEC
 
         # NB Peak of forced gaussian fit is simply plucked from a previous run;
         # so merely ensures *consistent*, rather than *correct*, results.
-        self.known_fit_results = (self.bright_src_posn[0],  # RA,
-                                  self.bright_src_posn[1],  # Dec
-                                  13.457697411730384)  # Peak
+        self.known_fit_results = (
+            self.bright_src_posn[0],  # RA,
+            self.bright_src_posn[1],  # Dec
+            13.457697411730384,
+        )  # Peak
 
         # Python script for cropping the original file has been refined using
         # ChatGPT 4.0. All AI-output has been verified for correctness, accuracy
@@ -96,7 +100,8 @@ class TestFitFixedPositions(unittest.TestCase):
         self.cropped_image = accessors.sourcefinder_image_from_accessor(
             accessors.open(
                 os.path.join(
-                    DATAPATH, ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits")
+                    DATAPATH,
+                    ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits"),
                 )
             ),
             conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
@@ -105,15 +110,18 @@ class TestFitFixedPositions(unittest.TestCase):
     def testSourceAtGivenPosition(self):
         posn = self.bright_src_posn
         img = self.image
-        results = self.image.fit_fixed_positions(positions=[posn],
-                                                 boxsize=self.boxsize,
-                                                 threshold=0.0)[0]
-        self.assertAlmostEqual(results.ra.value, self.known_fit_results[0],
-                               delta=0.01)
-        self.assertAlmostEqual(results.dec.value, self.known_fit_results[1],
-                               delta=0.01)
-        self.assertAlmostEqual(results.peak.value, self.known_fit_results[2],
-                               delta=0.01)
+        results = self.image.fit_fixed_positions(
+            positions=[posn], boxsize=self.boxsize, threshold=0.0
+        )[0]
+        self.assertAlmostEqual(
+            results.ra.value, self.known_fit_results[0], delta=0.01
+        )
+        self.assertAlmostEqual(
+            results.dec.value, self.known_fit_results[1], delta=0.01
+        )
+        self.assertAlmostEqual(
+            results.peak.value, self.known_fit_results[2], delta=0.01
+        )
 
     def testSourceAtGivenPosition_negative_spectral_brightness(self):
         """Here fixed-position fitting faces an extra challenge: the
@@ -135,21 +143,22 @@ class TestFitFixedPositions(unittest.TestCase):
         """
         posn = self.bright_src_posn
         img = self.image
-        low_thresh_results = self.image.fit_fixed_positions(positions=[posn],
-                                                            boxsize=
-                                                            BOX_IN_BEAMPIX *
-                                                            max(img.beam[0],
-                                                                img.beam[1]),
-                                                            threshold=-1e20)[0]
-        self.assertAlmostEqual(low_thresh_results.ra.value,
-                               self.known_fit_results[0],
-                               delta=0.01)
-        self.assertAlmostEqual(low_thresh_results.dec.value,
-                               self.known_fit_results[1],
-                               delta=0.01)
-        self.assertAlmostEqual(low_thresh_results.peak.value,
-                               self.known_fit_results[2],
-                               delta=0.01)
+        low_thresh_results = self.image.fit_fixed_positions(
+            positions=[posn],
+            boxsize=BOX_IN_BEAMPIX * max(img.beam[0], img.beam[1]),
+            threshold=-1e20,
+        )[0]
+        self.assertAlmostEqual(
+            low_thresh_results.ra.value, self.known_fit_results[0], delta=0.01
+        )
+        self.assertAlmostEqual(
+            low_thresh_results.dec.value, self.known_fit_results[1], delta=0.01
+        )
+        self.assertAlmostEqual(
+            low_thresh_results.peak.value,
+            self.known_fit_results[2],
+            delta=0.01,
+        )
 
     def testHighFitThreshold(self):
         """
@@ -161,11 +170,11 @@ class TestFitFixedPositions(unittest.TestCase):
         posn = self.bright_src_posn
         img = self.image
         with self.assertRaises(ValueError):
-            results = self.image.fit_fixed_positions(positions=[posn],
-                                                     boxsize=BOX_IN_BEAMPIX * max(
-                                                         img.beam[0],
-                                                         img.beam[1]),
-                                                     threshold=1e20)
+            results = self.image.fit_fixed_positions(
+                positions=[posn],
+                boxsize=BOX_IN_BEAMPIX * max(img.beam[0], img.beam[1]),
+                threshold=1e20,
+            )
 
     def testBackgroundAtGivenPosition(self):
         """
@@ -181,10 +190,11 @@ class TestFitFixedPositions(unittest.TestCase):
         results = self.image.fit_fixed_positions(
             positions=[self.background_posn],
             boxsize=BOX_IN_BEAMPIX * max(img.beam[0], img.beam[1]),
-            threshold=None
+            threshold=None,
         )[0]
-        self.assertAlmostEqual(results.peak.value, 0,
-                               delta=results.peak.error * 1.0)
+        self.assertAlmostEqual(
+            results.peak.value, 0, delta=results.peak.error * 1.0
+        )
 
     def testGivenPositionOutsideImage(self):
         """If given position is outside image then result should be NoneType"""
@@ -199,9 +209,10 @@ class TestFitFixedPositions(unittest.TestCase):
         ]
         # print "Out of image?", sky_posn_out_of_img
         # print "Out of image (pixel backconvert)?", img.wcs.s2p(sky_posn_out_of_img)
-        results = self.image.fit_fixed_positions(positions=sky_posns_out_of_img,
-                                                 boxsize=BOX_IN_BEAMPIX * max(
-                                                     img.beam[0], img.beam[1]))
+        results = self.image.fit_fixed_positions(
+            positions=sky_posns_out_of_img,
+            boxsize=BOX_IN_BEAMPIX * max(img.beam[0], img.beam[1]),
+        )
         self.assertListEqual([], results)
 
     def testTooCloseToEdgePosition(self):
@@ -210,9 +221,7 @@ class TestFitFixedPositions(unittest.TestCase):
         boxsize = BOX_IN_BEAMPIX * max(img.beam[0], img.beam[1])
         edge_posn = img.wcs.p2s((0 + boxsize / 2 - 2, img.data.shape[1] / 2.0))
         results = self.image.fit_fixed_positions(
-            positions=[edge_posn],
-            boxsize=boxsize,
-            threshold=-1e10
+            positions=[edge_posn], boxsize=boxsize, threshold=-1e10
         )
         self.assertListEqual([], results)
 
@@ -229,21 +238,23 @@ class TestFitFixedPositions(unittest.TestCase):
         img = self.image
 
         fake_params = sourcefinder.extract.ParamSet()
-        fake_params.measurements.update({
-            'peak': Uncertain(0.0, 0.5),
-            'flux': Uncertain(0.0, 0.5),
-            'xbar': Uncertain(5.5, 10000.5),  # Danger Will Robinson
-            'ybar': Uncertain(5.5, 3),
-            'semimajor': Uncertain(4, 200),
-            'semiminor': Uncertain(4, 2),
-            'theta': Uncertain(30, 10),
-        })
+        fake_params.measurements.update(
+            {
+                "peak": Uncertain(0.0, 0.5),
+                "flux": Uncertain(0.0, 0.5),
+                "xbar": Uncertain(5.5, 10000.5),  # Danger Will Robinson
+                "ybar": Uncertain(5.5, 3),
+                "semimajor": Uncertain(4, 200),
+                "semiminor": Uncertain(4, 2),
+                "theta": Uncertain(30, 10),
+            }
+        )
         fake_params.sig = 0
         det = sourcefinder.extract.Detection(fake_params, img)
         # Raises runtime error prior to bugfix for issue #3294
         det._physical_coordinates()
-        self.assertEqual(det.ra.error, float('inf'))
-        self.assertEqual(det.dec.error, float('inf'))
+        self.assertEqual(det.ra.error, float("inf"))
+        self.assertEqual(det.dec.error, float("inf"))
 
     def testForcedFitAtNans(self):
         """
@@ -253,8 +264,9 @@ class TestFitFixedPositions(unittest.TestCase):
         forcedfit_sky_posn = self.bright_src_posn
         forcedfit_pixel_posn = self.image.wcs.s2p(forcedfit_sky_posn)
 
-        fitting_boxsize = BOX_IN_BEAMPIX * max(self.image.beam[0],
-                                               self.image.beam[1])
+        fitting_boxsize = BOX_IN_BEAMPIX * max(
+            self.image.beam[0], self.image.beam[1]
+        )
 
         nandata = self.image.rawdata.copy()
         x0, y0 = forcedfit_pixel_posn
@@ -267,9 +279,10 @@ class TestFitFixedPositions(unittest.TestCase):
         boxsize_proportion = 0.5
         nanbox_radius *= boxsize_proportion
 
-        nandata[int(x0 - nanbox_radius):int(x0 + nanbox_radius + 1),
-                int(y0 - nanbox_radius):int(y0 + nanbox_radius + 1)] = \
-            float('nan')
+        nandata[
+            int(x0 - nanbox_radius) : int(x0 + nanbox_radius + 1),
+            int(y0 - nanbox_radius) : int(y0 + nanbox_radius + 1),
+        ] = float("nan")
 
         # Dump image data for manual inspection:
         # import astropy.io.fits as fits
@@ -278,13 +291,14 @@ class TestFitFixedPositions(unittest.TestCase):
         # hdu = fits.PrimaryHDU((output_data).transpose())
         # hdu.writeto('/tmp/nandata.fits',clobber=True)
 
-        nan_image = ImageData(nandata, beam=self.image.beam,
-                              wcs=self.image.wcs)
+        nan_image = ImageData(
+            nandata, beam=self.image.beam, wcs=self.image.wcs
+        )
 
         results = nan_image.fit_fixed_positions(
             positions=[self.bright_src_posn],
             boxsize=fitting_boxsize,
-            threshold=None
+            threshold=None,
         )
         print(results)
         self.assertFalse(results)
@@ -301,60 +315,83 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        conf = Conf(image=ImgConf(), export=ExportSettings(
-            source_params = [
-                "ra",
-                "dec",
-                "ra_err",
-                "dec_err",
-                "peak",
-                "peak_err",
-                "flux",
-                "flux_err",
-                "sig",
-                "smaj_asec",
-                "smin_asec",
-                "theta_celes",
-                "ew_sys_err",
-                "ns_sys_err",
-                "error_radius",
-                "gaussian",
-                "chisq",
-                "reduced_chisq",
-            ]
-        ))
+        conf = Conf(
+            image=ImgConf(),
+            export=ExportSettings(
+                source_params=[
+                    "ra",
+                    "dec",
+                    "ra_err",
+                    "dec_err",
+                    "peak",
+                    "peak_err",
+                    "flux",
+                    "flux_err",
+                    "sig",
+                    "smaj_asec",
+                    "smin_asec",
+                    "theta_celes",
+                    "ew_sys_err",
+                    "ns_sys_err",
+                    "error_radius",
+                    "gaussian",
+                    "chisq",
+                    "reduced_chisq",
+                ]
+            ),
+        )
 
-        known_result_fit = \
-            [1.36896042e+02, 1.40221872e+01,   # RA (deg), DEC (deg)
-             5.06084005e-04, 1.29061600e-03,  # Err, err
-             7.42220029e-04, 1.07344735e-04,  # Peak spectral brightness, err
-             6.03179622e-04, 1.62549622e-04,  # Flux density, err
-             6.44646215e+00, 2.55194168e+01,
-             # Significance level, beam semimajor-axis width (arcsec)
-             1.06461773e+01, 1.78499710e+02,
-             # Beam semiminor-axis width (arcsec), beam position angle (deg)
-             0.0, 0.0, # ew_sys_err, ns_sys_err,
-             4.97109604e+00, 1.00000000e+00,  # error_radius (arcsec), fit_type
-             1.47489354e-01, 1.63056225e-01]  # chisq, reduced chisq
+        known_result_fit = [
+            1.36896042e02,
+            1.40221872e01,  # RA (deg), DEC (deg)
+            5.06084005e-04,
+            1.29061600e-03,  # Err, err
+            7.42220029e-04,
+            1.07344735e-04,  # Peak spectral brightness, err
+            6.03179622e-04,
+            1.62549622e-04,  # Flux density, err
+            6.44646215e00,
+            2.55194168e01,
+            # Significance level, beam semimajor-axis width (arcsec)
+            1.06461773e01,
+            1.78499710e02,
+            # Beam semiminor-axis width (arcsec), beam position angle (deg)
+            0.0,
+            0.0,  # ew_sys_err, ns_sys_err,
+            4.97109604e00,
+            1.00000000e00,  # error_radius (arcsec), fit_type
+            1.47489354e-01,
+            1.63056225e-01,
+        ]  # chisq, reduced chisq
 
-        known_result_moments = \
-            [1.3689603e+02, 1.4022377e+01,  # RA (deg), DEC (deg)
-             5.5378844e-04, 1.1825778e-03,  # Err, err
-             7.3612988e-04, 1.1412757e-04,  # Peak spectral brightness, err
-             6.0276804e-04, 1.6499560e-04,  # Flux density, err
-             6.4464622e+00, 2.4559519e+01,
-             # Significance level, beam semimajor-axis width (arcsec)
-             1.1146187e+01, 1.7876042e+02,  # Beam semiminor-axis width (arcsec),
-             # Beam position angle (deg).
-             0.0, 0.0, # ew_sys_err, ns_sys_err,
-             4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
-             8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
+        known_result_moments = [
+            1.3689603e02,
+            1.4022377e01,  # RA (deg), DEC (deg)
+            5.5378844e-04,
+            1.1825778e-03,  # Err, err
+            7.3612988e-04,
+            1.1412757e-04,  # Peak spectral brightness, err
+            6.0276804e-04,
+            1.6499560e-04,  # Flux density, err
+            6.4464622e00,
+            2.4559519e01,
+            # Significance level, beam semimajor-axis width (arcsec)
+            1.1146187e01,
+            1.7876042e02,  # Beam semiminor-axis width (arcsec),
+            # Beam position angle (deg).
+            0.0,
+            0.0,  # ew_sys_err, ns_sys_err,
+            4.6760769e00,
+            0.0000000e00,  # error_radius (arcsec), fit_type
+            8.3038670e-01,
+            9.1803038e-01,
+        ]  # chisq, reduced chisq
 
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
 
         results = image.extract(det=5, anl=3)
-        results = [result.serialize(conf) for result in
+        results = [result.serialize(conf, every_parm=True) for result in
                    results]
         self.assertEqual(len(results), 2)
         r = np.array(results[1], dtype=np.float32)
@@ -364,26 +401,27 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         else:
             known_result = np.array(known_result_moments, dtype=np.float32)
         self.assertEqual(r.size, known_result.size)
-        self.assertTrue(np.allclose(r, known_result, rtol=1e-4, atol=0,
-                                    equal_nan=True))
+        self.assertTrue(
+            np.allclose(r, known_result, rtol=1e-4, atol=0, equal_nan=True)
+        )
 
     @requires_data(GRB120422A)
     def testForceSourceShape(self):
-        """
-        Force source shape to beam
+        """Force source shape to beam
 
         This image contains a single source (with parameters as listed under
         testSingleSourceExtraction(), above). Here we force the lengths of the
         major/minor axes to be held constant when fitting.
         """
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A)
+        )
         results = image.extract(det=5, anl=3, force_beam=True)
         self.assertEqual(results[0].smaj.value, image.beam[0], places=6)
         self.assertEqual(results[0].smin.value, image.beam[1])
 
-    @requires_data(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits'))
-    @requires_data(os.path.join(DATAPATH, 'SWIFT_554620-130504.image'))
+    @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
+    @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.image"))
     def testWcsConversionConsistency(self):
         """
         Check that extracting a source from FITS and CASA versions of the
@@ -391,20 +429,21 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
 
         fits_image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits')))
+            FitsImage(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
+        )
         # Abuse the KAT7 CasaImage class here, since we just want to access
         # the pixel data and the WCS:
         casa_image = accessors.sourcefinder_image_from_accessor(
             accessors.kat7casaimage.Kat7CasaImage(
-                os.path.join(DATAPATH, 'SWIFT_554620-130504.image')))
+                os.path.join(DATAPATH, "SWIFT_554620-130504.image")
+            )
+        )
 
         conf = Conf(image=ImgConf(), export=ExportSettings())
         fits_results = fits_image.extract(det=5, anl=3)
-        fits_results = [result.serialize(conf) for result in
-                        fits_results]
+        fits_results = [result.serialize(conf) for result in fits_results]
         casa_results = casa_image.extract(det=5, anl=3)
-        casa_results = [result.serialize(conf) for result in
-                        casa_results]
+        casa_results = [result.serialize(conf) for result in casa_results]
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches two extra noise peaks at the 5 sigma level.
         self.assertEqual(len(fits_results), 3)
@@ -450,7 +489,8 @@ class TestMaskedSource(unittest.TestCase):
         """
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A)
+        )
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
         image.data[266:269, 263:266] = np.ma.masked
@@ -493,18 +533,21 @@ class TestFailureModes(unittest.TestCase):
 
     def testFlatImage(self):
         sfimage = accessors.sourcefinder_image_from_accessor(
-            SyntheticImage(data=np.zeros((512, 512))))
-        self.assertTrue(np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
-                        msg="Data should be flat")
+            SyntheticImage(data=np.zeros((512, 512)))
+        )
+        self.assertTrue(
+            np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
+            msg="Data should be flat",
+        )
         with self.assertRaises(RuntimeError):
             sfimage.extract(det=5, anl=3)
 
 
 class TestNegationImage(unittest.TestCase):
-    """
-    Check if we do not detect any sources from the negation of a Stokes I
+    """Check if we do not detect any sources from the negation of a Stokes I
     image with many sources.
     """
+
     __slots__ = ("img",)
 
     @classmethod
@@ -517,7 +560,7 @@ class TestNegationImage(unittest.TestCase):
     def tearDownClass(cls):
         del cls.img
 
-    @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
+    @requires_data(os.path.join(DATAPATH, "deconvolved.fits"))
     def testReverseSE(self):
         """
         We extract with a 5 sigma detection limit on the negation of an
@@ -528,9 +571,13 @@ class TestNegationImage(unittest.TestCase):
         when this test is applied to other 2K *2K images or to larger images.
         """
         extraction_results = self.img.reverse_se(det=5.0, anl=4.0)
-        self.assertTrue(len(extraction_results) == 0,
-                        msg=("Extracting sources from the negation of a Stokes"
-                             " I image should yield only noise peaks."))
+        self.assertTrue(
+            len(extraction_results) == 0,
+            msg=(
+                "Extracting sources from the negation of a Stokes"
+                " I image should yield only noise peaks."
+            ),
+        )
 
 
 # The TestBackgroundCharacteristicsSimple class has been generated using
@@ -568,56 +615,90 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
         mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
-        mean_ground_truth_grid = (
-            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                                           "mean_grid_deconvolved.fits.npy")))
+        mean_ground_truth_grid = np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "mean_grid_deconvolved.fits.npy",
+            )
+        )
 
         # Check the shapes are the same
-        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
-                         "Shapes of mean grids do not match")
+        self.assertEqual(
+            mean_grid.shape,
+            mean_ground_truth_grid.shape,
+            "Shapes of mean grids do not match",
+        )
 
-        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
-                                    rtol=1e-3))
+        self.assertTrue(
+            np.allclose(mean_grid, mean_ground_truth_grid, rtol=1e-3)
+        )
 
         std_grid = grid["rms"]
 
         # Load ground truth data for background standard deviations (rms).
-        std_ground_truth_grid = (
-            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                                           "std_grid_deconvolved.fits.npy")))
+        std_ground_truth_grid = np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "std_grid_deconvolved.fits.npy",
+            )
+        )
 
         # Check the shapes are the same
-        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
-                         "Shapes of rms grids do not match")
+        self.assertEqual(
+            std_grid.shape,
+            std_ground_truth_grid.shape,
+            "Shapes of rms grids do not match",
+        )
 
-        self.assertTrue(np.allclose(std_grid, std_ground_truth_grid, rtol=1e-3))
+        self.assertTrue(
+            np.allclose(std_grid, std_ground_truth_grid, rtol=1e-3)
+        )
 
     def test_interpolation_deconvolved(self):
         # Load ground truth data for interpolated background means.
-        with np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                     "means_interpolated_deconvolved.fits.npz")) as npz:
+        with np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "means_interpolated_deconvolved.fits.npz",
+            )
+        ) as npz:
             interp_means_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_means = self.img.backmap
 
         # Check the shapes are the same
-        self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
-                         "Shapes of mean grids do not match")
+        self.assertEqual(
+            interp_means.shape,
+            interp_means_ground_truth.shape,
+            "Shapes of mean grids do not match",
+        )
 
-        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth,
-                                       atol=1e-7))
+        self.assertTrue(
+            np.ma.allclose(interp_means, interp_means_ground_truth, atol=1e-7)
+        )
 
         # Load ground truth data for interpolated background standard
         # deviations.
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "stds_interpolated_deconvolved.fits.npz")) as npz):
+        with np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "stds_interpolated_deconvolved.fits.npz",
+            )
+        ) as npz:
             interp_stds_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_stds = self.img.rmsmap
 
         # Check the shapes are the same
-        self.assertEqual(interp_stds.shape, interp_stds_ground_truth.shape,
-                         "Shapes of rms grids do not match")
+        self.assertEqual(
+            interp_stds.shape,
+            interp_stds_ground_truth.shape,
+            "Shapes of rms grids do not match",
+        )
 
         self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
 
@@ -661,57 +742,87 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
         mean_grid = grid["mean"]
 
         # Load ground truth data for background means.
-        mean_ground_truth_grid = (
-            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                    "mean_grid_image_206-215-t0002.fits_radius_1000.npy")))
+        mean_ground_truth_grid = np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "mean_grid_image_206-215-t0002.fits_radius_1000.npy",
+            )
+        )
 
         # Check the shapes are the same
-        self.assertEqual(mean_grid.shape, mean_ground_truth_grid.shape,
-                         "Shapes of mean grids do not match")
+        self.assertEqual(
+            mean_grid.shape,
+            mean_ground_truth_grid.shape,
+            "Shapes of mean grids do not match",
+        )
 
-        self.assertTrue(np.allclose(mean_grid, mean_ground_truth_grid,
-                                    rtol=1e-3))
+        self.assertTrue(
+            np.allclose(mean_grid, mean_ground_truth_grid, rtol=1e-3)
+        )
 
         std_grid = grid["rms"]
 
         # Load ground truth data for background standard deviations (rms).
-        std_ground_truth_grid = (
-            np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                    "std_grid_image_206-215-t0002.fits_radius_1000.npy")))
+        std_ground_truth_grid = np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "std_grid_image_206-215-t0002.fits_radius_1000.npy",
+            )
+        )
 
         # Check the shapes are the same
-        self.assertEqual(std_grid.shape, std_ground_truth_grid.shape,
-                         "Shapes of rms grids do not match")
+        self.assertEqual(
+            std_grid.shape,
+            std_ground_truth_grid.shape,
+            "Shapes of rms grids do not match",
+        )
 
         self.assertTrue(np.allclose(std_grid, std_ground_truth_grid))
 
     def test_interpolation_AARTFAAC_TBB_MASKED(self):
         # Load ground truth data for interpolated background means.
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "means_interpolated_206-215-t0002.fits_radius_1000.npz"))
-              as npz):
+        with np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "means_interpolated_206-215-t0002.fits_radius_1000.npz",
+            )
+        ) as npz:
             interp_means_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_means = self.img.backmap
 
         # Check the shapes are the same
-        self.assertEqual(interp_means.shape, interp_means_ground_truth.shape,
-                         "Shapes of mean grids do not match")
+        self.assertEqual(
+            interp_means.shape,
+            interp_means_ground_truth.shape,
+            "Shapes of mean grids do not match",
+        )
 
-        self.assertTrue(np.ma.allclose(interp_means, interp_means_ground_truth,
-                                       atol=1e-7))
+        self.assertTrue(
+            np.ma.allclose(interp_means, interp_means_ground_truth, atol=1e-7)
+        )
 
         # Load ground truth data for interpolated background standard
         # deviations.
-        with (np.load(os.path.join(DATAPATH, "kappa_sigma_clipping",
-                      "stds_interpolated_206-215-t0002.fits_radius_1000.npz"))
-              as npz):
+        with np.load(
+            os.path.join(
+                DATAPATH,
+                "kappa_sigma_clipping",
+                "stds_interpolated_206-215-t0002.fits_radius_1000.npz",
+            )
+        ) as npz:
             interp_stds_ground_truth = np.ma.MaskedArray(**npz)
 
         interp_stds = self.img.rmsmap
 
         # Check the shapes are the same
-        self.assertEqual(interp_stds.shape, interp_stds_ground_truth.shape,
-                         "Shapes of rms grids do not match")
+        self.assertEqual(
+            interp_stds.shape,
+            interp_stds_ground_truth.shape,
+            "Shapes of rms grids do not match",
+        )
 
         self.assertTrue(np.ma.allclose(interp_stds, interp_stds_ground_truth))
