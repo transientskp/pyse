@@ -1590,7 +1590,7 @@ class Detection(object):
         """Distance from center"""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
-    def serialize(self, conf=Conf):
+    def serialize(self, conf=Conf, file=False):
         """
         Return source properties suitable for database storage.
 
@@ -1627,7 +1627,14 @@ class Detection(object):
             except KeyError as e:
                 raise KeyError(f"Unknown parameter '{param_name}'") from e
 
-        result = [_get_param(name) for name in conf.export.source_params]
+        result = [
+            _get_param(name)
+            for name in (
+                conf.export.source_params_file
+                if file
+                else conf.export.source_params
+            )
+        ]
         return result
 
 
