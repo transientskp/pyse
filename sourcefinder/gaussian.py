@@ -1,4 +1,4 @@
-"""Definition of a two dimensional elliptical Gaussian.
+"""Definition of a two-dimensional elliptical Gaussian.
 
 """
 
@@ -31,12 +31,20 @@ def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
 
     """
     return lambda x, y: height * exp(
-        -log(2.0) * (((cos(theta) * (x - center_x) +
-                       sin(theta) * (y - center_y)) /
-                      semiminor) ** 2.0 +
-                     ((cos(theta) * (y - center_y) -
-                       sin(theta) * (x - center_x)) /
-                      semimajor) ** 2.))
+        -log(2.0)
+        * (
+            (
+                (cos(theta) * (x - center_x) + sin(theta) * (y - center_y))
+                / semiminor
+            )
+            ** 2.0
+            + (
+                (cos(theta) * (y - center_y) - sin(theta) * (x - center_x))
+                / semimajor
+            )
+            ** 2.0
+        )
+    )
 
 
 def jac_gaussian(gaussianargs):
@@ -123,8 +131,7 @@ def jac_gaussian(gaussianargs):
 
     # Along the position angle
     def dg_dtheta(x, y):
-        return common(x, y) * term3(x, y) * term4(x, y) * (1 / b ** 2 -
-                                                           1 / d ** 2)
+        return common(x, y) * term3(x, y) * term4(x, y) * (1 / b**2 - 1 / d**2)
 
     jacobian = {
         "peak": dg_dh,
@@ -132,7 +139,7 @@ def jac_gaussian(gaussianargs):
         "ybar": dg_dy0,
         "semimajor": dg_dsmaj,
         "semiminor": dg_dsmin,
-        "theta": dg_dtheta
+        "theta": dg_dtheta,
     }
 
     return jacobian
