@@ -1590,7 +1590,7 @@ class Detection(object):
         """Distance from center"""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
-    def serialize(self, conf=Conf, file=False):
+    def serialize(self, conf=Conf, every_parm=False):
         """
         Return source properties suitable for database storage.
 
@@ -1630,9 +1630,9 @@ class Detection(object):
         result = [
             _get_param(name)
             for name in (
-                conf.export.source_params_file
-                if file
-                else conf.export.source_params
+                conf.export.source_params
+                if every_parm
+                else conf.export.source_params_file
             )
         ]
         return result
