@@ -2293,10 +2293,11 @@ def source_measurements_vectorised(
     chunk_positions[:, 1] = indices[:, 2]
 
     # The result will be put in an array 'moments_of_sources' containing
-    # ten quantities and their uncertainties: peak flux density,
-    # integrated flux, xbar, ybar, semi-major axis, semi-minor axis,
-    # gaussian position angle and the deconvolved equivalents of the latter
-    # three quantities.
+    # ten quantities and their uncertainties: peak spectral brightness,
+    # flux density, xbar, ybar, semi-major axis, semi-minor axis,
+    # elliptical position angle and the deconvolved equivalents of the latter
+    # three quantities. The second column of this array will contain
+    # the uncertainties on these quantities, i.e. the 1-sigma error bars.
     moments_of_sources = np.empty((num_islands, 2, 10), dtype=np.float32)
     dummy = np.empty_like(moments_of_sources)
 
