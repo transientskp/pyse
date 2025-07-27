@@ -2133,10 +2133,12 @@ def source_measurements_vectorised(
         flux density in Jy. All the other numbers in moments_of_sources are in
         pixel coordinates. These are position on the sky, along both image axes,
         semi-major and semi-minor axis of the Gaussian profile of the source and
-        the position angle of the major axis measured east from local north.
+        the position angle of the major axis (in radians) measured from the
+        positive y-axis towards the positive x-axis.
         These three Gaussian profile parameters can be deconvolved from the
         clean beam if the source is resolved. This adds up to ten quantities and
-        corresponding error bars for each island.
+        corresponding error bars for each island. Note that the deconvolved
+        position angle is in degrees, not in radians.
     sky_barycenters : np.ndarray
         (num_islands, 2) array of floats: each row has an entry for right
         ascension (degrees, float64) and declination (degrees, float64).
