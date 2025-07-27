@@ -4,18 +4,19 @@ These are used in conjunction with image.ImageData.
 
 """
 
+import logging
+from collections.abc import MutableMapping
+
+import numpy as np
+from numba import guvectorize, float64, float32, int32
+
 from sourcefinder.deconv import deconv
 from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
-from .gaussian import gaussian
 from . import measuring
 from . import utils
 from .config import Conf
-import logging
-from typing import List
-from collections.abc import MutableMapping
-from numba import guvectorize, float64, float32, int32
-import numpy as np
+from .gaussian import gaussian
 
 np.seterr(divide="raise", invalid="raise")
 
@@ -729,7 +730,8 @@ class ParamSet(MutableMapping):
         return self
 
     def _error_bars_from_moments(self, noise, correlation_lengths, threshold):
-        """Provide reasonable error estimates from the moments.
+        """Provide 1-sigma error bars for source parameters derived from
+        moments
 
         Parameters
         ----------
@@ -1614,13 +1616,55 @@ class Detection(object):
 
         We manually add ew_sys_err, ns_sys_err as defined in conf.image.
 
+        Parameters
+        ----------
+        conf : Conf, default: Conf
+            Configuration object for customizing the parameters to be included.
+        every_parm : bool, default: False
+            If True, return every parameter from conf.export.source_params, if
+            False, return only the parameters from
+            conf.export.source_params_file.
+
         Returns
         -------
-        a list of tuples containing all relevant fields
+        list
+            A list with all entries from either conf.export.source_params or
+            conf.export.source_params_file.
 
         """
 
         def _get_param(param_name):
+            """
+            Retrieve the value or error of a specified parameter.
+
+            Parameters
+            ----------
+            param_name : str
+                The name of the parameter to retrieve. If the parameter name
+                ends with '_err', the method returns the 1-sigma error bar of
+                the measured parameter.
+
+            Returns
+            -------
+            float
+                The value of the parameter or its associated error.
+
+            Notes
+            -----
+                Some quantities, such as "error_radius", have no associated
+                error.
+
+            Raises
+            ------
+            KeyError
+                If "param_name" or param_name[:-4] is not an attribute of the
+                Detection instance. In the latter case, we will have
+                param_name.endswith("_err").
+            AttributeError
+                If the param_name ends with '_err' and its base, i.e.
+                param_name[:-4], is an attribute of the Detection instance,
+                but has no "error" attribute.
+            """
             # Handle special case of ns_sys_err and ew_sys_err
             if param_name == "ns_sys_err":
                 return conf.image.ew_sys_err
