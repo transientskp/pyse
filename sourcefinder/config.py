@@ -19,9 +19,8 @@ from typing import Container
 from typing import Type
 from typing import TypeVar
 from warnings import warn
-from enum import Enum
 
-from sourcefinder.utils import _source_params_descriptions
+from sourcefinder.utility.sourceparams import SourceParams, _file_fields
 
 T = TypeVar("T")
 
@@ -120,74 +119,7 @@ class _Validate:
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 
-class SourceParams(str, Enum):
-    PEAK = "peak"
-    PEAK_ERR = "peak_err"
-    FLUX = "flux"
-    FLUX_ERR = "flux_err"
-    X = "x"
-    X_ERR = "x_err"
-    Y = "y"
-    Y_ERR = "y_err"
-    SMAJ = "smaj"
-    SMAJ_ERR = "smaj_err"
-    SMIN = "smin"
-    SMIN_ERR = "smin_err"
-    THETA = "theta"
-    THETA_ERR = "theta_err"
-    SMAJ_DC = "smaj_dc"
-    SMAJ_DC_ERR = "smaj_dc_err"
-    SMIN_DC = "smin_dc"
-    SMIN_DC_ERR = "smin_dc_err"
-    THETA_DC = "theta_dc"
-    THETA_DC_ERR = "theta_dc_err"
-    RA = "ra"
-    RA_ERR = "ra_err"
-    DEC = "dec"
-    DEC_ERR = "dec_err"
-    SMAJ_ASEC = "smaj_asec"
-    SMAJ_ASEC_ERR = "smaj_asec_err"
-    SMIN_ASEC = "smin_asec"
-    SMIN_ASEC_ERR = "smin_asec_err"
-    THETA_CELES = "theta_celes"
-    THETA_CELES_ERR = "theta_celes_err"
-    THETA_DC_CELES = "theta_dc_celes"
-    THETA_DC_CELES_ERR = "theta_dc_celes_err"
-    ERROR_RADIUS = "error_radius"
-    SIG = "sig"
-    CHISQ = "chisq"
-    REDUCED_CHISQ = "reduced_chisq"
-
-    def describe(self) -> str:
-        """Return a description of the source parameter."""
-        return _source_params_descriptions[self.value]
-
-
 _source_params = [p.value for p in SourceParams.__members__.values()]
-
-assert all(p.value in _source_params_descriptions for p in SourceParams)
-
-# Set default set of source parameters to store in  file, e.g. CSV.
-_file_fields = [
-    "PEAK",
-    "PEAK_ERR",
-    "FLUX",
-    "FLUX_ERR",
-    "X",
-    "Y",
-    "RA",
-    "RA_ERR",
-    "DEC",
-    "DEC_ERR",
-    "SMAJ_ASEC",
-    "SMAJ_ASEC_ERR",
-    "SMIN_ASEC",
-    "SMIN_ASEC_ERR",
-    "THETA_CELES",
-    "THETA_CELES_ERR",
-    "SIG",
-    "REDUCED_CHISQ",
-]
 
 _source_params_file = [SourceParams[field].value for field in _file_fields]
 
