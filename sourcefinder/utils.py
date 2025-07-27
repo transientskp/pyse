@@ -791,6 +791,10 @@ _source_params_descriptions = {
         "Semi-minor axis of the Gaussian profile, "
         "not deconvolved from the clean beam (pixels)"
     ),
+    "smin_err": (
+        "1-sigma uncertainty in the semi-minor axis, "
+        "not deconvolved from the clean beam (pixels)"
+    ),
     "theta": (
         "Position angle of the major axis of the "
         "Gaussian profile, measured from the positive y-axis "

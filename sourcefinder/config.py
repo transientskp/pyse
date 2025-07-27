@@ -132,6 +132,7 @@ class SourceParams(str, Enum):
     SMAJ = "smaj"
     SMAJ_ERR = "smaj_err"
     SMIN = "smin"
+    SMIN_ERR = "smin_err"
     THETA = "theta"
     THETA_ERR = "theta_err"
     SMAJ_DC = "smaj_dc"
