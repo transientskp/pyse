@@ -761,6 +761,11 @@ _source_params_descriptions = {
         "except for an offset of 1 pixel, since the bottom left "
         "pixel in ds9 has x=y=1"
     ),
+    "x_err": (
+        "1-sigma uncertainty in the x-position (float) of the "
+        "barycenter of the source, corresponding to the row index "
+        "of the Numpy array with image data"
+    ),
     "y": (
         "y-position (float) of the barycenter of the source, "
         "correponding to the column index of the Numpy array with "
@@ -768,6 +773,62 @@ _source_params_descriptions = {
         "transposed such that x and y are aligned with ds9 viewing, "
         "except for an offset of 1 pixel, since the bottom left "
         "pixel in ds9 has x=y=1"
+    ),
+    "y_err": (
+        "1-sigma uncertainty in the y-position (float) of the "
+        "barycenter of the source, corresponding to the column "
+        "index of the Numpy array with image data"
+    ),
+    "smaj": (
+        "Semi-major axis of the Gaussian profile, "
+        "not deconvolved from the clean beam (pixels)"
+    ),
+    "smaj_err": (
+        "1-sigma uncertainty in the semi-major axis, "
+        "not deconvolved from the clean beam (pixels)"
+    ),
+    "smin": (
+        "Semi-minor axis of the Gaussian profile, "
+        "not deconvolved from the clean beam (pixels)"
+    ),
+    "theta": (
+        "Position angle of the major axis of the "
+        "Gaussian profile, measured from the positive y-axis "
+        " towards the negative x-axis (radians)"
+    ),
+    "theta_err": (
+        "1-sigma uncertainty in the position angle "
+        "of the major axis of the Gaussian profile, "
+        "measured from the positive y-axis towards the negative x-axis "
+        "(radians)"
+    ),
+    "smaj_dc": (
+        "Semi-major axis of the Gaussian profile, "
+        "deconvolved from the clean beam (pixels)"
+    ),
+    "smaj_dc_err": (
+        "1-sigma uncertainty in the semi-major axis, "
+        "deconvolved from the clean beam (pixels)"
+    ),
+    "smin_dc": (
+        "Semi-minor axis of the Gaussian profile, "
+        "deconvolved from the clean beam (pixels)"
+    ),
+    "smin_dc_err": (
+        "1-sigma uncertainty in the semi-minor axis, "
+        "deconvolved from the clean beam (pixels)"
+    ),
+    "theta_dc": (
+        "Position angle of the major axis of the "
+        "Gaussian profile, deconvolved from the clean beam, "
+        "measured from the positive y-axis towards the negative x-axis ("
+        "degrees)"
+    ),
+    "theta_dc_err": (
+        "1-sigma uncertainty in the position angle "
+        "of the major axis of the Gaussian profile, "
+        "deconvolved from the clean beam, measured from the positive y-axis "
+        "towards the negative x-axis (degrees)"
     ),
     "ra": "Right ascension of the source (degrees)",
     "ra_err": "1-sigma uncertainty in right ascension (degrees)",
@@ -801,11 +862,34 @@ _source_params_descriptions = {
         "of the major axis of the Gaussian profile, "
         "measured east from local north (degrees)"
     ),
+    "theta_dc_celes": (
+        "Position angle of the major axis of the "
+        "Gaussian profile, deconvolved from the clean beam, "
+        "measured east from local north (degrees)"
+    ),
+    "theta_dc_celes_err": (
+        "1-sigma uncertainty in the position angle "
+        "of the major axis of the Gaussian profile, "
+        "deconvolved from the clean beam, measured east from local north "
+        "(degrees)"
+    ),
+    "error_radius": (
+        "The absolute angular error on the position of the source "
+        "(arcseconds). This is a pessimistic estimate, because we try "
+        "all possible combinations of the x and y errors, and take the "
+        "maximum for the four combinations."
+    ),
     "sig": (
         "The significance of a detection (float) is defined as "
         "the maximum signal-to-noise ratio across the island. "
         "Often this will be the ratio of the maximum pixel value "
         "of the source divided by the noise at that position."
+    ),
+    "chisq": (
+        "The chi-squared value of the Gaussian model relative to "
+        "the data (float). Can be a Gaussian model derived from a fit "
+        "or from moments. See the measuring.goodness_of_fit docstring "
+        "for some important notes."
     ),
     "reduced_chisq": (
         "The reduced chi-squared value of the Gaussian "
