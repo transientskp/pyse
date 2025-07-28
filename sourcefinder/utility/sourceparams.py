@@ -211,7 +211,7 @@ _source_params_descriptions = {
 # Ensure that all source parameters have a description
 assert all(p.value in _source_params_descriptions for p in SourceParams)
 
-# Set default set of source parameters to store in  file, e.g. CSV.
+# Set default set of source parameters to store in a file, e.g. a .csv file.
 _file_fields = [
     "PEAK",
     "PEAK_ERR",
@@ -239,7 +239,6 @@ def make_measurements_dataframe(
     sky_barycenters,
     ra_errors,
     dec_errors,
-    error_radii,
     smaj_asec,
     errsmaj_asec,
     smin_asec,
@@ -248,12 +247,16 @@ def make_measurements_dataframe(
     theta_celes_errors,
     theta_dc_celes_values,
     theta_dc_celes_errors,
-    Gaussian_islands,
-    Gaussian_residuals,
+    error_radii,
     sig,
     chisq,
     reduced_chisq,
 ):
+    """
+    Create a Pandas DataFrame with parameters related to detected sources
+    from a subset of the tuple of Numpy ndarrays returned by the
+    `extract.source_measurements_vectorised` function.
+    """
     columns = {
         SourceParams.PEAK: moments_of_sources[:, 0, 0],
         SourceParams.PEAK_ERR: moments_of_sources[:, 1, 0],
@@ -294,3 +297,11 @@ def make_measurements_dataframe(
     }
 
     return pd.DataFrame(columns)
+
+
+def describe_dataframe_columns(df: pd.DataFrame) -> dict[str, str]:
+    return {
+        col: _source_params_descriptions[col]
+        for col in df.columns
+        if col in _source_params_descriptions
+    }
