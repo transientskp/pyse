@@ -15,6 +15,7 @@ from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
+from sourcefinder.utility.sourceparams import make_measurements_dataframe
 import psutil
 import multiprocessing
 from functools import cached_property
@@ -464,6 +465,7 @@ class ImageData(object):
         labels=None,
         deblend_nthresh=0,
         force_beam=False,
+        reconvert=True,
     ):
 
         """Kick off conventional (ie, rms island finding) source
@@ -497,10 +499,20 @@ class ImageData(object):
         force_beam : bool, default: False
             Force all extractions to have major/minor axes and position angle
             equal to the restoring beam.
+        reconvert : bool, default: True
+            Only applies to vectorized source meaurements, i.e. when
+            conf.image.vectorized==True and conf.deblend.thresholds=0.
+            If True, the results will be converted to the same format as
+            for non-vectorized source measurements, i.e. a
+            `utility.containers.ExtractionResults` object. If False,
+            the results will be stored in a Pandas DataFrame, which is much
+            faster.
 
         Returns
         -------
-        :class:`sourcefinder.utility.containers.ExtractionResults`
+        A `utility.containers.ExtractionResults` instance or a
+        Pandas DataFrame containing the results of the source
+        extraction.
 
         """
         if anl > det:
@@ -540,6 +552,7 @@ class ImageData(object):
             anl * self.rmsmap,
             deblend_nthresh,
             force_beam,
+            reconvert,
             labelled_data=labelled_data,
             labels=labels,
         )
@@ -588,6 +601,7 @@ class ImageData(object):
         bgmap=None,
         deblend_nthresh=0,
         force_beam=False,
+        reconvert=True,
     ):
         """False Detection Rate based source extraction.
 
@@ -615,10 +629,20 @@ class ImageData(object):
         force_beam : bool, default: False
             Force all extractions to have major/minor axes and position angle
             equal to the restoring beam.
+        reconvert : bool, default: True
+            Only applies to vectorized source meaurements, i.e. when
+            conf.image.vectorized==True and conf.deblend.thresholds=0.
+            If True, the results will be converted to the same format as
+            for non-vectorized source measurements, i.e. a
+            `utility.containers.ExtractionResults` object. If False,
+            the results will be stored in a Pandas DataFrame, which is much
+            faster.
 
         Returns
         -------
-        :class:`sourcefinder.utility.containers.ExtractionResults`
+        A`utility.containers.ExtractionResults` instance or a
+        Pandas Dataframe containing the results of the source
+        extraction.
 
         Notes
         -----
@@ -683,6 +707,7 @@ class ImageData(object):
             anl * self.rmsmap,
             deblend_nthresh,
             force_beam,
+            reconvert,
         )
 
     @staticmethod
@@ -1257,6 +1282,7 @@ class ImageData(object):
         analysisthresholdmap,
         deblend_nthresh,
         force_beam,
+        reconvert,
         labelled_data=None,
         labels=np.array([], dtype=np.int32),
     ):
@@ -1287,6 +1313,13 @@ class ImageData(object):
         force_beam : bool
             Force all extractions to have major/minor axes and position angle
             equal to the restoring beam.
+        reconvert : bool
+            If True, the results will be converted to the same format as for
+            non-vectorized source measurements, i.e. a
+            `utility.containers.ExtractionResults` object. If False,
+            the results will be stored in a Pandas DataFrame, which is much
+            faster. This requires conf.image.vectorized==True and
+            conf.deblend.thresholds=0.
         labelled_data : np.ndarray, optional, default=None
             Labelled island map (output of np.ndimage.label()). Will be
             calculated automatically if not provided.
@@ -1296,8 +1329,8 @@ class ImageData(object):
 
         Returns
         -------
-        .utility.containers.ExtractionResults
-            Results of the source extraction.
+        A `utility.containers.ExtractionResults` instance or a Pandas
+        DataFrame containing the results of the source extraction.
 
         Notes
         -----
@@ -1322,9 +1355,8 @@ class ImageData(object):
 
         num_islands = len(labels)
 
-        results = containers.ExtractionResults()
-
-        if deblend_nthresh or force_beam or not self.conf.image.vectorized:
+        if deblend_nthresh or not self.conf.image.vectorized:
+            results = containers.ExtractionResults()
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -1440,7 +1472,7 @@ class ImageData(object):
                     ] -= island.data.filled(fill_value=0.0)
                     self.Gaussian_residuals[island.chunk] += Gauss_residual
 
-        elif num_islands > 0:
+        else:
 
             (
                 moments_of_sources,
@@ -1488,57 +1520,79 @@ class ImageData(object):
             if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
-            for count, label in enumerate(labels):
-                chunk = slices[label - 1]
+            if not reconvert:
+                sources_df = make_measurements_dataframe(
+                    moments_of_sources,
+                    sky_barycenters,
+                    ra_errors,
+                    dec_errors,
+                    error_radii,
+                    smaj_asec,
+                    errsmaj_asec,
+                    smin_asec,
+                    errsmin_asec,
+                    theta_celes_values,
+                    theta_celes_errors,
+                    theta_dc_celes_values,
+                    theta_dc_celes_errors,
+                    sig,
+                    chisq,
+                    reduced_chisq,
+                )
+                return sources_df
+            else:
+                results = containers.ExtractionResults()
+                for count, label in enumerate(labels):
+                    chunk = slices[label - 1]
 
-                param = extract.ParamSet()
-                param.sig = sig[count]
-                param.chisq = chisq[count]
-                param.reduced_chisq = reduced_chisq[count]
+                    param = extract.ParamSet()
+                    param.sig = sig[count]
+                    param.chisq = chisq[count]
+                    param.reduced_chisq = reduced_chisq[count]
 
-                param["peak"] = Uncertain(
-                    moments_of_sources[count, 0, 0],
-                    moments_of_sources[count, 1, 0],
-                )
-                param["flux"] = Uncertain(
-                    moments_of_sources[count, 0, 1],
-                    moments_of_sources[count, 1, 1],
-                )
-                param["xbar"] = Uncertain(
-                    moments_of_sources[count, 0, 2],
-                    moments_of_sources[count, 1, 2],
-                )
-                param["ybar"] = Uncertain(
-                    moments_of_sources[count, 0, 3],
-                    moments_of_sources[count, 1, 3],
-                )
-                param["semimajor"] = Uncertain(
-                    moments_of_sources[count, 0, 4],
-                    moments_of_sources[count, 1, 4],
-                )
-                param["semiminor"] = Uncertain(
-                    moments_of_sources[count, 0, 5],
-                    moments_of_sources[count, 1, 5],
-                )
-                param["theta"] = Uncertain(
-                    moments_of_sources[count, 0, 6],
-                    moments_of_sources[count, 1, 6],
-                )
-                param["semimaj_deconv"] = Uncertain(
-                    moments_of_sources[count, 0, 7],
-                    moments_of_sources[count, 1, 7],
-                )
-                param["semimin_deconv"] = Uncertain(
-                    moments_of_sources[count, 0, 8],
-                    moments_of_sources[count, 1, 8],
-                )
-                param["theta_deconv"] = Uncertain(
-                    moments_of_sources[count, 0, 9],
-                    moments_of_sources[count, 1, 9],
-                )
+                    param["peak"] = Uncertain(
+                        moments_of_sources[count, 0, 0],
+                        moments_of_sources[count, 1, 0],
+                    )
+                    param["flux"] = Uncertain(
+                        moments_of_sources[count, 0, 1],
+                        moments_of_sources[count, 1, 1],
+                    )
+                    param["xbar"] = Uncertain(
+                        moments_of_sources[count, 0, 2],
+                        moments_of_sources[count, 1, 2],
+                    )
+                    param["ybar"] = Uncertain(
+                        moments_of_sources[count, 0, 3],
+                        moments_of_sources[count, 1, 3],
+                    )
+                    param["semimajor"] = Uncertain(
+                        moments_of_sources[count, 0, 4],
+                        moments_of_sources[count, 1, 4],
+                    )
+                    param["semiminor"] = Uncertain(
+                        moments_of_sources[count, 0, 5],
+                        moments_of_sources[count, 1, 5],
+                    )
+                    param["theta"] = Uncertain(
+                        moments_of_sources[count, 0, 6],
+                        moments_of_sources[count, 1, 6],
+                    )
+                    param["semimaj_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 7],
+                        moments_of_sources[count, 1, 7],
+                    )
+                    param["semimin_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 8],
+                        moments_of_sources[count, 1, 8],
+                    )
+                    param["theta_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 9],
+                        moments_of_sources[count, 1, 9],
+                    )
 
-                det = extract.Detection(param, self, chunk=chunk)
-                results.append(det)
+                    det = extract.Detection(param, self, chunk=chunk)
+                    results.append(det)
 
         def is_usable(det):
             """Check that both ends of each axis are usable.
