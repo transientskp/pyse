@@ -337,7 +337,8 @@ class ImgConf(_Validate):
 
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
-    """Selection of output, related to detected sources and/or intermediate image processing products"""
+    """Selection of output, related to detected sources and/or intermediate
+    image processing products"""
 
     output_dir: str = "."
     """Directory in which to write the output files."""
