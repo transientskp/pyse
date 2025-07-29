@@ -2238,7 +2238,12 @@ def source_measurements_vectorised(
     # Later we will be needing another 2D array of floats with a number
     # of quantities related to sky position.
 
-    max_pixels = npixs.max()
+    try:
+        max_pixels = npixs.max()
+    except ValueError:
+        # In this case, npixs is empty, i.e. there are no islands,
+        # no sources have been detected.
+        max_pixels = 0
 
     sources = np.empty((num_islands, max_pixels), dtype=np.float32)
     noises = np.empty_like(sources)
