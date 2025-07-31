@@ -25,12 +25,15 @@ import pandas as pd
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.time import Time
+
+from sourcefinder.accessors import sourcefinder_image_from_accessor
+from sourcefinder.accessors.fitsimage import FitsImage
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
 from sourcefinder.gaussian import gaussian
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 
 MAX_BIAS = 5.0
 NUMBER_INSERTED = 3969
@@ -424,6 +427,41 @@ def test_generated_files_unresolved(tmp_path, generate_artificial_image):
 
     assert image_path.exists(), f"File missing: {image_path}"
     assert truth_path.exists(), f"File missing: {truth_path}"
+
+
+def test_measured_vectorized_forced_beam(tmp_path, generate_artificial_image):
+    """
+    Compare source parameters from vectorized source measurements with forced beam
+    to its corresponding ground truth values.
+    """
+    image_path = tmp_path / "image_unresolved.fits"
+    truth_path = tmp_path / "truth_unresolved.h5"
+
+    generate_artificial_image(
+        output_fits_path=image_path, output_truth_path=truth_path
+    )
+
+    conf = Conf(image=ImgConf(vectorized=True), export=ExportSettings())
+    fits_img = FitsImage(image_path)
+    img = sourcefinder_image_from_accessor(fits_img, conf=conf)
+
+    source_parms_df = img.extract(
+        det=10.0,
+        anl=6.0,
+        noisemap=np.ma.array(np.ones(img.data.shape)),
+        bgmap=np.ma.array(np.zeros(img.data.shape)),
+        force_beam=True,
+        reconvert=False,
+    )
+    number_measured_sources = source_parms_df.shape[0]
+
+    # Load the ground truth source parameters into a Pandas DataFrame.
+    truth = pd.read_hdf(truth_path, key="truth")
+
+    assert number_measured_sources == truth.shape[0], (
+        f"Number of measured sources {number_measured_sources} "
+        f"does not match number of ground truth sources {truth.shape[0]}"
+    )
 
 
 if __name__ == "__main__":
