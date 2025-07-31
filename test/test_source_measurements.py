@@ -34,6 +34,7 @@ import sourcefinder.accessors
 from sourcefinder import image
 from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
+from sourcefinder.utility.sourceparams import SourceParams
 
 MAX_BIAS = 5.0
 NUMBER_INSERTED = 3969
@@ -395,8 +396,8 @@ def generate_artificial_image():
 
         df_truth = pd.DataFrame(
             {
-                "ra": coords_world[:, 0],
-                "dec": coords_world[:, 1],
+                SourceParams.RA: coords_world[:, 0],
+                SourceParams.DEC: coords_world[:, 1],
             }
         )
 
