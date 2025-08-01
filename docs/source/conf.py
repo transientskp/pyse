@@ -20,7 +20,6 @@ release = sourcefinder.__version__
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.autodoc.typehints",
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.viewcode",
@@ -28,6 +27,8 @@ extensions = [
     "numpydoc",
     "autoapi.extension",
 ]
+
+autodoc_typehints = "both"
 
 # autoapi_keep_files = True
 autoapi_dirs = ["../../sourcefinder"]
