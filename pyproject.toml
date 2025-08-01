@@ -78,6 +78,14 @@ dependencies = [
     "ruff",
 ]
 
+[tool.hatch.envs.docs]
+extra-dependencies = [
+    "furo",
+    "numpydoc",
+    "sphinx",
+    "sphinx-autoapi",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["test"]
 addopts = ["--import-mode=importlib", "--cov=sourcefinder", "-q", "-ra", "--cov-append"]
