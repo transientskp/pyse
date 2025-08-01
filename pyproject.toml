@@ -61,8 +61,8 @@ extra-dependencies = [
     "pytest-cov",
 ]
 
-[tool.hatch.envs.default_312]
-python = "3.12"
+[tool.hatch.envs.py_oldest]
+python = "3.10"
 extra-dependencies = [
     "pytest",
     "pytest-cov",
