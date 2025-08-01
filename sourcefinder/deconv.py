@@ -1,14 +1,11 @@
-"""
-Gaussian deconvolution.
-"""
+"""Gaussian deconvolution."""
 
 from math import sin, cos, atan, sqrt, pi
 from numba import njit
 
 @njit
 def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
-    """
-    Deconvolve a Gaussian "beam" from a Gaussian component.
+    """Deconvolve a Gaussian "beam" from a Gaussian component.
 
     When we fit an elliptical Gaussian to a point in our image, we are
     actually fitting to a convolution of the physical shape of the source with
@@ -43,6 +40,7 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
         - real minor axis (float)
         - real position angle of the major axis (float)
         - number of components which failed to deconvolve (int)
+
     """
     HALF_RAD = 90.0 / pi
     cmaj2 = cmaj * cmaj

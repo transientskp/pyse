@@ -1,8 +1,3 @@
-.. PySE documentation master file, created by
-   sphinx-quickstart on Mon Dec  2 11:27:46 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to PySE's documentation!
 ================================
 
@@ -10,8 +5,6 @@ Welcome to PySE's documentation!
    :maxdepth: 2
 
    README
-
-
 
 
 Indices and tables

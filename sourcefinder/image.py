@@ -1,6 +1,6 @@
-"""
-Some generic utility routines for number handling and
-calculating (specific) variances
+"""Some generic utility routines for number handling and calculating
+(specific) variances
+
 """
 
 import itertools
@@ -32,54 +32,51 @@ logger = logging.getLogger(__name__)
 class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
 
-    This is your primary contact point for interaction with images: it icludes
-    facilities for source extraction and measurement, etc.
+    This is your primary contact point for interaction with images: it
+    icludes facilities for source extraction and measurement, etc.
+
+    Parameters
+    ----------
+    data : 2D np.ndarray
+        Observational image data. Must be a regular np.ndarray, since image
+        data read from e.g. a FITS file is not a MaskedArray.
+    beam : tuple
+        Clean beam specification as (semi-major axis, semi-minor axis,
+        position angle) with the axes in pixel coordinates and the position
+        angle in radians
+    wcs : utility.coordinates.wcs
+        World coordinate system specification, in our case it is always
+        about sky coordinates.
+    margin : int, default: 0
+        Margin applied to each edge of image (in pixels). Introduces a mask.
+    radius : float, default: 0
+        Radius of usable portion of image (in pixels). Introduces a mask.
+    back_size_x : int, default: 32
+        Subimage size along rows. Subimages are centered on the nodes of the
+        background grid and serve to derive the mean and standard deviation
+        of the background pixels.
+    back_size_y : int, default: 32
+        Subimage size along columns. Subimages are centered on the nodes of
+        the background grid and serve to derive the mean and standard
+        deviation of the background pixels.
+    residuals : bool, default: False
+        Whether to save Gaussian residuals, at the pixels corresponding to
+        the islands, as an image. Other pixel values will be zero.
+    islands : bool, default: False
+        Whether to save the Gaussian reconstructions, at the pixels
+        corresponding to the islands, as an image. Other pixel values will
+        be zero.
+    eps_ra : float, default: 0
+        Calibration uncertainty along Right Ascension in degrees.
+        See equation 27a of NVSS paper.
+    eps_dec : float, default: 0
+        Calibration uncertainty along Declination in degrees.
+        See equation 27b of NVSS paper.
+
     """
 
     def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(),
                  export=ExportSettings())):
-        """
-        Initializes an ImageData object.
-
-        Parameters
-        ----------
-        data : 2D np.ndarray
-            Observational image data. Must be a regular np.ndarray, since image
-            data read from e.g. a FITS file is not a MaskedArray.
-        beam : tuple
-            Clean beam specification as (semi-major axis, semi-minor axis,
-            position angle) with the axes in pixel coordinates and the position
-            angle in radians
-        wcs : utility.coordinates.wcs
-            World coordinate system specification, in our case it is always
-            about sky coordinates.
-        margin : int, default: 0
-            Margin applied to each edge of image (in pixels). Introduces a mask.
-        radius : float, default: 0
-            Radius of usable portion of image (in pixels). Introduces a mask.
-        back_size_x : int, default: 32
-            Subimage size along rows. Subimages are centered on the nodes of the
-            background grid and serve to derive the mean and standard deviation
-            of the background pixels.
-        back_size_y : int, default: 32
-            Subimage size along columns. Subimages are centered on the nodes of
-            the background grid and serve to derive the mean and standard
-            deviation of the background pixels.
-        residuals : bool, default: False
-            Whether to save Gaussian residuals, at the pixels corresponding to
-            the islands, as an image. Other pixel values will be zero.
-        islands : bool, default: False
-            Whether to save the Gaussian reconstructions, at the pixels
-            corresponding to the islands, as an image. Other pixel values will
-            be zero.
-        eps_ra : float, default: 0
-            Calibration uncertainty along Right Ascension in degrees.
-            See equation 27a of NVSS paper.
-        eps_dec : float, default: 0
-            Calibration uncertainty along Declination in degrees.
-            See equation 27b of NVSS paper.
-        """
-
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
@@ -208,6 +205,7 @@ class ImageData(object):
         data. All of these can be reconstructed from the data accessor.
 
         Note that this *must* be run to pick up any new settings.
+
         """
         try:
             self.labels.clear()
@@ -241,6 +239,7 @@ class ImageData(object):
 
         This is called automatically when ImageData.backmap,
         ImageData.rmsmap or ImageData.fdrmap is first accessed.
+
         """
 
         # there's no point in working with the whole of the data array
@@ -320,8 +319,8 @@ class ImageData(object):
 
     def _interpolate(self, grid, inds, roundup=False):
 
-        """
-        Interpolate a grid to produce a map of the dimensions of the image.
+        """Interpolate a grid to produce a map of the dimensions of
+        the image.
 
         Parameters
         ----------
@@ -342,6 +341,7 @@ class ImageData(object):
         This function is used to transform the RMS, background or FDR grids
         produced by :func:`_grids()` to a map we can compare with the image
         data.
+
         """
         # Use zeroes with the mask from the observational image as a starting
         # point for the mean background and rms background maps. Next, use
@@ -416,8 +416,8 @@ class ImageData(object):
     def extract(self, det, anl, noisemap=None, bgmap=None, labelled_data=None,
                 labels=None, deblend_nthresh=0, force_beam=False):
 
-        """
-        Kick off conventional (ie, rms island finding) source extraction.
+        """Kick off conventional (ie, rms island finding) source
+        extraction.
 
         Parameters
         ----------
@@ -451,6 +451,7 @@ class ImageData(object):
         Returns
         -------
         :class:`sourcefinder.utility.containers.ExtractionResults`
+
         """
         if anl > det:
             logger.warning(
@@ -510,6 +511,7 @@ class ImageData(object):
         data (background map, clips, etc.) is cleared before and after
         running this method. If this method is used frequently, a separate
         cache may be implemented in the future.
+
         """
         self.labels.clear()
         self.clip.clear()
@@ -520,11 +522,16 @@ class ImageData(object):
         self.clip.clear()
         return results
 
-    def fd_extract(self, alpha, anl=None, noisemap=None,
-                   bgmap=None, deblend_nthresh=0, force_beam=False
-                   ):
-        """
-        False Detection Rate based source extraction.
+    def fd_extract(
+        self,
+        alpha,
+        anl=None,
+        noisemap=None,
+        bgmap=None,
+        deblend_nthresh=0,
+        force_beam=False,
+    ):
+        """False Detection Rate based source extraction.
 
         The FDR procedure guarantees that the False Detection Rate (FDR) is less
         than alpha.
@@ -559,15 +566,17 @@ class ImageData(object):
         -----
         See Hopkins et al., AJ, 123, 1086 (2002) for more details.
         http://adsabs.harvard.edu/abs/2002AJ....123.1086H
+
         """
         # The correlation length in config.py is used not only for the
         # calculation of error bars with the Condon formulae, but also for
         # calculating the number of independent pixels.
         corlengthlong, corlengthshort = self.correlation_lengths
 
-        C_n = (1.0 / np.arange(
-            round(0.25 * np.pi * corlengthlong *
-                  corlengthshort + 1))[1:]).sum()
+        C_n = (
+            1.0
+            / np.arange(round(0.25 * np.pi * corlengthlong * corlengthshort + 1))[1:]
+        ).sum()
 
         # Calculate the FDR threshold
         # Things will go terribly wrong in the line below if the interpolated
@@ -589,15 +598,14 @@ class ImageData(object):
         normalized_data = self.data_bgsubbed / self.rmsmap
 
         n1 = np.sqrt(2 * np.pi)
-        prob = np.sort(
-            np.ravel(np.exp(-0.5 * normalized_data ** 2) / n1))
+        prob = np.sort(np.ravel(np.exp(-0.5 * normalized_data**2) / n1))
         lengthprob = float(len(prob))
         compare = (alpha / C_n) * np.arange(lengthprob + 1)[1:] / lengthprob
         # Find the last undercrossing, see, e.g., fig. 9 in Miller et al., AJ
         # 122, 3492 (2001).  Searchsorted is not used because the array is not
         # sorted.
         try:
-            index = (np.where(prob - compare < 0.)[0]).max()
+            index = (np.where(prob - compare < 0.0)[0]).max()
         except ValueError:
             # Everything below threshold
             return containers.ExtractionResults()
@@ -609,13 +617,18 @@ class ImageData(object):
         # See, e.g., Hopkins et al., AJ 123, 1086 (2002).
         if not anl:
             anl = fdr_threshold
-        return self._pyse(fdr_threshold * self.rmsmap, anl, anl * self.rmsmap,
-                          deblend_nthresh, force_beam)
+        return self._pyse(
+            fdr_threshold * self.rmsmap,
+            anl,
+            anl * self.rmsmap,
+            deblend_nthresh,
+            force_beam,
+        )
 
     @staticmethod
     def box_slice_about_pixel(x, y, box_radius):
-        """
-        Returns a slice centred about (x,y), of width = 2 * int(box_radius) + 1.
+        """Returns a slice centred about (x,y), of width = 2 *
+        int(box_radius) + 1.
 
         Parameters
         ----------
@@ -630,6 +643,7 @@ class ImageData(object):
         -------
         tuple of slice
             Slice centred about (x,y) with width = 2*box_radius + 1.
+
         """
         ibr = int(box_radius)
         x = int(x)
@@ -639,8 +653,8 @@ class ImageData(object):
 
     def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float,
                      fixed: str):
-        """
-        Fit an elliptical Gaussian to a specified point on the image.
+        """Fit an elliptical Gaussian to a specified point on the
+        image.
 
         Parameters
         ----------
@@ -662,6 +676,7 @@ class ImageData(object):
         Detection
             An instance of :class:`sourcefinder.extract.Detection` containing
             the fit results.
+
         """
         logger.debug("Force-fitting pixel location ({},{})".format(x, y))
         # First, check that x and y are actually valid semi-positive integers.
@@ -776,8 +791,8 @@ class ImageData(object):
     def fit_fixed_positions(self, positions, boxsize, threshold=None,
                             fixed='position+shape',
                             ids=None):
-        """
-        Convenience function to fit a list of sources at the given positions.
+        """Convenience function to fit a list of sources at the given
+        positions.
 
         This function wraps around :py:func:`fit_to_point`.
 
@@ -805,6 +820,7 @@ class ImageData(object):
             A list of successful fits. If ``ids`` is None, returns a single list
             of :class:`sourcefinder.extract.Detection` s. Otherwise, returns a
             tuple of two matched lists: ([detections], [matching_ids]).
+
         """
         if ids is not None:
             assert len(ids) == len(positions)
@@ -847,8 +863,7 @@ class ImageData(object):
         return successful_fits
 
     def label_islands(self, detectionthresholdmap, analysisthresholdmap):
-        """
-        Return a labelled array of pixels for fitting.
+        """Return a labelled array of pixels for fitting.
 
         Parameters
         ----------
@@ -864,46 +879,56 @@ class ImageData(object):
         Returns
         -------
         tuple
-            A tuple containing:
-            labels_above_det_thr : np.ndarray
-                1D array of labels above detection threshold, with shape
-                (num_islands_above_detection_threshold,) and dtype np.int64.
-                Note that the length of this array may be smaller than the total
-                number of islands above the analysis threshold, as some labels
-                may have been filtered out due to a peak spectral brightness
-                lower than the local detection threshold.
-            labelled_data : np.ndarray
-                Array of labelled pixels, where each pixel with a nonzero label
-                corresponds to an island above the analysis threshold. The array
-                has the same shape as the observational image (self.rawdata) and
-                contains integer values corresponding to the labels of the
-                islands. Pixels that do not belong to any island are assigned a
-                label of 0. The number of islands above the analysis threshold
-                is equal to the number of unique labels in this array, which is
-                equal to or larger than num_islands_above_detection_threshold,
-                i.e. the number of islands above the detection threshold.
-                This array has dtype np.int32.
-            num_islands_above_detection_threshold : int
-                Number of islands above detection threshold.
-            maxposs_above_det_thr : np.ndarray
-                Array of indices of the maximum pixel values above detection
-                threshold, with shape (num_islands_above_detection_threshold, 2)
-                and dtype np.int32.
-            maxis_above_det_thr : np.ndarray
-                Array of maximum pixel values above detection threshold, with
-                shape (num_islands_above_detection_threshold,) and dtype
-                np.float32.
-            npixs_above_det : np.ndarray
-                1D array of pixel counts for each island with peak spectral
-                brightness above the detection threshold, with shape
-                (num_islands_above_detection_threshold,) and dtype np.int32.
-            all_indices_above_det_thr : np.ndarray
-                Array of indices of the islands above detection threshold, with
-                shape (num_islands_above_detection_threshold, 4) and dtype
-                np.int32.
-            slices : list of slice
-                List of slices encompassing all islands in labelled_data, i.e.
-                encompassing all islands above the analysis threshold.
+            - labels_above_det_thr (np.ndarray): 1D array of labels
+              above detection threshold, with shape
+              (num_islands_above_detection_threshold,) and dtype
+              np.int64.  Note that the length of this array may be
+              smaller than the total number of islands above the
+              analysis threshold, as some labels may have been
+              filtered out due to a peak spectral brightness lower
+              than the local detection threshold.
+
+            - labelled_data (np.ndarray): Array of labelled pixels,
+              where each pixel with a nonzero label corresponds to an
+              island above the analysis threshold. The array has the
+              same shape as the observational image (self.rawdata) and
+              contains integer values corresponding to the labels of
+              the islands. Pixels that do not belong to any island are
+              assigned a label of 0. The number of islands above the
+              analysis threshold is equal to the number of unique
+              labels in this array, which is equal to or larger than
+              num_islands_above_detection_threshold, i.e. the number
+              of islands above the detection threshold.  This array
+              has dtype np.int32.
+
+            - num_islands_above_detection_threshold (int): Number of
+              islands above detection threshold.
+
+            - maxposs_above_det_thr (np.ndarray): Array of indices of
+              the maximum pixel values above detection threshold, with
+              shape (num_islands_above_detection_threshold, 2) and
+              dtype np.int32.
+
+            - maxis_above_det_thr (np.ndarray): Array of maximum pixel
+              values above detection threshold, with shape
+              (num_islands_above_detection_threshold,) and dtype
+              np.float32.
+
+            - npixs_above_det (np.ndarray): 1D array of pixel counts
+              for each island with peak spectral brightness above the
+              detection threshold, with shape
+              (num_islands_above_detection_threshold,) and dtype
+              np.int32.
+
+            - all_indices_above_det_thr (np.ndarray): Array of indices
+              of the islands above detection threshold, with shape
+              (num_islands_above_detection_threshold, 4) and dtype
+              np.int32.
+
+            - slices (list): List of slices encompassing all islands
+              in labelled_data, i.e.  encompassing all islands above
+              the analysis threshold.
+
         """
         # If there is no usable data, we return an empty set of islands.
         if not len(self.rmsmap.compressed()):
@@ -992,8 +1017,10 @@ class ImageData(object):
     @staticmethod
     def fit_islands(fudge_max_pix_factor, beamsize, correlation_lengths,
                     fixed, island):
-        """This function was created to enable the use of 'partial' such that
-        we can parallellize source measurements"""
+        """This function was created to enable the use of 'partial'
+        such that we can parallellize source measurements
+
+        """
         return island.fit(fudge_max_pix_factor, beamsize, correlation_lengths,
                           fixed=fixed)
 
@@ -1004,10 +1031,12 @@ class ImageData(object):
     @staticmethod
     def slices_to_indices(slices):
         """Convert the list of tuples of slices generated by
-        scipy.ndimage.find_objects into a 2D int32 array with number of rows
-        equal to the number of islands and 4 columns, i.e 4 integers per island,
-        containing the same information as the slices, but more suitable for
-        compilation by Numba"""
+        scipy.ndimage.find_objects into a 2D int32 array with number
+        of rows equal to the number of islands and 4 columns, i.e 4
+        integers per island, containing the same information as the
+        slices, but more suitable for compilation by Numba
+
+        """
         num_slices = len(slices)
         all_indices = np.empty((num_slices, 4), dtype=np.int32)
 
@@ -1025,7 +1054,8 @@ class ImageData(object):
                  '(), (k) -> (k), (), ()')
     def extract_parms_image_slice(some_image, inds, labelled_data, label, dummy,
                                   maxpos, maxi, npix):
-        """
+        """Find the highest pixel value and its position.
+
         For an island, indicated by a group of pixels with the same label,
         find the highest pixel value and its position, first relative to the
         upper left corner of the rectangular slice encompassing the island,
@@ -1075,6 +1105,7 @@ class ImageData(object):
             'guvectorize() functions don’t return their result value: they take
             it as an array argument, which must be filled in by the function'. In
             this case maxpos, maxi and npix will be filled with values.
+
         """
 
         labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
@@ -1094,8 +1125,7 @@ class ImageData(object):
             self, detectionthresholdmap, analysis_threshold,
             analysisthresholdmap, deblend_nthresh, force_beam,
             labelled_data=None, labels=np.array([], dtype=np.int32)):
-        """
-        Run Python-based source extraction on this image.
+        """Run Python-based source extraction on this image.
 
         Parameters
         ----------
@@ -1139,6 +1169,7 @@ class ImageData(object):
         This is described in detail in the "LOFAR Transients Pipeline" article
         by John D. Swinbank et al., see
         https://doi.org/10.1016/j.ascom.2015.03.002
+
         """
         # Map our chunks onto a list of islands.
 
@@ -1305,10 +1336,12 @@ class ImageData(object):
                 results.append(det)
 
         def is_usable(det):
-            """
-            Check that both ends of each axis are usable; that is, that they
-            fall within an unmasked part of the image. The axis will not likely
-            fall exactly on a pixel number, so check all the surroundings.
+            """Check that both ends of each axis are usable.
+
+            I.e., they fall within an unmasked part of the image. The
+            axis will not likely fall exactly on a pixel number, so
+            check all the surroundings.
+
             """
             def check_point(x, y):
                 x = (int(x), int(np.ceil(x)))

@@ -1,5 +1,5 @@
-"""
-Definition of a two dimensional elliptical Gaussian.
+"""Definition of a two dimensional elliptical Gaussian.
+
 """
 
 from numpy import exp, log, cos, sin

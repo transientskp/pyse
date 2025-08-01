@@ -1,8 +1,8 @@
-"""
-Container classes for the TKP pipeline.
+"""Container classes for the TKP pipeline.
 
 These provide convenient means of marshalling the various types of data --
 lightcurves, detections, sources, etc -- that the pipeline must handle.
+
 """
 
 import logging
