@@ -96,6 +96,34 @@ this:
    │         │         │ mypy         │
    │         │         │ ruff         │
    └─────────┴─────────┴──────────────┘
+                        Matrices
+   ┏━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+   ┃ Name ┃ Type    ┃ Envs        ┃ Dependencies     ┃
+   ┡━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+   │ test │ virtual │ test.py3.10 │ pytest           │
+   │      │         │ test.py3.11 │ pytest-cov       │
+   │      │         │ test.py3.12 │                  │
+   │      │         │ test.py3.13 │                  │
+   └──────┴─────────┴─────────────┴──────────────────┘
+
+As shown above, the test environments also define a matrix to cover
+multiple Python versions.  So we can run the whole test matrix locally
+with:
+
+.. code-block:: bash
+
+   $ hatch run test:pytest
+
+Instead if you want to run only a subset, you can limit the python
+versions like this:
+
+.. code-block:: bash
+
+   $ hatch run +py=3.13 test:pytest # +py and +python are equivalent
+   $ hatch run +python=3.13 test:pytest
+   $ hatch run +python=3.12,3.13 test:pytest
+
+For more options, see ``hatch env run -h``.
 
 Some common tasks using ``hatch`` are summarised below.
 
