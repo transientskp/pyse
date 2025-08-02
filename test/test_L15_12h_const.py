@@ -1,6 +1,4 @@
-"""
-Tests for simulated LOFAR datasets.
-"""
+"""Tests for simulated LOFAR datasets."""
 
 import gc
 import os
