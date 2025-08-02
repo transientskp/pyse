@@ -20,7 +20,7 @@ from typing import Container
 from typing import Type
 from typing import TypeVar
 from warnings import warn
-from enum import StrEnum
+from enum import Enum
 
 T = TypeVar("T")
 
@@ -117,7 +117,7 @@ class _Validate:
 _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 
-class SourceParam(StrEnum):
+class SourceParam(str, Enum):
     RA = "ra"
     RA_ERR = "ra_err"
     DEC = "dec"
