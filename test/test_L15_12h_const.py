@@ -30,21 +30,25 @@ all_fits = os.path.join(DATAPATH, 'model-all.fits')
 
 
 class L15_12hConstObs(unittest.TestCase):
+    __slots__ = ("image", "results")
+
     # Single, constant 1 Jy source at centre of image.
     @requires_data(observed_fits)
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(observed_fits,
                                                               beam=(0.2299,
                                                                     0.1597,
                                                                     -23.87))
-        self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
-        self.results = self.image.extract(det=10, anl=3.0)
+        cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.results = cls.image.extract(det=10, anl=3.0)
 
-    def tearDown(self):
-        del self.results
-        del self.image
+    @classmethod
+    def tearDownClass(cls):
+        del cls.results
+        del cls.image
         gc.collect()
 
     @requires_data(observed_fits)
@@ -58,20 +62,24 @@ class L15_12hConstObs(unittest.TestCase):
 
 
 class L15_12hConstCor(unittest.TestCase):
+    __slots__ = ("image", "results")
+
     # Cross shape of 5 sources, 2 degrees apart, at centre of image.
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
                                                               beam=(0.2299,
                                                                     0.1597,
                                                                     -23.87))
-        self.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
-        self.results = self.image.extract(det=10.0, anl=3.0)
+        cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.results = cls.image.extract(det=10.0, anl=3.0)
 
-    def tearDown(self):
-        del self.image
-        del self.results
+    @classmethod
+    def tearDownClass(cls):
+        del cls.image
+        del cls.results
         gc.collect()
 
     @requires_data(corrected_fits)
@@ -99,8 +107,11 @@ class L15_12hConstCor(unittest.TestCase):
 
 
 class L15_12hConstMod(unittest.TestCase):
+    __slots__ = ("image", "results")
+
     # 1 Jy constant source at centre; 1 Jy (peak) transient 3 degrees away.
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
         # This image is of the whole sequence, so obviously we won't see the
         # transient varying. In fact, due to a glitch in the simulation
         # process, it will appear smeared out & shouldn't be identified at
@@ -111,14 +122,15 @@ class L15_12hConstMod(unittest.TestCase):
                                                               beam=(0.2299,
                                                                     0.1597,
                                                                     -23.87))
-        self.image = image.ImageData(
+        cls.image = image.ImageData(
             fitsfile.data, fitsfile.beam, fitsfile.wcs, Conf(ImgConf(radius=100), {})
         )
-        self.results = self.image.extract(det=5, anl=3.0)
+        cls.results = cls.image.extract(det=5, anl=3.0)
 
-    def tearDown(self):
-        del (self.results)
-        del (self.image)
+    @classmethod
+    def tearDownClass(cls):
+        del cls.results
+        del cls.image
         gc.collect()
 
     @requires_data(all_fits)

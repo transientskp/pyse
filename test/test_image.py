@@ -505,10 +505,17 @@ class TestNegationImage(unittest.TestCase):
     Check if we do not detect any sources from the negation of a Stokes I
     image with many sources.
     """
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
     def testReverseSE(self):
@@ -530,15 +537,22 @@ class TestNegationImage(unittest.TestCase):
 # ChatGPT 4.0. All AI-output has been verified for correctness,
 # accuracy and completeness, adapted where needed, and approved by the author.
 class TestBackgroundCharacteristicsSimple(unittest.TestCase):
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = sfimage.ImageData(
+        cls.img = ImageData(
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
             Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
@@ -612,15 +626,22 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
 # ChatGPT 4.0. All AI-output has been verified for correctness,
 # accuracy and completeness, adapted where needed, and approved by the author.
 class TestBackgroundCharacteristicsComplex(unittest.TestCase):
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                'image_206-215-t0002.fits'))
-        self.img = sfimage.ImageData(
+        cls.img = ImageData(
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
             Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("mean_grid_image_206-215-t0002.fits_radius" +
