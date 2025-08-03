@@ -27,7 +27,6 @@ import numbers
 import os.path
 import pdb
 import sys
-from collections import OrderedDict
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
@@ -35,7 +34,6 @@ from pathlib import Path
 import astropy.io.fits as pyfits
 import numpy
 
-from sourcefinder import image
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
