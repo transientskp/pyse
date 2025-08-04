@@ -10,7 +10,6 @@ from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.testutil.mock import SyntheticImage
 
 import sourcefinder
-from sourcefinder import image as sfimage
 from sourcefinder.image import ImageData
 from sourcefinder.utility.uncertain import Uncertain
 
@@ -35,15 +34,15 @@ class TestNumpySubroutines(unittest.TestCase):
         central_value = a[y, x]  # 34
 
         round_down_to_single_pixel = a[
-            sfimage.ImageData.box_slice_about_pixel(x, y, 0.9)]
+            ImageData.box_slice_about_pixel(x, y, 0.9)]
         self.assertEqual(round_down_to_single_pixel, [[central_value]])
 
-        chunk_3_by_3 = a[sfimage.ImageData.box_slice_about_pixel(x, y, 1)]
+        chunk_3_by_3 = a[ImageData.box_slice_about_pixel(x, y, 1)]
         self.assertEqual(chunk_3_by_3.shape, (3, 3))
         self.assertEqual(central_value, chunk_3_by_3[1, 1])
 
         chunk_3_by_3_round_down = a[
-            sfimage.ImageData.box_slice_about_pixel(x, y, 1.9)]
+            ImageData.box_slice_about_pixel(x, y, 1.9)]
         self.assertListEqual(list(chunk_3_by_3.reshape(9)),
                              list(chunk_3_by_3_round_down.reshape(9))
                              )
@@ -351,10 +350,10 @@ class TestSimpleImageSourceFind(unittest.TestCase):
              4.6760769e+00, 0.0000000e+00,  # error_radius (arcsec), fit_type
              8.3038670e-01, 9.1803038e-01]  # chisq, reduced chisq
 
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
 
-        results = self.image.extract(det=5, anl=3)
+        results = image.extract(det=5, anl=3)
         results = [result.serialize(conf) for result in
                    results]
         self.assertEqual(len(results), 2)
@@ -377,11 +376,11 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         testSingleSourceExtraction(), above). Here we force the lengths of the
         major/minor axes to be held constant when fitting.
         """
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
-        results = self.image.extract(det=5, anl=3, force_beam=True)
-        self.assertEqual(results[0].smaj.value, self.image.beam[0])
-        self.assertEqual(results[0].smin.value, self.image.beam[1])
+        results = image.extract(det=5, anl=3, force_beam=True)
+        self.assertEqual(results[0].smaj.value, image.beam[0])
+        self.assertEqual(results[0].smin.value, image.beam[1])
 
     @requires_data(os.path.join(DATAPATH, 'SWIFT_554620-130504.fits'))
     @requires_data(os.path.join(DATAPATH, 'SWIFT_554620-130504.image'))
@@ -427,9 +426,9 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         source in the image, just by setting the thresholds very high -
         this avoids requiring additional data).
         """
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
-        results = self.image.extract(det=5e10, anl=5e10)
+        results = image.extract(det=5e10, anl=5e10)
         results = [result.serialize() for result in results]
         self.assertEqual(len(results), 0)
 
@@ -450,15 +449,15 @@ class TestMaskedSource(unittest.TestCase):
         Tip of major axis is around 267, 264
         """
 
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A))
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
-        self.image.data[266:269, 263:266] = np.ma.masked
+        image.data[266:269, 263:266] = np.ma.masked
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches an extra noise peak at the 5 sigma level.
-        self.image.data[42:50, 375:386] = np.ma.masked
-        results = self.image.extract(det=5, anl=3)
+        image.data[42:50, 375:386] = np.ma.masked
+        results = image.extract(det=5, anl=3)
         self.assertFalse(results)
 
 
@@ -469,20 +468,20 @@ class TestMaskedBackground(unittest.TestCase):
         """
         Background at forced fit is masked
         """
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
             conf=Conf(ImgConf(radius=1.0), {}),
         )
-        result = self.image.fit_to_point(256, 256, 10, 0, None)
+        result = image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
 
     @requires_data(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
     def testMaskedBackgroundBlind(self):
-        self.image = accessors.sourcefinder_image_from_accessor(
+        image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
             conf=Conf(ImgConf(radius=1.0), {}),
         )
-        result = self.image.extract(det=10.0, anl=3.0)
+        result = image.extract(det=10.0, anl=3.0)
         self.assertFalse(result)
 
 
@@ -506,10 +505,17 @@ class TestNegationImage(unittest.TestCase):
     Check if we do not detect any sources from the negation of a Stokes I
     image with many sources.
     """
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH, 'deconvolved.fits'))
     def testReverseSE(self):
@@ -531,15 +537,22 @@ class TestNegationImage(unittest.TestCase):
 # ChatGPT 4.0. All AI-output has been verified for correctness,
 # accuracy and completeness, adapted where needed, and approved by the author.
 class TestBackgroundCharacteristicsSimple(unittest.TestCase):
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                             'deconvolved.fits'))
-        self.img = sfimage.ImageData(
+        cls.img = ImageData(
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
             Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 "mean_grid_deconvolved.fits.npy"),
@@ -613,15 +626,22 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
 # ChatGPT 4.0. All AI-output has been verified for correctness,
 # accuracy and completeness, adapted where needed, and approved by the author.
 class TestBackgroundCharacteristicsComplex(unittest.TestCase):
-    def setUp(self):
+    __slots__ = ("img",)
+
+    @classmethod
+    def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
                                                'image_206-215-t0002.fits'))
-        self.img = sfimage.ImageData(
+        cls.img = ImageData(
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
             Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        del cls.img
 
     @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
                                 ("mean_grid_image_206-215-t0002.fits_radius" +
