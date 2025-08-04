@@ -146,17 +146,21 @@ class L15_12hConstMod(unittest.TestCase):
 
 
 class FitToPointTestCase(unittest.TestCase):
-    def setUp(self):
+    __slots__ = ("my_im",)
+
+    @classmethod
+    def setUpClass(cls):
         # FWHM of PSF taken from fit to unresolved source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
                                                               beam=(2. * 500.099 / 3600,
                                                                     2. * 319.482 / 3600,
                                                                     168.676))
-        self.my_im = image.ImageData(fitsfile.data, fitsfile.beam,
+        cls.my_im = image.ImageData(fitsfile.data, fitsfile.beam,
                                      fitsfile.wcs)
 
-    def tearDown(self):
-        del self.my_im
+    @classmethod
+    def tearDownClass(cls):
+        del cls.my_im
         gc.collect()
 
     @requires_data(corrected_fits)
