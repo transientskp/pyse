@@ -62,8 +62,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def open_subtables(table):
-        """
-        Open all subtables defined in the LOFAR format.
+        """Open all subtables defined in the LOFAR format.
 
         Parameters
         ----------
@@ -74,6 +73,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         -------
         dict
             A dictionary containing all LOFAR CASA subtables
+
         """
         subtables = {}
         for subtable in subtable_names:
@@ -83,8 +83,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_taustartts(subtables):
-        """
-        Extract the image start time from the CASA table header.
+        """Extract the image start time from the CASA table header.
         
         Parameters
         ----------
@@ -101,6 +100,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         We sort the table in order of ascending start time then
         choose the first value to ensure we get the earliest possible
         starting time.
+
         """
         observation_table = subtables['LOFAR_OBSERVATION']
         julianstart = observation_table.query(
@@ -113,8 +113,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def non_overlapping_time(series):
-        """
-        Calculate the sum of total time ranges without overlap.
+        """Calculate the sum of total time ranges without overlap.
 
         Parameters
         ----------
@@ -127,6 +126,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         float
             The total length of all time ranges without overlap, most likely in
             seconds.
+
         """
         series.sort()
         overlap = total = 0
@@ -143,8 +143,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_tautime(subtables):
-        """
-        Returns the total on-sky time for this image.
+        """Returns the total on-sky time for this image.
         
         Parameters
         ----------
@@ -155,6 +154,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         -------
         float
             The total on-sky time, most likely in seconds.
+
         """
         origin_table = subtables['LOFAR_ORIGIN']
         startcol = origin_table.col('START')
@@ -166,8 +166,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_antennaset(subtables):
-        """
-        Extract the antenna set used in the observation.
+        """Extract the antenna set used in the observation.
 
         This method retrieves the unique antenna set from the
         LOFAR_OBSERVATION subtable.
@@ -191,6 +190,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         The method uses the `unique_column_values` function from the
         `CasaImage` class to extract unique values from the "ANTENNA_SET"
         column.
+
         """
         observation_table = subtables['LOFAR_OBSERVATION']
         antennasets = CasaImage.unique_column_values(observation_table,
@@ -202,8 +202,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_subbands(subtables):
-        """
-        Extract the number of subbands used in the observation.
+        """Extract the number of subbands used in the observation.
 
         This method retrieves the unique number of subbands from the
         LOFAR_ORIGIN subtable. If multiple values are found, an exception is
@@ -228,6 +227,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         -----
         The method uses the `unique_column_values` function from the
         `CasaImage` class to extract unique values from the "NUM_CHAN" column.
+
         """
         origin_table = subtables['LOFAR_ORIGIN']
         num_chans = CasaImage.unique_column_values(origin_table, "NUM_CHAN")
@@ -239,8 +239,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_subbandwidth(subtables):
-        """
-        Calculate the subband width for the observation.
+        """Calculate the subband width for the observation.
 
         This method determines the subband width based on the clock frequency
         retrieved from the LOFAR_OBSERVATION subtable.
@@ -268,6 +267,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         https://www.astron.nl/lofarwiki/doku.php?id=public:documents:
         raw_olap_data_formats&s[]=subband
         'base_subband_hz = clock_hz / 1024'
+
         """
         freq_units = {
             'Hz': 1,
@@ -290,8 +290,8 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
 
     @staticmethod
     def parse_stations(subtables):
-        """
-        Extract the number of specific LOFAR stations used in the observation.
+        """Extract the number of specific LOFAR stations used in the
+        observation.
 
         This method calculates the number of core, remote, and international
         LOFAR stations used based on the observation and antenna subtables.
@@ -317,6 +317,7 @@ class LofarCasaImage(CasaImage, LofarAccessor):  # type: ignore[misc]
         - Core stations start with "CS".
         - Remote stations start with "RS".
         - International stations have other prefixes.
+
         """
         observation_table = subtables['LOFAR_OBSERVATION']
         antenna_table = subtables['LOFAR_ANTENNA']

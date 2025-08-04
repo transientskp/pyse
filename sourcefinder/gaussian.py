@@ -6,8 +6,7 @@ from numpy import exp, log, cos, sin
 
 
 def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
-    """
-    Return a 2D Gaussian function with the given parameters.
+    """Return a 2D Gaussian function with the given parameters.
 
     Parameters
     ----------
@@ -29,6 +28,7 @@ def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
     -------
     function
         2D Gaussian function of pixel coordinates (x, y).
+
     """
     return lambda x, y: height * exp(
         -log(2.0) * (((cos(theta) * (x - center_x) +
@@ -40,8 +40,7 @@ def gaussian(height, center_x, center_y, semimajor, semiminor, theta):
 
 
 def jac_gaussian(gaussianargs):
-    """
-    Return the Jacobian of a 2D anisotropic Gaussian.
+    """Return the Jacobian of a 2D anisotropic Gaussian.
 
     Parameters
     ----------
@@ -62,6 +61,7 @@ def jac_gaussian(gaussianargs):
         A dictionary containing the Jacobian of the Gaussian, i.e., the
         derivatives along each of the six parameters of the Gaussian as
         functions of pixel coordinates (x, y).
+
     """
     height, center_x, center_y, semimajor, semiminor, theta = gaussianargs
 

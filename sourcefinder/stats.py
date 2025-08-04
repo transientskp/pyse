@@ -1,17 +1,18 @@
-"""
-Generic utility routines for number handling and calculating (specific)
-variances used by the TKP sourcefinder.
+"""Generic utility routines for number handling and calculating
+(specific) variances used by the TKP sourcefinder.
+
 """
 
 import math
 import numpy as np
 from numba import njit, guvectorize, int32, float32
 from sourcefinder.utils import newton_raphson_root_finder
-# CODE & NUMBER HANDLING ROUTINES
+
 
 @njit
 def erf(val):
     return math.erf(val)
+
 
 @njit
 def find_true_std(sigma, clipped_std, clip_limit):
@@ -39,7 +40,8 @@ def find_true_std(sigma, clipped_std, clip_limit):
     This function, together with its derivative should be input to a root
     finder algorithm; i.e. we are looking for the value of sigma such that
     this function returns zero.
-    """ 
+
+    """
     help1 = clip_limit / (sigma * np.sqrt(2))
     help2 = np.sqrt(2 * np.pi) * erf(help1)
     return (sigma ** 2 * (help2 - 2 * np.sqrt(2) * help1 *
@@ -48,9 +50,8 @@ def find_true_std(sigma, clipped_std, clip_limit):
 
 @njit
 def indep_pixels(n, correlation_lengths):
-    """
-    Calculate the number of independent pixels given the total number of pixels
-    and the correlation lengths.
+    """Calculate the number of independent pixels given the total
+    number of pixels and the correlation lengths.
 
     Parameters
     ----------
@@ -63,7 +64,8 @@ def indep_pixels(n, correlation_lengths):
     -------
     float
         The number of independent pixels.
-    """    
+
+    """
     corlengthlong, corlengthshort = correlation_lengths
     correlated_area = 0.25 * np.pi * corlengthlong * corlengthshort
     return n / correlated_area
@@ -72,20 +74,22 @@ def indep_pixels(n, correlation_lengths):
 @guvectorize([(float32[:], int32[:], float32[:], float32[:])],
              '(k), () -> (), ()', target="parallel")
 def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
-    """
-    Perform dynamic data clipping to calculate the mean and standard deviation
-    of the background pixels in a subimage. This function was written to
-    calculate two grids that together determine the statistics of the background
-    noise of the image. The nodes of those grids are centered on the subimages.
-    The guvectorize decorator allows for 3D input instead of the flattened
-    subimage data. The first and second dimensions correspond to the desired
-    grid dimensions, and the third dimension corresponds to the flattened
-    subimage size. See utils.make_subimages for information on how suitable
-    input for this function is generated.
-    The parameters in this docstring apply to a single subimage.
-    "dynamic" kappa * sigma clipping differs from classical sigma clipping in
-    the sense that a bias correction is applied; sigma as derived from a clipped
-    distribution is biased low.
+    """Perform dynamic data clipping.
+
+    Perform dynamic data clipping to calculate the mean and standard
+    deviation of the background pixels in a subimage. This function
+    was written to calculate two grids that together determine the
+    statistics of the background noise of the image. The nodes of
+    those grids are centered on the subimages.  The guvectorize
+    decorator allows for 3D input instead of the flattened subimage
+    data. The first and second dimensions correspond to the desired
+    grid dimensions, and the third dimension corresponds to the
+    flattened subimage size. See utils.make_subimages for information
+    on how suitable input for this function is generated.  The
+    parameters in this docstring apply to a single subimage.
+    "dynamic" kappa * sigma clipping differs from classical sigma
+    clipping in the sense that a bias correction is applied; sigma as
+    derived from a clipped distribution is biased low.
 
     Parameters
     ----------
@@ -108,7 +112,8 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
     a robust approximation of the mean, and the standard deviation is corrected
     for bias when clipping is applied. The SExtractor approach for estimating
     the mean in case of skewed vs. not-too-skewed distributions is followed.
-    """    
+
+    """
     # In this context we use the terms nan and masked interchangeably, since we
     # expect every image value that is a nan to be masked.
     # The first number_of_non_nan_elements of flat_data will be not nans.

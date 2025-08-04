@@ -69,6 +69,7 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     ------
     exceptions.ValueError
         If input contains NaN values.
+
     """
     total = data.sum()
     x, y = np.indices(data.shape)
@@ -217,61 +218,60 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
                      clean_bias_error, frac_flux_cal_error,
                      Gaussian_islands_map, Gaussian_residuals_map, dummy,
                      computed_moments, significance, chisq, reduced_chisq):
-    """
-    Calculate source properties using moments.
+    """Calculate source properties using moments.
 
-    Vectorized using the `guvectorize` decorator. Also calculates the 
-    signal-to-noise ratio of detections, chi-squared and reduced 
-    chi-squared statistics, and fills in maps with Gaussian islands and 
-    Gaussian residuals. Uses the first moments of the distribution to 
-    determine the barycenter of an ellipse, while the second moments estimate 
+    Vectorized using the `guvectorize` decorator. Also calculates the
+    signal-to-noise ratio of detections, chi-squared and reduced
+    chi-squared statistics, and fills in maps with Gaussian islands and
+    Gaussian residuals. Uses the first moments of the distribution to
+    determine the barycenter of an ellipse, while the second moments estimate
     rotation angle and axis lengths.
 
     Parameters
     ----------
     source_island : np.ndarray
-        Selected from the 2D image data by taking pixels above the analysis 
-        threshold, with its peak above the detection threshold. Flattened to 
+        Selected from the 2D image data by taking pixels above the analysis
+        threshold, with its peak above the detection threshold. Flattened to
         a 1D ndarray. Units: spectral brightness, typically Jy/beam.
 
     noise_island : np.ndarray
-        Pixel values selected from the 2D RMS noise map at the positions of 
-        the island. Flattened to a 1D ndarray. Units: spectral brightness, 
+        Pixel values selected from the 2D RMS noise map at the positions of
+        the island. Flattened to a 1D ndarray. Units: spectral brightness,
         typically Jy/beam.
 
     chunkpos : np.ndarray
-        Index array of length 2 denoting the position of the top-left corner 
-        of the rectangular slice encompassing the island, relative to the 
+        Index array of length 2 denoting the position of the top-left corner
+        of the rectangular slice encompassing the island, relative to the
         top-left corner of the image.
 
     posx : np.ndarray
-        Row indices of the pixels in `source_island` relative to the top-left 
-        corner of the rectangular slice encompassing the island. The top-left 
+        Row indices of the pixels in `source_island` relative to the top-left
+        corner of the rectangular slice encompassing the island. The top-left
         corner corresponds to `posx = 0`. Derived from the 2D image data.
 
     posy : np.ndarray
-        Column indices of the pixels in `source_island` relative to the 
-        top-left corner of the rectangular slice encompassing the island. 
-        The top-left corner corresponds to `posy = 0`. Derived from the 
+        Column indices of the pixels in `source_island` relative to the
+        top-left corner of the rectangular slice encompassing the island.
+        The top-left corner corresponds to `posy = 0`. Derived from the
         2D image data.
 
     min_width : int
-        Minimum width (in pixels) of the island, derived as the lesser of its 
+        Minimum width (in pixels) of the island, derived as the lesser of its
         maximum width along the x and y axes.
 
     no_pixels : int
         Number of pixels that constitute the island.
 
     threshold : float
-        Threshold used for segmenting source islands, which can affect 
-        parameters like semimajor and semiminor axes. A higher threshold may 
-        lead to a larger underestimate of the Gaussian axes. If the analysis 
-        threshold is known, this underestimate can be corrected. 
+        Threshold used for segmenting source islands, which can affect
+        parameters like semimajor and semiminor axes. A higher threshold may
+        lead to a larger underestimate of the Gaussian axes. If the analysis
+        threshold is known, this underestimate can be corrected.
         Units: spectral brightness, typically Jy/beam.
 
     noise : float
-        Local noise, i.e., the standard deviation of the background pixel 
-        values at the position of the island's peak pixel value. 
+        Local noise, i.e., the standard deviation of the background pixel
+        values at the position of the island's peak pixel value.
         Units: spectral brightness, typically Jy/beam.
 
     maxpos : np.ndarray with int32 as dtype and length 2
@@ -280,11 +280,11 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         island. Units: pixels.
 
     maxi : float
-        Peak pixel value within the island. Units: spectral brightness, 
+        Peak pixel value within the island. Units: spectral brightness,
         typically Jy/beam. To clarify: source_island[maxpos] == maxi.
 
     fudge_max_pix_factor : float
-        Correction factor for underestimation of the peak by considering the 
+        Correction factor for underestimation of the peak by considering the
         maximum pixel value.
 
     beam : np.ndarray
@@ -296,14 +296,14 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         FWHM size of the clean beam. Units: pixels.
 
     correlation_lengths : np.ndarray
-        Array of two floats describing distances along the semi-major and 
-        semi-minor axes of the clean beam beyond which noise is assumed 
-        uncorrelated. 
+        Array of two floats describing distances along the semi-major and
+        semi-minor axes of the clean beam beyond which noise is assumed
+        uncorrelated.
         Units: pixels.
-        Some background: Aperture synthesis imaging yields noise that is 
-        partially correlated over the entire image. This has a considerable 
-        effect on error estimates. All noise within the correlation length 
-        is approximated as completely correlated, while noise beyond is 
+        Some background: Aperture synthesis imaging yields noise that is
+        partially correlated over the entire image. This has a considerable
+        effect on error estimates. All noise within the correlation length
+        is approximated as completely correlated, while noise beyond is
         considered uncorrelated.
 
     clean_bias_error : float
@@ -313,46 +313,46 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
         Extra source of error based on Condon (PASP 109, 166, 1997) formulae.
 
     Gaussian_islands_map : np.ndarray
-        Initially a 2D np.float32 array filled with zeros, same shape as the 
-        astronomical image being processed. Computed Gaussian islands are 
+        Initially a 2D np.float32 array filled with zeros, same shape as the
+        astronomical image being processed. Computed Gaussian islands are
         added to this array at pixel positions above the analysis threshold.
 
     Gaussian_residuals_map : np.ndarray
-        Initially a 2D np.float32 array filled with zeros, same shape as 
-        `Gaussian_islands_map`. Residuals are computed by subtracting 
+        Initially a 2D np.float32 array filled with zeros, same shape as
+        `Gaussian_islands_map`. Residuals are computed by subtracting
         `Gaussian_islands_map` from the input image data.
 
     dummy : np.ndarray
-        Empty array matching the shape of `computed_moments`, required due 
+        Empty array matching the shape of `computed_moments`, required due
         to limitations in `guvectorize`.
 
     computed_moments : np.ndarray
-        Array of shape (10, 2) containing moments such as peak spectral 
-        brightness (Jy/beam), flux density (Jy), barycenter (pixels), 
-        semi-major and semi-minor axes (pixels), and position angle 
+        Array of shape (10, 2) containing moments such as peak spectral
+        brightness (Jy/beam), flux density (Jy), barycenter (pixels),
+        semi-major and semi-minor axes (pixels), and position angle
         (radians), along with corresponding errors.
 
     significance : float
-        The significance of a detection is defined as the maximum 
-        signal-to-noise ratio across the island. Often this will be the ratio 
-        of the maximum pixel value within the source island divided by the 
-        noise at that position. But for extended sources, the noise can 
-        perhaps decrease away from the position of the peak spectral 
-        brightness more steeply than the source spectral brightness, and the 
+        The significance of a detection is defined as the maximum
+        signal-to-noise ratio across the island. Often this will be the ratio
+        of the maximum pixel value within the source island divided by the
+        noise at that position. But for extended sources, the noise can
+        perhaps decrease away from the position of the peak spectral
+        brightness more steeply than the source spectral brightness, and the
         maximum signal-to-noise ratio can be found at a different position.
 
     chisq : float
-        Chi-squared statistic indicating goodness-of-fit, derived in the same 
+        Chi-squared statistic indicating goodness-of-fit, derived in the same
         way as in the `measuring.goodness_of_fit` method.
 
     reduced_chisq : float
-        Reduced chi-squared statistic indicating goodness-of-fit, derived in 
+        Reduced chi-squared statistic indicating goodness-of-fit, derived in
         the same way as in the `measuring.goodness_of_fit` method.
 
     Returns
     -------
     None
-        Outputs are written to `Gaussian_islands_map`, `Gaussian_residuals_map`, 
+        Outputs are written to `Gaussian_islands_map`, `Gaussian_residuals_map`,
         `computed_moments`, `significance`, `chisq`, and `reduced_chisq`.
 
     Raises
@@ -593,8 +593,8 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
     # This should reflect the equivalent of equation 37 of the NVSS paper for
     # moments calculations. The middle term in that equation 37 is heuristically
-    # replaced by noise**2 since the threshold should not affect the error from 
-    # the (corrected) maximum pixel method, while it is part of the expression 
+    # replaced by noise**2 since the threshold should not affect the error from
+    # the (corrected) maximum pixel method, while it is part of the expression
     # for rho_sq above.
     errorpeaksq = ((frac_flux_cal_error * peak) ** 2 +
                    clean_bias_error ** 2 + noise ** 2)
@@ -729,8 +729,7 @@ def moments_enhanced(source_island, noise_island, chunkpos, posx, posy,
 
 
 def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
-    """
-    Calculate source positional values by fitting a 2D Gaussian.
+    """Calculate source positional values by fitting a 2D Gaussian.
 
     Parameters
     ----------
@@ -769,6 +768,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
     If a dict called fixed is passed in, then parameters specified within the
     dict with the same keys as in FIT_PARAMS will be "locked" in the fitting
     process.
+
     """
     fixed = fixed or {}
 
@@ -789,8 +789,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
                 initial.append(params[param])
 
     def residuals(parameters):
-        """
-        Error function to be used in chi-squared fitting.
+        """Error function to be used in chi-squared fitting.
 
         Parameters
         ----------
@@ -803,6 +802,7 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
             1d-array of difference between estimated Gaussian function and the
             actual pixels. (pixel_resids is a 2d-array, but the .compressed()
             makes it 1d.)
+
         """
 
         gaussian_args = complement_gaussian_args(parameters, fixed, FIT_PARAMS)
@@ -820,8 +820,8 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
         return pixel_resids.compressed()
 
     def jacobian_values(parameters):
-        """
-        The Jacobian of an anisotropic 2D Gaussian at the pixel positions.
+        """The Jacobian of an anisotropic 2D Gaussian at the pixel
+        positions.
 
         Parameters
         ----------
@@ -931,9 +931,8 @@ def fitgaussian(pixels, params, fixed=None, max_nfev=None, bounds={}):
 
 
 def goodness_of_fit(masked_residuals, noise, correlation_lengths):
-    """
-    Calculate the goodness-of-fit values.
-    
+    """Calculate the goodness-of-fit values.
+
     Parameters
     ----------
     masked_residuals : np.ma.MaskedArray
@@ -948,12 +947,13 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
         entire image. This has a considerable effect on error estimates. We
         approximate this by considering all noise within the correlation length
         completely correlated and beyond that completely uncorrelated.
-    
+
     Returns
     -------
-    tuple
-        chisq, reduced_chisq
-    
+    chisq: float
+
+    reduced_chisq : float
+
     Notes
     -----
     We do not use the standard chi-squared formula for calculating these
@@ -962,16 +962,17 @@ def goodness_of_fit(masked_residuals, noise, correlation_lengths):
     These values are related to, but not quite the same as reduced chi-squared.
     The reduced chi-squared is statistically invalid for a Gaussian model
     from the outset (see <http://arxiv.org/abs/1012.3754>).
-    
+
     We attempt to provide a resolution-independent estimate of goodness-of-fit
     ('reduced chi-squared') by estimating the number of independent pixels in the
     data, that we have used for fitting the Gaussian model, to normalize the
     chi-squared value.
-    
+
     However, this will sometimes imply that we are fitting a fractional number
     of datapoints less than 1! As a result, it doesn't really make sense to try
     and apply the 'degrees-of-freedom' correction, as this would likely result
     in a negative ``reduced_chisq`` value.
+
     """
     gauss_resid_normed = (masked_residuals / noise).compressed()
     chisq = np.sum(gauss_resid_normed * gauss_resid_normed)

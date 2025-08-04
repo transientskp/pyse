@@ -175,9 +175,9 @@ class FitsImage(DataAccessor):
 
         Returns
         -------
-        tuple of float
-            A tuple containing the right ascension and declination
-            of the phase center in degrees.
+        tuple[float]
+            A tuple containing the right ascension and declination of
+            the phase center in degrees.
 
         """
         x, y = self.data.shape
@@ -191,10 +191,10 @@ class FitsImage(DataAccessor):
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            - freq_eff: The effective frequency extracted from the FITS header.
-            - freq_bw: The bandwidth extracted from the FITS header.
+        freq_eff : float
+            The effective frequency extracted from the FITS header.
+        freq_bw : float
+            The bandwidth extracted from the FITS header.
 
         """
         freq_eff = None
@@ -227,17 +227,18 @@ class FitsImage(DataAccessor):
 
         return freq_eff, freq_bw
 
-
     def parse_beam(self):
         """Read and return the beam properties bmaj, bmin and bpa
         values from the FITS header.
 
         Returns
         -------
-        tuple
-            - bmaj (float): the major axis of the beam in degrees.
-            - bmin (float): the minor axis of the beam in degrees.
-            - bpa (float): the position angle of the beam in degrees.
+        bmaj : float
+            the major axis of the beam in degrees.
+        bmin : float
+            the minor axis of the beam in degrees.
+        bpa : float
+            the position angle of the beam in degrees.
 
         Notes
         -----
@@ -277,9 +278,9 @@ class FitsImage(DataAccessor):
 
                 Returns
                 -------
-                list of str
-                    A list of strings, where each string represents a history
-                    card from the FITS header.
+                list[str]
+                    A list of strings, where each string represents a
+                    history card from the FITS header.
 
                 """
                 return hdr["HISTORY"]
@@ -299,11 +300,11 @@ class FitsImage(DataAccessor):
 
         Returns
         -------
-        tuple
-            - taustart_ts (datetime.datetime): Timezone-naive
-              (implicit UTC) datetime representing the start of the
-              observation.
-            - tau_time (float): Integration time in seconds.
+        taustart_ts : datetime.datetime
+            Timezone-naive (implicit UTC) datetime representing the
+            start of the observation.
+        tau_time : float
+            Integration time in seconds.
 
         """
         try:

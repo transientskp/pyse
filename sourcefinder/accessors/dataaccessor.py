@@ -139,6 +139,7 @@ class DataAccessor:
             Pixel size along the x axis in degrees.
         deltay : float
             Pixel size along the y axis in degrees.
+
         """
         wcs = self.wcs
         # Check that pixels are square
@@ -184,10 +185,12 @@ class DataAccessor:
 
         Returns
         -------
-        tuple
-            - semimaj (float): Beam semi-major axis in pixels.
-            - semimin (float): Beam semi-minor axis in pixels.
-            - theta (float): Beam position angle in radians.
+        semimaj : float
+            Beam semi-major axis in pixels.
+        semimin : float
+            Beam semi-minor axis in pixels.
+        theta : float
+            Beam position angle in radians.
 
         """
         theta = pi * bpa / 180

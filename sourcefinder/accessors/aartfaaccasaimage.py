@@ -44,11 +44,12 @@ class AartfaacCasaImage(CasaImage):
 
         Returns
         -------
-        tuple
-            - freq_eff (float): The effective frequency (rest
-              frequency) in Hz extracted from the casacore table.
-            - freq_bw (float): The frequency bandwidth in Hz, derived
-              from the WCS 'cdelt' value in the casacore table.
+        freq_eff : float
+            The effective frequency (rest frequency) in Hz extracted
+            from the casacore table.
+        freq_bw : float
+            The frequency bandwidth in Hz, derived from the WCS
+            'cdelt' value in the casacore table.
 
         """
         keywords = table.getkeywords()

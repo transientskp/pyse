@@ -131,9 +131,10 @@ def requires_test_db_managed():
     return unittest.skip("DB management tests disabled, TKP_TESTDBMANAGEMENT"
                          " not set")
 
+
 def high_ram_requirements():
-    """
-    Decorator to disable tests that break Travis due to out-of-memory issues.
+    """Decorator to disable tests that break Travis due to
+    out-of-memory issues.
 
     This function checks the `TRAVIS` environment variable to determine if the
     tests are running in a Travis CI environment. If so, tests with high RAM
@@ -143,6 +144,7 @@ def high_ram_requirements():
     -------
     function
         A decorator that either skips the test or allows it to run.
+
     """
     if os.environ.get("TRAVIS", False):
         return unittest.skip(("High-ram requirement unit-tests disabled on "

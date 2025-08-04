@@ -56,6 +56,7 @@ def make_wcs(crval=None,
     wcs.cunit = ('deg', 'deg')
     return wcs
 
+
 class SyntheticImage(DataAccessor):
     def __init__(self,
                  wcs=None,
@@ -66,8 +67,7 @@ class SyntheticImage(DataAccessor):
                  tau_time=1800,
                  taustart_ts=datetime.datetime(2015,1,1)
                  ):
-        """
-        Generate a synthetic image for use in tests.
+        """Generate a synthetic image for use in tests.
 
         Parameters
         ----------
@@ -88,6 +88,7 @@ class SyntheticImage(DataAccessor):
         taustart_ts : datetime.datetime, default: datetime.datetime(2015, 1, 1)
             Timestamp of the first integration which constitutes part of this
             image.
+
         """
         self.url = "SyntheticImage"
         self.wcs = wcs
@@ -105,17 +106,16 @@ class SyntheticImage(DataAccessor):
         self.pixelsize = self.parse_pixelsize()
         self.centre_ra, self.centre_decl = self.calculate_phase_centre()
 
-
     def calculate_phase_centre(self):
-        """
-        Calculate the equatorial coordinates of the center of the synthetic
-        image, based on the image dimensions.
+        """Calculate the equatorial coordinates of the center of the
+        synthetic image, based on the image dimensions.
 
         Returns
         -------
         tuple
             A tuple containing the right ascension and declination of the
             image center in degrees.
+
         """
         x, y = self.data.shape
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))

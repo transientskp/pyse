@@ -39,14 +39,14 @@ from sourcefinder import image
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
-from sourcefinder.config import Conf, ImgConf, read_conf
+from sourcefinder.config import read_conf
 from sourcefinder.utils import generate_result_maps
+
 
 def parse_monitoringlist_positions(args, str_name="monitor_coords",
                                    list_name="monitor_list"):
-    """
-    Load a list of monitoring list (RA, Dec) tuples from command line
-    arguments.
+    """Load a list of monitoring list (RA, Dec) tuples from command
+    line arguments.
 
     This function processes the flags `--monitor-coords` and `--monitor-list`.
     It does not handle units, which should be matched against the requirements
@@ -64,13 +64,14 @@ def parse_monitoringlist_positions(args, str_name="monitor_coords",
 
     Returns
     -------
-    list of tuple
+    list[tuple[float, float]]
         A list of (RA, Dec) tuples parsed from the input arguments.
 
     Raises
     ------
     json.JSONDecodeError
         If the JSON string or file content cannot be parsed.
+
     """
     monitor_coords = []
     if hasattr(args, str_name) and getattr(args, str_name):

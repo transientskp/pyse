@@ -25,8 +25,8 @@ def sourcefinder_image_from_accessor(
             ),
     ):
 
-    """
-    Create a sourcefinder.image.ImageData object from an image 'accessor'.
+    """Create a sourcefinder.image.ImageData object from an image
+    'accessor'.
 
     This function initializes a `sourcefinder.image.ImageData` object using
     the data, beam, and WCS information provided by the given image accessor.
@@ -45,14 +45,14 @@ def sourcefinder_image_from_accessor(
     -------
     ImageData
         A sourcefinder.image.ImageData object.
+
     """
     image = ImageData(image.data, image.beam, image.wcs, conf=conf)
     return image
 
 
 def writefits(data, filename, header={}):
-    """
-    Dump a NumPy array to a FITS file.
+    """Dump a NumPy array to a FITS file.
 
     This function writes a given NumPy array to a FITS file, optionally
     including header information. The header can be provided as a dictionary
@@ -71,6 +71,7 @@ def writefits(data, filename, header={}):
     ------
     OSError
         If the file cannot be written due to permission issues or other errors.
+
     """
     if header.__class__.__name__ == 'Header':
         pyfits.writeto(filename, data.transpose(), header)
@@ -82,8 +83,8 @@ def writefits(data, filename, header={}):
 
 
 def open(path, *args, **kwargs):
-    """
-    Returns an accessor object (if available) for the file or directory 'path'.
+    """Returns an accessor object (if available) for the file or
+    directory 'path'.
 
     This function attempts to find an appropriate accessor for the given file
     or directory path. Accessors are tried in order from most specific to least
@@ -112,6 +113,7 @@ def open(path, *args, **kwargs):
         class is found.
     Exception
         If the `path` parameter is neither a string nor an `HDUList`.
+
     """
 
     if type(path) == HDUList:

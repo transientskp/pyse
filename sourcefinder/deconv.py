@@ -33,13 +33,14 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
 
     Returns
     -------
-    tuple
-        A tuple containing:
-
-        - real major axis (float)
-        - real minor axis (float)
-        - real position angle of the major axis (float)
-        - number of components which failed to deconvolve (int)
+    rmaj : float
+        real major axis
+    rmin : float
+        real minor axis
+    rpa : float
+        real position angle of the major axis
+    ierr : int
+        number of components which failed to deconvolve
 
     """
     HALF_RAD = 90.0 / pi

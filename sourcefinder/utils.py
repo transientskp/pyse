@@ -80,11 +80,11 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
     x_error : float
         The 1-sigma error in x-value.
     y_value : float
-        Position along second pixel coordinate (column index of ndarray with 
+        Position along second pixel coordinate (column index of ndarray with
         image data).
     y_error : float
         The 1-sigma error in y-value.
-        
+
     Returns
     -------
     float
@@ -126,7 +126,7 @@ def circular_mask(xdim, ydim, radius):
     """Returns a numpy array of shape (xdim, ydim). All points within
     radius from the centre are set to 0; outside that region, they are
     set to 1.
-    
+
     Parameters
     ----------
     xdim : int
@@ -149,13 +149,13 @@ def circular_mask(xdim, ydim, radius):
 
 
 def generate_result_maps(data, sourcelist):
-    """Return an image with Gaussian reconstructions of the sources and the 
+    """Return an image with Gaussian reconstructions of the sources and the
     corresponding residual image.
 
     Given a data array (image) and list of sources, return two images, one
     showing the sources themselves and the other the residual after the
     sources have been removed from the input data.
-    
+
     Parameters
     ----------
     data : np.ndarray
@@ -165,12 +165,11 @@ def generate_result_maps(data, sourcelist):
 
     Returns
     -------
-    tuple of np.ndarray
-        A tuple containing two 2D arrays:
-
-        - The first array shows the Gaussian reconstructions of the sources.
-        - The second array shows the residuals from the subtractions of these
-          reconstructions from the image data.
+    gaussian_map : np.ndarray (2D)
+        Shows the Gaussian reconstructions of the sources.
+    residual_map : np.ndarray (2D)
+        Shows the residuals from the subtractions of these
+        reconstructions from the image data.
 
     """
     residual_map = np.array(data)  # array constructor copies by default
@@ -208,12 +207,14 @@ def generate_result_maps(data, sourcelist):
 
     return gaussian_map, residual_map
 
+
 def is_valid_beam_tuple(b) -> bool:
     return (
             isinstance(b, tuple)
             and len(b) == 3
             and all(isinstance(x, Real) and x is not None for x in b)
     )
+
 
 def calculate_correlation_lengths(semimajor, semiminor):
     """Calculate the Condon correlation lengths.
@@ -247,7 +248,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
 
     Returns
     -------
-    tuple of float
+    tuple[float,float]
         A tuple containing the correlation lengths (theta_B, theta_b), in
         pixels.
 
@@ -257,8 +258,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
 
 
 def calculate_beamsize(semimajor, semiminor):
-    """
-    Calculate the beamsize based on the semi-major and minor axes.
+    """Calculate the beamsize based on the semi-major and minor axes.
 
     Parameters
     ----------
@@ -271,9 +271,8 @@ def calculate_beamsize(semimajor, semiminor):
     -------
     float
         The calculated beamsize.
-    """    
-    
 
+    """
     return np.pi * semimajor * semiminor
 
 
@@ -287,7 +286,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
     (1997A&AS..124..259R) or his thesis.  The peak of the Gaussian
     is, of course, never at the exact center of the pixel, that's why
     the maximum pixel method will underestimate it, when averaged over an
-    ensemble. This effect is smaller when the clean beam is more densely 
+    ensemble. This effect is smaller when the clean beam is more densely
     sampled.
 
     But, instead of just taking 1.06 one can make an estimate of the
@@ -302,7 +301,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
     suffice as a correction. Calculating an overall correction for an ensemble
     of sources will, in the case of an elliptical beam shape, become much
     more involved.
-    
+
     Parameters
     ----------
     semimajor : float
@@ -314,7 +313,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
 
     Returns
     -------
-    correction: float
+    correction : float
         The estimated peak spectral brightness correction.
 
     """
@@ -395,7 +394,7 @@ def nearest_nonzero(some_arr, rms):
     """
     if some_arr.shape != rms.shape:
         raise ValueError("some_arr and rms must have the same shape.")
-    
+
     # Handle empty array.
     if some_arr.size == 0:
         return some_arr
@@ -424,7 +423,7 @@ def nearest_nonzero(some_arr, rms):
     # Use nearest indices from rms to update some_arr
     result = some_arr.copy()
     result[zero_mask] = nearest_values[zero_mask]
-    
+
     return result
 
 
@@ -507,9 +506,9 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 # Define the row-wise interpolation function with guvectorize.
-@guvectorize( 
-    ["void(float32[:], float32[:], float32[:], float32[:])"], 
-    "(n),(n),(k)->(k)", 
+@guvectorize(
+    ["void(float32[:], float32[:], float32[:], float32[:])"],
+    "(n),(n),(k)->(k)",
     target="parallel", nopython=True, cache=True)
 def interp_per_row(grid_row, y_initial, y_sought, interp_row):
     """Interpolate one row of the grid along the second dimension
@@ -699,7 +698,7 @@ def complement_gaussian_args(initial_params, fixed_params, fit_params):
 
     Returns
     -------
-    gaussian_args : list
+    gaussian_args : list[float]
         A list of Gaussian fitting arguments, where each value corresponds to
         either a fixed value or an initial value from `initial_params`.
         len(gaussian_args) == 6.

@@ -146,8 +146,7 @@ class CasaImage(DataAccessor):
         return freq_eff, freq_bw
 
     def parse_beam(self, table):
-        """
-        Extract beam parameters from the CASA table.
+        """Extract beam parameters from the CASA table.
 
         Parameters
         ----------
@@ -156,16 +155,14 @@ class CasaImage(DataAccessor):
 
         Returns
         -------
-        tuple
-            A tuple containing:
-            
-            - semimajor : float
-                The semi-major axis of the beam in degrees.
-            - semiminor : float
-                The semi-minor axis of the beam in degrees.
-            - synthesized beam position angle : float
-                The angle of the major axis of the synthesized beam,
-                measured east from local north, in degrees.
+        bmaj : float
+            The semi-major axis of the beam in degrees.
+        bmin : float
+            The semi-minor axis of the beam in degrees.
+        bpa : float
+            The angle of the major axis of the synthesized beam,
+            measured east from local north, in degrees.
+
         """
 
         def ensure_degrees(quantity):
