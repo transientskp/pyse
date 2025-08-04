@@ -61,8 +61,8 @@ extra-dependencies = [
     "pytest-cov",
 ]
 
-[tool.hatch.envs.default_312]
-python = "3.12"
+[tool.hatch.envs.py_oldest]
+python = "3.10"
 extra-dependencies = [
     "pytest",
     "pytest-cov",
@@ -76,6 +76,14 @@ dependencies = [
     "flake8",
     "mypy",
     "ruff",
+]
+
+[tool.hatch.envs.docs]
+extra-dependencies = [
+    "furo",
+    "numpydoc",
+    "sphinx",
+    "sphinx-autoapi",
 ]
 
 [tool.pytest.ini_options]

@@ -1,5 +1,5 @@
-"""
-Source measuring routines.
+"""Source measuring routines.
+
 """
 
 import math

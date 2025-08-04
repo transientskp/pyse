@@ -17,9 +17,9 @@ numba_config.THREADING_LAYER = 'workqueue'
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
-    r"""
-    Generate a series of ``num_thresholds`` logarithmically spaced values
+    r"""Generate a series of ``num_thresholds`` logarithmically spaced values
     in the range (min_value, max_value) (both exclusive).
+
     First, we calculate a logarithmically spaced sequence between exp(0.0)
     and (max_value - min_value + 1). That is, the total range is between 1 and
     one greater than the difference between max_value and min_value.
@@ -52,22 +52,22 @@ def generate_subthresholds(min_value, max_value, num_thresholds):
     np.ndarray
         An array of logarithmically spaced values between min_value and
         max_value (exclusive).
+
     """
     subthrrange = np.logspace(
         0.0,
         np.log(max_value + 1 - min_value),
         num=num_thresholds + 1,  # first value == min_value
         base=np.e,
-        endpoint=False  # do not include max_value
+        endpoint=False,  # do not include max_value
     )[1:]
-    subthrrange += (min_value - 1)
+    subthrrange += min_value - 1
     return subthrrange
 
 
 def get_error_radius(wcs, x_value, x_error, y_value, y_error):
-    """
-    Estimate an absolute angular error on the position (x_value, y_value)
-    with the given errors.
+    """Estimate an absolute angular error on the position (x_value,
+    y_value) with the given errors.
 
     Parameters
     ----------
@@ -96,6 +96,7 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
     along the X and Y axes. Better might be to project them both back on
     to the major/minor axes of the elliptical fit, but this should do for
     now.
+
     """
     error_radius = 0.0
     try:
@@ -122,9 +123,9 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
 
 
 def circular_mask(xdim, ydim, radius):
-    """
-    Returns a numpy array of shape (xdim, ydim). All points within radius from
-    the centre are set to 0; outside that region, they are set to 1.
+    """Returns a numpy array of shape (xdim, ydim). All points within
+    radius from the centre are set to 0; outside that region, they are
+    set to 1.
     
     Parameters
     ----------
@@ -139,7 +140,8 @@ def circular_mask(xdim, ydim, radius):
     -------
     np.ndarray
         A 2D ndarray with points within the radius set to 0 and outside set to
-        1. 
+        1.
+
     """
     centre_x, centre_y = (xdim - 1) / 2.0, (ydim - 1) / 2.0
     x, y = np.ogrid[-centre_x: xdim - centre_x, -centre_y: ydim - centre_y]
@@ -169,6 +171,7 @@ def generate_result_maps(data, sourcelist):
         - The first array shows the Gaussian reconstructions of the sources.
         - The second array shows the residuals from the subtractions of these
           reconstructions from the image data.
+
     """
     residual_map = np.array(data)  # array constructor copies by default
     gaussian_map = np.zeros(residual_map.shape)
@@ -247,6 +250,7 @@ def calculate_correlation_lengths(semimajor, semiminor):
     tuple of float
         A tuple containing the correlation lengths (theta_B, theta_b), in
         pixels.
+
     """
 
     return 2.0 * semimajor, 2.0 * semiminor
@@ -312,6 +316,7 @@ def fudge_max_pix(semimajor, semiminor, theta):
     -------
     correction: float
         The estimated peak spectral brightness correction.
+
     """
 
     log20 = np.log(2.0)
@@ -355,6 +360,7 @@ def flatten(nested_list):
     Notes
     -----
         The keyword "yield" is used; i.e. a generator object is returned.
+
     """
 
     for elem in nested_list:
@@ -369,8 +375,8 @@ def flatten(nested_list):
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 def nearest_nonzero(some_arr, rms):
-    """
-    Replace values in some_arr based on the nearest non-zero values in rms.
+    """Replace values in some_arr based on the nearest non-zero
+    values in rms.
 
     Parameters
     ----------
@@ -385,6 +391,7 @@ def nearest_nonzero(some_arr, rms):
     np.ndarray
         A copy of some_arr with values replaced based on nearest non-zero
         neighbors in rms.
+
     """
     if some_arr.shape != rms.shape:
         raise ValueError("some_arr and rms must have the same shape.")
@@ -426,7 +433,8 @@ def nearest_nonzero(some_arr, rms):
 # completeness, adapted where needed, and approved by the author.”
 @njit(parallel=True)
 def make_subimages(a_data, a_mask, back_size_x, back_size_y):
-    """
+    """Make subimages.
+
     Reshape the image data such that it is suitable for guvectorized
     kappa * sigma clipping. The idea is that we have designed a function
     that will perform kappa * sigma clipping on a single flattened subimage,
@@ -436,18 +444,26 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     kappa * sigma clipper should be 3D. This function makes that 3D input,
     which is essentially a reshape using Numba with parallelization.
 
-    Parameters:
-    a_data (np.ndarray): The data of the masked array (without the mask).
-    a_mask (np.ndarray): The mask of the masked array (True means the value
-                         is masked).
-    back_size_x (int): The size of the subimage along the row indices.
-    back_size_y (int): The size of the subimages along the column indices.
+    Parameters
+    ----------
+    a_data: np.ndarray
+        The data of the masked array (without the mask).
+    a_mask: np.ndarray
+        The mask of the masked array (True means the value is masked).
+    back_size_x: int
+        The size of the subimage along the row indices.
+    back_size_y: int
+        The size of the subimages along the column indices.
 
-    Returns:
-    b (np.ndarray): 3D array where each subimage of size (back_size_x *
-                    back_size_y) is flattened and padded with NaN.
-    c (np.ndarray): 2D array where each element indicates the number of
-                    unmasked values in the corresponding subimage.
+    Returns
+    -------
+    b: np.ndarray
+        3D array where each subimage of size (back_size_x *
+        back_size_y) is flattened and padded with NaN.
+    c: np.ndarray
+        2D array where each element indicates the number of unmasked
+        values in the corresponding subimage.
+
     """
     subimage_size = back_size_x * back_size_y
     k, l = a_data.shape
@@ -496,14 +512,20 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     "(n),(n),(k)->(k)", 
     target="parallel", nopython=True, cache=True)
 def interp_per_row(grid_row, y_initial, y_sought, interp_row):
-    """
-    Interpolate one row of the grid along the second dimension (y-axis).
+    """Interpolate one row of the grid along the second dimension
+    (y-axis).
 
-    Parameters:
-    - grid_row: 1D array representing a single row of the grid.
-    - y_initial: Original grid coordinates along the y-axis.
-    - y_sought: Target coordinates for interpolation along the y-axis.
-    - interp_row: Output array to store the interpolated row.
+    Parameters
+    ----------
+    grid_row
+        1D array representing a single row of the grid.
+    y_initial
+        Original grid coordinates along the y-axis.
+    y_sought
+        Target coordinates for interpolation along the y-axis.
+    interp_row
+        Output array to store the interpolated row.
+
     """
     interp_row[:] = np.interp(y_sought, y_initial, grid_row)
 
@@ -512,16 +534,19 @@ def interp_per_row(grid_row, y_initial, y_sought, interp_row):
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 def two_step_interp(grid, new_xdim, new_ydim):
-    """
-    Perform two-step interpolation on a grid to upsample it to new dimensions.
-    This function proivdes fast pieceswise bilinear interpolation in two steps:
-    1) Interpolation across columns, i.e. per row of the input grid. Each row
-    of the input grid is handled independently.
-    2) Transpose the result.
-    3) Again, interpolate across columns.
-    This method was inspired by a comment from "tiago" in this SO discussion:
-    https://stackoverflow.com/questions/14530556/
-    resampling-a-numpy-array-representing-an-image
+    """Perform two-step interpolation.
+
+    It is done on a grid to upsample it to new dimensions.  This
+    function proivdes fast pieceswise bilinear interpolation in two
+    steps:
+
+    1. Interpolation across columns, i.e. per row of the input
+       grid. Each row of the input grid is handled independently.
+    2. Transpose the result.
+    3. Again, interpolate across columns.
+
+    This method was inspired by a comment from "tiago" in this SO
+    discussion: https://stackoverflow.com/q/14530556
 
     Parameters
     ----------
@@ -536,6 +561,7 @@ def two_step_interp(grid, new_xdim, new_ydim):
     -------
     numpy.ndarray
         The upsampled grid with dimensions (new_xdim, new_ydim).
+
     """
     # Define the main function for upsampling
     # Original grid coordinates
@@ -569,9 +595,8 @@ def two_step_interp(grid, new_xdim, new_ydim):
 @njit
 def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
                                tol=1e-8, max_iter=100, *args):
-    """
-    Solve the transcendental equation for sigma using Newton's method with
-    interval safeguards.
+    """Solve the transcendental equation for sigma using Newton's
+    method with interval safeguards.
 
     Parameters
     ----------
@@ -614,6 +639,7 @@ def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
     method terminates when the absolute change in sigma is smaller than the
     specified tolerance `tol` or when the maximum number of iterations is
     reached. If the derivative is too small (near zero), a ValueError is raised.
+
     """
 
     sigma = sigma0
@@ -646,10 +672,10 @@ def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
 
 
 def complement_gaussian_args(initial_params, fixed_params, fit_params):
-    """
-    Complements initial parameters for Gaussian fitting, with fixed values.
-    The end result should be a list of six elements, corresponding to 'peak',
-    'xbar', 'ybar', 'semimajor', 'semiminor' and 'theta', in that order
+    """Complements initial parameters for Gaussian fitting, with
+    fixed values.  The end result should be a list of six elements,
+    corresponding to 'peak', 'xbar', 'ybar', 'semimajor', 'semiminor'
+    and 'theta', in that order
 
     Parameters
     ----------
@@ -686,6 +712,7 @@ def complement_gaussian_args(initial_params, fixed_params, fit_params):
     ...               'semi-minor axis', 'position angle')
     >>> complement_gaussian_args(initial_parms, fixed_parms, fit_parms)
     [1.0, 2.5, 3.5, 4.0, 5.0, 6.0]
+
     """
     paramlist = list(initial_params)
     gaussian_args = []

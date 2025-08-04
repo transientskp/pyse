@@ -15,13 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 class FitsImage(DataAccessor):
-    """
-    Use PyFITS to pull image data out of a FITS file.
-    
+    """Use PyFITS to pull image data out of a FITS file.
+
     Provide standard attributes, as per :class:`DataAccessor`. In addition, we
     provide a ``telescope`` attribute if the FITS file has a ``TELESCOP``
     header.
-    
+
     Parameters
     ----------
     url : str
@@ -29,10 +28,11 @@ class FitsImage(DataAccessor):
     plane : int, default: None
         If the data is a datacube, specifies which plane to use.
     beam : tuple, default: None
-        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not 
+        Beam parameters in degrees, in the form (bmaj, bmin, bpa). If not
         supplied, the method will attempt to read these from the header.
     hdu_index : int, default: 0
         The index of the HDU to use from the HDU list.
+
     """
     def __init__(self, url, plane=None, beam=None, hdu_index=0):
         self.url = url
@@ -60,8 +60,8 @@ class FitsImage(DataAccessor):
             self.telescope = self.header['TELESCOP']
 
     def _get_header(self, hdu_index):
-        """
-        Retrieve the header from the specified HDU in the FITS file.
+        """Retrieve the header from the specified HDU in the FITS
+        file.
 
         Parameters
         ----------
@@ -72,14 +72,14 @@ class FitsImage(DataAccessor):
         -------
         astropy.io.fits.Header
             A copy of the header from the specified HDU.
+
         """
         with pyfits.open(self.url) as hdulist:
             hdu = hdulist[hdu_index]
         return hdu.header.copy()
 
     def read_data(self, hdu_index, plane):
-        """
-        Read data from our FITS file.
+        """Read data from our FITS file.
 
         Parameters
         ----------
@@ -100,6 +100,7 @@ class FitsImage(DataAccessor):
         consistent with (eg) ds9 display of the FitsFile. Transpose back
         before viewing the array with RO.DS9, saving to a FITS file,
         etc.
+
         """
         with pyfits.open(self.url) as hdulist:
             hdu = hdulist[hdu_index]
@@ -115,8 +116,8 @@ class FitsImage(DataAccessor):
         return data
 
     def parse_coordinates(self):
-        """
-        Parse header to return a WCS (World Coordinate System) object.
+        """Parse header to return a WCS (World Coordinate System)
+        object.
 
         Returns
         -------
@@ -133,6 +134,7 @@ class FitsImage(DataAccessor):
         -----
         If units are not specified in the header, degrees are assumed by
         default.
+
         """
         header = self.header
         wcs = WCS()
@@ -166,8 +168,7 @@ class FitsImage(DataAccessor):
 
 
     def calculate_phase_centre(self):
-        """
-        Calculate the phase center of the FITS image.
+        """Calculate the phase center of the FITS image.
 
         The phase center is determined by finding the central pixel and
         converting that position to celestial coordinates.
@@ -177,6 +178,7 @@ class FitsImage(DataAccessor):
         tuple of float
             A tuple containing the right ascension and declination
             of the phase center in degrees.
+
         """
         x, y = self.data.shape
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))
@@ -184,9 +186,8 @@ class FitsImage(DataAccessor):
 
 
     def parse_frequency(self):
-        """
-        Set some 'shortcut' variables for access to the frequency parameters
-        in the FITS file header.
+        """Set some 'shortcut' variables for access to the frequency
+        parameters in the FITS file header.
 
         Returns
         -------
@@ -194,6 +195,7 @@ class FitsImage(DataAccessor):
             A tuple containing:
             - freq_eff: The effective frequency extracted from the FITS header.
             - freq_bw: The bandwidth extracted from the FITS header.
+
         """
         freq_eff = None
         freq_bw = None
@@ -227,23 +229,20 @@ class FitsImage(DataAccessor):
 
 
     def parse_beam(self):
-        """
-        Read and return the beam properties bmaj, bmin and bpa values from
-        the FITS header.
+        """Read and return the beam properties bmaj, bmin and bpa
+        values from the FITS header.
 
         Returns
         -------
         tuple
-            A tuple containing:
-            - bmaj: float
-                The major axis of the beam in degrees.
-            - bmin: float
-                The minor axis of the beam in degrees.
-            - bpa: float
-                The position angle of the beam in degrees.
+            - bmaj (float): the major axis of the beam in degrees.
+            - bmin (float): the minor axis of the beam in degrees.
+            - bpa (float): the position angle of the beam in degrees.
+
         Notes
         -----
         AIPS FITS file: stored in the history section
+
         """
         beam_regex = re.compile(r'''
             BMAJ
@@ -269,8 +268,7 @@ class FitsImage(DataAccessor):
         except KeyError:
 
             def get_history(hdr):
-                """
-                Retrieve all history cards from a FITS header.
+                """Retrieve all history cards from a FITS header.
 
                 Parameters
                 ----------
@@ -282,8 +280,9 @@ class FitsImage(DataAccessor):
                 list of str
                     A list of strings, where each string represents a history
                     card from the FITS header.
+
                 """
-                return hdr['HISTORY']
+                return hdr["HISTORY"]
 
             for hist_entry in get_history(header):
                 results = beam_regex.search(hist_entry)
@@ -296,18 +295,16 @@ class FitsImage(DataAccessor):
 
 
     def parse_times(self):
-        """
-        Attempt to do something sane with timestamps.
+        """Attempt to do something sane with timestamps.
 
         Returns
         -------
         tuple
-            A tuple containing:
-            - taustart_ts: datetime.datetime
-                Timezone-naive (implicit UTC) datetime representing the start
-                of the observation.
-            - tau_time: float
-                Integration time in seconds.
+            - taustart_ts (datetime.datetime): Timezone-naive
+              (implicit UTC) datetime representing the start of the
+              observation.
+            - tau_time (float): Integration time in seconds.
+
         """
         try:
             start = self.parse_start_time()
@@ -342,9 +339,8 @@ class FitsImage(DataAccessor):
 
 
     def parse_start_time(self):
-        """
-        Parse and return the start time of the observation, that yielded this
-        FITS image, from its header.
+        """Parse and return the start time of the observation, that
+        yielded this FITS image, from its header.
 
         Returns
         -------
@@ -359,6 +355,7 @@ class FitsImage(DataAccessor):
         Warning
             Logged if a non-standard date format is encountered in the FITS
             file.
+
         """
         header = self.header
         try:

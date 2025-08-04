@@ -1,7 +1,7 @@
-"""
-Source Extraction Helpers.
+"""Source Extraction Helpers.
 
 These are used in conjunction with image.ImageData.
+
 """
 
 from sourcefinder.deconv import deconv
@@ -33,8 +33,8 @@ BIGNUM = 99999.0
 
 
 class Island(object):
-    """
-    The source extraction process forms islands, which it then fits.
+    """The source extraction process forms islands, which it then fits.
+
     Each island needs to know its position in the image (ie, x, y pixel
     value at one corner), the threshold above which it is detected
     (analysis_threshold by default, but will increase if the island is
@@ -42,13 +42,15 @@ class Island(object):
 
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
+
     """
 
     def __init__(self, data, rms, chunk, analysis_threshold, detection_map,
                  beam, deblend_nthresh, deblend_mincont, structuring_element,
                  rms_orig=None, flux_orig=None, subthrrange=None
                  ):
-        """
+        """Initialise.
+
         Parameters
         ----------
         data : ndarray
@@ -88,6 +90,7 @@ class Island(object):
             The original flux value of the island.
         subthrrange : ndarray, default: None
             The subthreshold range for deblending.
+
         """
 
         # deblend_nthresh is the number of subthresholds used when deblending.
@@ -136,8 +139,7 @@ class Island(object):
             )
 
     def deblend(self, niter=0):
-        """
-        Decompose the island into subislands.
+        """Decompose the island into subislands.
     
         Parameters
         ----------
@@ -158,6 +160,7 @@ class Island(object):
         This function iterates up through subthresholds, looking for the island
         to split into two or more separate islands. If splitting occurs, the
         function starts again with the new subislands.
+
         """
         logger.debug("Deblending source")
         for level in self.subthrrange[niter:]:
@@ -255,24 +258,33 @@ class Island(object):
         return self
 
     def threshold(self):
-        """Threshold for island segmentation expressed as the rms noise at the
-        position of the island's pixel with the highest spectral brightness
-        times the analysis threshold."""
+        """Threshold for island segmentation.
+
+        It is expressed as the rms noise at the position of the
+        island's pixel with the highest spectral brightness times the
+        analysis threshold.
+
+        """
         return self.noise() * self.analysis_threshold
 
     def noise(self):
-        """Noise at position of the island pixel with the highest spectral
-        brightness."""
+        """Noise at position of the island pixel with the highest
+        spectral brightness.
+
+        """
         return self.rms[self.max_pos]
 
     def sig(self):
-        """Source significance expressed as the maximum signal-to-noise
-        across the island."""
+        """Source significance expressed as the maximum
+        signal-to-noise across the island.
+
+        """
         return (self.data / self.rms_orig).max()
 
     def fit(self, fudge_max_pix_factor, beamsize, correlation_lengths,
             fixed=None):
-        """
+        """Fit.
+
         Measure the source, i.e. compute its Gaussian parameters and the
         corresponding errors.
 
@@ -301,6 +313,7 @@ class Island(object):
             In those ndarrays masked (unfitted) regions have been filled with
             0-values, typically in the corners of the rectangular area
             encompassing the island.
+
         """
         try:
             measurement, gauss_island, gauss_residual = \
@@ -321,9 +334,10 @@ class Island(object):
 
 
 class ParamSet(MutableMapping):
-    """
-    All the source fitting methods should go to produce a ParamSet, which
-    gives all the information necessary to make a Detection.
+    """All the source fitting methods should go to produce a
+    ParamSet, which gives all the information necessary to make a
+    Detection.
+
     """
 
     def __init__(self, clean_bias=0.0, clean_bias_error=0.0,
@@ -401,14 +415,14 @@ class ParamSet(MutableMapping):
         return len(self.measurements)
 
     def keys(self):
-        """ """
         return list(self.measurements.keys())
 
     def compute_bounds(self, data_shape):
-        """
-        Calculate bounds for 'safer' Gauss fitting, i.e. a smaller chance on 
-        runaway solutions. The bounds are largely based on moments estimation,
-        so it only makes sense to impose bounds if moments estimation was 
+        """Calculate bounds for 'safer' Gauss fitting.
+
+        Here, 'safer' means a smaller chance on runaway solutions. The
+        bounds are largely based on moments estimation, so it only
+        makes sense to impose bounds if moments estimation was
         successful.
         
         Parameters
@@ -427,6 +441,7 @@ class ParamSet(MutableMapping):
             (float) and boolean elements. If the boolean is True, a bound will
             be loosened when the fit becomes unfeasible.  See the documentation
             on scipy.optimize.Bounds for details.
+
         """
         if hasattr(self["peak"], "value"):
             self.bounds["peak"] = (0.5 * self["peak"].value,
@@ -476,8 +491,7 @@ class ParamSet(MutableMapping):
         return self
 
     def calculate_errors(self, noise, correlation_lengths, threshold):
-        """
-        Calculate positional errors for the source parameters.
+        """Calculate positional errors for the source parameters.
 
         This method uses the Condon formulae if the object is based on a
         Gaussian fit, or error bars from moments if it's based on moments.
@@ -499,6 +513,7 @@ class ParamSet(MutableMapping):
         Returns
         -------
         An updated ParamSet instance
+
         """
         if self.gaussian:
             return self._condon_formulae(noise, correlation_lengths)
@@ -514,9 +529,10 @@ class ParamSet(MutableMapping):
                                                  threshold)
 
     def _condon_formulae(self, noise, correlation_lengths):
-        """
-        Returns the errors on parameters from Gaussian fits according to
-        the Condon (PASP 109, 166 (1997)) formulae.
+        """Returns the errors on parameters from Gaussian fits.
+
+        The errors are according to the Condon (PASP 109, 166 (1997))
+        formulae.
     
         These formulae are not perfect, but we'll use them for the
         time being.  (See Refregier and Brown (astro-ph/9803279v1) for
@@ -538,6 +554,7 @@ class ParamSet(MutableMapping):
         -------
         ParamSet
             The updated ParamSet instance with calculated errors.
+
         """
         peak = self['peak'].value
         flux = self['flux'].value
@@ -633,8 +650,7 @@ class ParamSet(MutableMapping):
 
     def _error_bars_from_moments(self, noise, correlation_lengths,
                                  threshold):
-        """
-        Provide reasonable error estimates from the moments.
+        """Provide reasonable error estimates from the moments.
 
         Parameters
         ----------
@@ -654,6 +670,7 @@ class ParamSet(MutableMapping):
         -------
         ParamSet
             The updated ParamSet instance with calculated errors.
+
         """
         # The formulae below should give some reasonable estimate of the
         # errors from moments, should always be higher than the errors from
@@ -744,8 +761,7 @@ class ParamSet(MutableMapping):
         return self
 
     def deconvolve_from_clean_beam(self, beam):
-        """
-        Deconvolve with the clean beam.
+        """Deconvolve with the clean beam.
 
         Parameters
         ----------
@@ -759,6 +775,7 @@ class ParamSet(MutableMapping):
             The updated ParamSet instance with deconvolved Gaussian shape
             parameters, i.e. the semi-major and semi-minor axes and the position
             angle.
+
         """
 
         # If the fitted axes are larger than the clean beam
@@ -874,8 +891,7 @@ class ParamSet(MutableMapping):
 def source_profile_and_errors(data, threshold, rms, noise, beam,
                               fudge_max_pix_factor, beamsize,
                               correlation_lengths, fixed=None):
-    """
-    Return a number of measurable properties with errorbars.
+    """Return a number of measurable properties with errorbars.
 
     Given an island of pixels it will return a number of measurable
     properties including errorbars. It will also compute residuals
@@ -935,6 +951,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
         corresponding contiguous region of the observational image (with mean
         background subtracted), which was segmented at the level of the analysis
         threshold.
+
     """
 
     if fixed is None:
@@ -1054,8 +1071,7 @@ def source_profile_and_errors(data, threshold, rms, noise, beam,
 
 
 class Detection(object):
-    """
-    Propagate a measurement in pixel space to celestial coordinates.
+    """Propagate a measurement in pixel space to celestial coordinates.
 
     A source measurement is primarily done in pixel space, this includes the
     parameters peak spectral brightness, position and (Gaussian) shape, but
@@ -1148,6 +1164,7 @@ class Detection(object):
         This is the same object passed as the `eps_ra` parameter.
     eps_dec : float, default: 0
         This is the same object passed as the `eps_dec` parameter.
+
     """
 
     def __init__(self, paramset, imagedata, chunk=None, eps_ra=0, eps_dec=0):
@@ -1243,7 +1260,9 @@ class Detection(object):
 
     def _physical_coordinates(self):
         """Convert the pixel parameters for this object into something
-        physical."""
+        physical.
+
+        """
 
         # First, the RA & dec.
         self.ra, self.dec = [Uncertain(x) for x in self.imagedata.wcs.p2s(
@@ -1418,16 +1437,18 @@ class Detection(object):
         self.smin_asec = Uncertain(smin_asec, errsmin_asec)
 
     def distance_from(self, x, y):
-        """Distance from center"""
+        """Distance from the center."""
         return ((self.x - x) ** 2 + (self.y - y) ** 2) ** 0.5
 
     def serialize(self, conf=Conf):
-        """
-        Return source properties suitable for database storage.
+        """Return source properties suitable for database storage.
 
         We manually add ew_sys_err, ns_sys_err as defined in conf.image.
 
-        returns: a list of tuples containing all relevant fields
+        Returns
+        -------
+        a list of tuples containing all relevant fields
+
         """
 
         def _get_param(param_name):
@@ -1469,8 +1490,9 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
                                         xbar_ybar_error,
                                         xbar_ybar_smaj_smin_theta,
                                         dummy, return_values):
-    """
-    Similar to extract.Detection._physical_coordinates, but vectorized and
+    """First part of celestial coordinates.
+
+    Similar to func:`extract.Detection._physical_coordinates`, but vectorized and
     mainly the first part, until we need another call to wcs.all_pix2world,
     based on the output from this part.
     What we have learned from moments_enhanced is that measuring the islands
@@ -1517,6 +1539,7 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
     None
         This method does not return anything. The results are stored in the
         return_values array.
+
     """
 
     ra, dec = ra_dec
@@ -1617,7 +1640,8 @@ def first_part_of_celestial_coordinates(ra_dec, endy_ra_dec,
              '(n, m), (n, m), (l), (n, m), (), (), (k) -> (k), (k), (k), ()')
 def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
                              npix, source, noise, xpos, ypos, min_width):
-    """
+    """Insert sources and noise.
+
     We want to copy the relevant source and noise data into input arrays for
     measuring.moments_enhanced. Simultaneously calculate the minimum width of
     each island; when determining source properties this is an important
@@ -1688,6 +1712,7 @@ def insert_sources_and_noise(some_image, noise_map, inds, labelled_data, label,
         'guvectorize() functions don’t return their result value: they take it
         as an array argument, which must be filled in by the function'. In this
         case source, noise, xpos, ypos and min_width will be filled with values.
+
     """
 
     image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
@@ -1722,7 +1747,8 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
                                                         beam, beamsize,
                                                         correlation_lengths,
                                                         eps_ra, eps_dec):
-    """
+    """Source measurements (vectorised).
+
     From islands of pixels above the analysis threshold with peaks above the
     detection threshold source parameters are extracted, including error bars.
     These quantities are transformed to celestial coordinates in a vectorized
@@ -1909,6 +1935,7 @@ def source_measurements_pixels_and_celestial_vectorised(num_islands, npixs,
         1D float32 array representing reduced chi-squared statistics reflecting
         an indication of the goodness-of-fit, equivalent to reduced_chisq as
         calculated in measuring.goodness_of_fit.
+
     """
     # This is the conditional route to the fastest algorithm for source
     # measurements, with no forced_beam and deblending options and no Gauss

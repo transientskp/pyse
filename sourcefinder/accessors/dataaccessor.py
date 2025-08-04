@@ -13,22 +13,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DataAccessor:
-    """
-    Base class for accessors used with :class:`sourcefinder.image.ImageData`.
-    
+    """Base class for accessors used with
+    :class:`sourcefinder.image.ImageData`.
+
     Data accessors provide a uniform way for the ImageData class (i.e.,
     generic image representation) to access the various ways in which
     images may be stored (FITS files, arrays in memory, potentially HDF5,
     etc.).
-    
+
     This class cannot be instantiated directly, but should be subclassed
     and the abstract properties provided. Note that all abstract
     properties are required to provide a valid accessor.
-    
+
     Additional properties may also be provided by subclasses. However,
     TraP components are required to degrade gracefully in the absence of
     these optional properties.
-    
+
     Attributes
     ----------
     beam : tuple
@@ -61,12 +61,13 @@ class DataAccessor:
     wcs : :class:`sourcefinder.utility.coordinates.WCS`
         An instance of :py:class:`sourcefinder.utility.coordinates.WCS`,
         describing the mapping from data pixels to sky-coordinates.
-    
+
     Notes
     -----
     The class also provides some common functionality: static methods used
     for parsing data files, and an 'extract_metadata' function which
     provides key info in a simple dict format.
+
     """
 
     centre_ra: float
@@ -87,12 +88,10 @@ class DataAccessor:
             beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
             if is_valid_beam_tuple(beam_tuple):
                 deltax, deltay = self.pixelsize
-                self.beam = DataAccessor.degrees2pixels(*beam_tuple,
-                                                        deltax, deltay)
+                self.beam = DataAccessor.degrees2pixels(*beam_tuple, deltax, deltay)
 
     def extract_metadata(self) -> dict:
-        """
-        Massage the class attributes into a flat dictionary with
+        """Massage the class attributes into a flat dictionary with
         database-friendly values.
 
         While rather tedious, this is easy to serialize and store separately
@@ -105,32 +104,35 @@ class DataAccessor:
         dict
             A dictionary containing key-value pairs of class attributes
             formatted for database storage.
+
         """
         metadata = {
-            'tau_time': self.tau_time,
-            'freq_eff': self.freq_eff,
-            'freq_bw': self.freq_bw,
-            'taustart_ts': self.taustart_ts,
-            'url': self.url,
-            'centre_ra': self.centre_ra,
-            'centre_decl': self.centre_decl,
-            'deltax': self.pixelsize[0],
-            'deltay': self.pixelsize[1],
+            "tau_time": self.tau_time,
+            "freq_eff": self.freq_eff,
+            "freq_bw": self.freq_bw,
+            "taustart_ts": self.taustart_ts,
+            "url": self.url,
+            "centre_ra": self.centre_ra,
+            "centre_decl": self.centre_decl,
+            "deltax": self.pixelsize[0],
+            "deltay": self.pixelsize[1],
         }
-
 
         if is_valid_beam_tuple(self.beam):
             beam = cast(tuple[float, float, float], self.beam)
-            metadata.update({
-                'beam_smaj_pix': beam[0],
-                'beam_smin_pix': beam[1],
-                'beam_pa_rad': beam[2],
-            })
+            metadata.update(
+                {
+                    "beam_smaj_pix": beam[0],
+                    "beam_smin_pix": beam[1],
+                    "beam_pa_rad": beam[2],
+                }
+            )
 
         return metadata
 
     def parse_pixelsize(self) -> tuple[float, float]:
-        """
+        """Parse pixel size.
+
         Returns
         -------
         deltax : float
@@ -154,17 +156,17 @@ class DataAccessor:
         # NB. What's a reasonable epsilon here?
         eps = 1e-7
         if abs(abs(deltax) - abs(deltay)) > eps:
-            raise ValueError("Image WCS header suggests non-square pixels."
-                             "This is an untested use case, and may break "
-                             "things - specifically the skyregion tracking "
-                             "but possibly other stuff too.")
+            raise ValueError(
+                "Image WCS header suggests non-square pixels."
+                "This is an untested use case, and may break "
+                "things - specifically the skyregion tracking "
+                "but possibly other stuff too."
+            )
         return deltax, deltay
 
     @staticmethod
-    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay) -> (
-            tuple)[float, float, float]:
-        """
-        Convert beam in degrees to beam in pixels and radians.
+    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay) -> (tuple)[float, float, float]:
+        """Convert beam in degrees to beam in pixels and radians.
         For example, FITS beam parameters are in degrees.
 
         Parameters
@@ -183,21 +185,16 @@ class DataAccessor:
         Returns
         -------
         tuple
-            A tuple containing:
-            - semimaj : float
-                Beam semi-major axis in pixels.
-            - semimin : float
-                Beam semi-minor axis in pixels.
-            - theta : float
-                Beam position angle in radians.
+            - semimaj (float): Beam semi-major axis in pixels.
+            - semimin (float): Beam semi-minor axis in pixels.
+            - theta (float): Beam position angle in radians.
+
         """
         theta = pi * bpa / 180
-        semimaj = (bmaj / 2.) * (sqrt(
-            (sin(theta) ** 2) / (deltax ** 2) +
-            (cos(theta) ** 2) / (deltay ** 2))
+        semimaj = (bmaj / 2.0) * (
+            sqrt((sin(theta) ** 2) / (deltax**2) + (cos(theta) ** 2) / (deltay**2))
         )
-        semimin = (bmin / 2.) * (sqrt(
-            (cos(theta) ** 2) / (deltax ** 2) +
-            (sin(theta) ** 2) / (deltay ** 2))
+        semimin = (bmin / 2.0) * (
+            sqrt((cos(theta) ** 2) / (deltax**2) + (sin(theta) ** 2) / (deltay**2))
         )
         return semimaj, semimin, theta
