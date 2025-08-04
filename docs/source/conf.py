@@ -48,4 +48,4 @@ templates_path = ["_templates"]
 exclude_patterns = []
 
 # HTML options
-html_theme = "furo"
+html_theme = "pydata_sphinx_theme"

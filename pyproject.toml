@@ -80,8 +80,8 @@ dependencies = [
 
 [tool.hatch.envs.docs]
 extra-dependencies = [
-    "furo",
     "numpydoc",
+    "pydata-sphinx-theme",
     "sphinx",
     "sphinx-autoapi",
 ]
