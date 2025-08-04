@@ -20,13 +20,16 @@ import warnings
 from pathlib import Path
 import pytest
 from scipy.signal import fftconvolve
+from scipy.stats import normaltest, ttest_1samp
 import pandas as pd
 
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 
-from sourcefinder.accessors import sourcefinder_image_from_accessor
+from sourcefinder.accessors import sourcefinder_image_from_accessor, writefits
 from sourcefinder.accessors.fitsimage import FitsImage
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
@@ -211,7 +214,7 @@ def generate_artificial_image():
             DATAPATH, "test_unresolved_sources_truth.npz"
         ),
         output_size=4096,
-        peak_brightness=100.0,
+        peak_brightness=50.0,
         num_sources=167_281,
         unresolved=True,
     ):
@@ -430,7 +433,9 @@ def test_generated_files_unresolved(tmp_path, generate_artificial_image):
     assert truth_path.exists(), f"File missing: {truth_path}"
 
 
-def test_measured_vectorized_forced_beam(tmp_path, generate_artificial_image):
+def test_measured_vectorized_forced_beam(
+    tmp_path, generate_artificial_image, min_pvalue=1e-1
+):
     """
     Compare source parameters from vectorized source measurements with forced beam
     to its corresponding ground truth values.
@@ -442,19 +447,27 @@ def test_measured_vectorized_forced_beam(tmp_path, generate_artificial_image):
         output_fits_path=image_path, output_truth_path=truth_path
     )
 
-    conf = Conf(image=ImgConf(vectorized=True), export=ExportSettings())
+    conf = Conf(
+        image=ImgConf(
+            allow_multiprocessing=False,
+            vectorized=True,
+            back_size_x=256,
+            back_size_y=256,
+        ),
+        export=ExportSettings(),
+    )
     fits_img = FitsImage(image_path)
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
 
-    source_parms_df = img.extract(
-        det=10.0,
-        anl=6.0,
+    source_params_df = img.extract(
+        det=30.0,
+        anl=20.0,
         noisemap=np.ma.array(np.ones(img.data.shape)),
         bgmap=np.ma.array(np.zeros(img.data.shape)),
         force_beam=True,
         reconvert=False,
     )
-    number_measured_sources = source_parms_df.shape[0]
+    number_measured_sources = source_params_df.shape[0]
 
     # Load the ground truth source parameters into a Pandas DataFrame.
     truth = pd.read_hdf(truth_path, key="truth")
@@ -463,6 +476,58 @@ def test_measured_vectorized_forced_beam(tmp_path, generate_artificial_image):
         f"Number of measured sources {number_measured_sources} "
         f"does not match number of ground truth sources {truth.shape[0]}"
     )
+
+    # Match sources by sky position
+    sky_meas = SkyCoord(
+        ra=source_params_df[SourceParams.RA].to_numpy() * u.deg,
+        dec=source_params_df[SourceParams.DEC].to_numpy() * u.deg,
+    )
+    sky_truth = SkyCoord(
+        ra=truth[SourceParams.RA].to_numpy() * u.deg,
+        dec=truth[SourceParams.DEC].to_numpy() * u.deg,
+    )
+
+    idx, _, _ = sky_meas.match_to_catalog_sky(sky_truth)
+
+    # Extract matched true values
+    true_ra = truth[SourceParams.RA].to_numpy()[idx]
+    true_dec = truth[SourceParams.DEC].to_numpy()[idx]
+
+    measured_ra = source_params_df[SourceParams.RA].to_numpy()
+    measured_dec = source_params_df[SourceParams.DEC].to_numpy()
+
+    measured_ra_err = source_params_df[SourceParams.RA_ERR].to_numpy()
+    measured_dec_err = source_params_df[SourceParams.DEC_ERR].to_numpy()
+
+    # Compute normalized residuals
+    norm_ra_resid = (measured_ra - true_ra) / measured_ra_err
+    norm_dec_resid = (measured_dec - true_dec) / measured_dec_err
+
+    # Check that the mean of the position is not biased
+    t_stat_ra, p_ra = ttest_1samp(norm_ra_resid, popmean=0)
+    assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra}"
+    t_stat_dec, p_dec = ttest_1samp(norm_dec_resid, popmean=0)
+    assert (
+        p_dec > min_pvalue
+    ), f"DEC residuals deviate too much from normal: p={p_dec}"
+
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    std_ra = np.std(norm_ra_resid)
+    std_dec = np.std(norm_dec_resid)
+
+    assert 0.5 < std_ra < 1.5, f"RA errors not realistic: std={std_ra}"
+    assert 0.5 < std_dec < 1.5, f"DEC errors not realistic: std={std_dec}"
+
+    # Normality test
+    # _, p_ra = normaltest(norm_ra_resid)
+    # _, p_dec = normaltest(norm_dec_resid)
+    #
+    # assert (
+    #     p_ra > min_pvalue
+    # ), f"RA residuals deviate too much from normal: p={p_ra}"
+    # assert (
+    #     p_dec > min_pvalue
+    # ), f"DEC residuals deviate too much from normal: p={p_dec}"
 
 
 if __name__ == "__main__":
