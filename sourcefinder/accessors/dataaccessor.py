@@ -179,9 +179,9 @@ class DataAccessor:
         bpa : float
             Beam position angle in degrees.
         deltax : float
-            Pixel size along the x axis in degrees.
+            Pixel size along the x-axis in degrees.
         deltay : float
-            Pixel size along the y axis in degrees.
+            Pixel size along the y-axis in degrees.
 
         Returns
         -------
