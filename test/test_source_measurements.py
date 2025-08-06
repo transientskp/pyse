@@ -32,6 +32,7 @@ import astropy.units as u
 
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors.fitsimage import FitsImage
+from sourcefinder.accessors.dataaccessor import DataAccessor
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
@@ -191,9 +192,6 @@ def create_beam_kernel(
     x_min = x.min()
     y_min = y.min()
 
-    x += xoffset
-    y += yoffset
-
     # Return the Gaussian profile.
     # Also return the minimum values of x and y, since they should match
     # with the lower bounds of the subimage.
@@ -227,11 +225,13 @@ def generate_artificial_image(tmp_path):
         bmin_deg = psf_header["BMIN"]
         bpa_deg = psf_header["BPA"]
 
-        pixel_scale_deg = np.mean(proj_plane_pixel_scales(wcs_psf.celestial))
+        pixel_scales_deg = proj_plane_pixel_scales(wcs_psf.celestial)
+        pixel_scale_x_deg = pixel_scales_deg[0]
+        pixel_scale_y_deg = pixel_scales_deg[1]
 
-        smaj_pix = bmaj_deg / pixel_scale_deg / 2
-        smin_pix = bmin_deg / pixel_scale_deg / 2
-        theta_rad = np.deg2rad(bpa_deg)
+        smaj_pix, smin_pix, theta_rad = DataAccessor.degrees2pixels(
+            bmaj_deg, bmin_deg, bpa_deg, pixel_scale_x_deg, pixel_scale_y_deg
+        )
 
         # Convolve white noise with PSF
         white_noise = np.random.normal(0, 1, (output_size, output_size))
