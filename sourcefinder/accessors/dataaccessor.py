@@ -88,7 +88,9 @@ class DataAccessor:
             beam_tuple = (self.conf.bmaj, self.conf.bmin, self.conf.bpa)
             if is_valid_beam_tuple(beam_tuple):
                 deltax, deltay = self.pixelsize
-                self.beam = DataAccessor.degrees2pixels(*beam_tuple, deltax, deltay)
+                self.beam = DataAccessor.degrees2pixels(
+                    *beam_tuple, deltax, deltay
+                )
 
     def extract_metadata(self) -> dict:
         """Massage the class attributes into a flat dictionary with
@@ -166,7 +168,9 @@ class DataAccessor:
         return deltax, deltay
 
     @staticmethod
-    def degrees2pixels(bmaj, bmin, bpa, deltax, deltay) -> (tuple)[float, float, float]:
+    def degrees2pixels(
+        bmaj, bmin, bpa, deltax, deltay
+    ) -> tuple[float, float, float]:
         """Convert beam in degrees to beam in pixels and radians.
         For example, FITS beam parameters are in degrees.
 
@@ -195,9 +199,15 @@ class DataAccessor:
         """
         theta = pi * bpa / 180
         semimaj = (bmaj / 2.0) * (
-            sqrt((sin(theta) ** 2) / (deltax**2) + (cos(theta) ** 2) / (deltay**2))
+            sqrt(
+                (sin(theta) ** 2) / (deltax**2)
+                + (cos(theta) ** 2) / (deltay**2)
+            )
         )
         semimin = (bmin / 2.0) * (
-            sqrt((cos(theta) ** 2) / (deltax**2) + (sin(theta) ** 2) / (deltay**2))
+            sqrt(
+                (cos(theta) ** 2) / (deltax**2)
+                + (sin(theta) ** 2) / (deltay**2)
+            )
         )
         return semimaj, semimin, theta
