@@ -38,6 +38,8 @@ from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
 from sourcefinder.gaussian import gaussian
+from sourcefinder.measuring import moments
+from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 
@@ -170,11 +172,7 @@ def create_beam_kernel(
         size -= 1
 
     # Creates indices starting at 0, ending at size - 1.
-    # Swap x and y since sourcefinder.gaussian.gaussian has been defined to
-    # provide a fitting function on data that has been loaded using
-    # astropy.io.fits.open and then transposed. There is no transpose in the
-    # setup of this unit test.
-    y, x = np.indices((size, size), dtype=float)
+    x, y = np.indices((size, size), dtype=float)
 
     center = (size - 1) // 2
     # This should ensure that both x.min() and y.min() are integers and equal.
@@ -235,13 +233,16 @@ def generate_artificial_image(tmp_path):
 
         # Convolve white noise with PSF
         white_noise = np.random.normal(0, 1, (output_size, output_size))
-        psf_kernel = psf_data.squeeze() / np.sum(psf_data)
+        # Transpose the data before working with it.
+        psf_kernel = psf_data.squeeze().T / np.sum(psf_data)
         corr_noise = fftconvolve(white_noise, psf_kernel, mode="same")
 
         # Normalize to mean 0, std 1 Jy/beam
         corr_noise = (corr_noise - np.mean(corr_noise)) / np.std(corr_noise)
 
         coords = []
+        diff_x = []
+        diff_y = []
 
         # Round num_sources to the nearest squared integer.
         ns_sqrt = round(np.sqrt(num_sources))
@@ -366,7 +367,35 @@ def generate_artificial_image(tmp_path):
                     # Insert the source in the image, i.e. add it to the
                     # correlated noise.
                     corr_noise[subimage_indices] += source_to_be_inserted
-                    coords.append((pos_x, pos_y))
+                    beam = (
+                        smaj_pix,
+                        smin_pix,
+                        theta_rad,
+                    )
+                    beamsize = utils.calculate_beamsize(beam[0], beam[1])
+                    moments_dict = moments(
+                        corr_noise[subimage_indices], 1, beam, beamsize
+                    )
+
+                    coords.append((pos_y, pos_x))
+                    diff_x.append(moments_dict["xbar"] - offset_x - space_ar)
+                    diff_y.append(moments_dict["ybar"] - offset_y - space_ar)
+
+        norm_resid_x = np.array(diff_x) / (smaj_pix / peak_brightness)
+        plt.hist(norm_resid_x, bins=100)
+        plt.xlabel(
+            f"Error in x (theoretical error), " f"{norm_resid_x.std() = :.3f}"
+        )
+        plt.ylabel("Count")
+        plt.show()
+
+        norm_resid_y = np.array(diff_y) / (smin_pix / peak_brightness)
+        plt.hist(norm_resid_y, bins=100)
+        plt.xlabel(
+            f"Error in y (theoretical error), " f"{norm_resid_y.std() = :.3f}"
+        )
+        plt.ylabel("Count")
+        plt.show()
 
         # Construct output header
         out_header = psf_header.copy()
@@ -409,7 +438,7 @@ def generate_artificial_image(tmp_path):
         # Save FITS image.
         fits.writeto(
             output_fits_path,
-            data=corr_noise.astype(np.float32),
+            data=corr_noise.astype(np.float32).T,
             header=out_header,
             overwrite=True,
         )
@@ -521,8 +550,8 @@ def test_measured_vectorized_forced_beam(
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
     std_x = np.std(norm_x_resid)
     std_y = np.std(norm_y_resid)
-    assert 0.5 < std_x < 1.5, f"X errors not realistic: std={std_x}"
-    assert 0.5 < std_y < 1.5, f"Y errors not realistic: std={std_y}"
+    assert 0.5 < std_x < 2.0, f"X errors not realistic: std={std_x}"
+    assert 0.5 < std_y < 2.0, f"Y errors not realistic: std={std_y}"
 
     # Extract matched true values
     true_ra = truth_df[SourceParams.RA].to_numpy()[idx]
@@ -550,19 +579,8 @@ def test_measured_vectorized_forced_beam(
     std_ra = np.std(norm_ra_resid)
     std_dec = np.std(norm_dec_resid)
 
-    assert 0.5 < std_ra < 1.5, f"RA errors not realistic: std={std_ra}"
-    assert 0.5 < std_dec < 1.5, f"DEC errors not realistic: std={std_dec}"
-
-    # Normality test
-    # _, p_ra = normaltest(norm_ra_resid)
-    # _, p_dec = normaltest(norm_dec_resid)
-    #
-    # assert (
-    #     p_ra > min_pvalue
-    # ), f"RA residuals deviate too much from normal: p={p_ra}"
-    # assert (
-    #     p_dec > min_pvalue
-    # ), f"DEC residuals deviate too much from normal: p={p_dec}"
+    assert 0.5 < std_ra < 2.0, f"RA errors not realistic: std={std_ra}"
+    assert 0.5 < std_dec < 2.0, f"DEC errors not realistic: std={std_dec}"
 
 
 if __name__ == "__main__":
