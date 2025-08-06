@@ -22,6 +22,7 @@ import pytest
 from scipy.signal import fftconvolve
 from scipy.stats import normaltest, ttest_1samp
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from astropy.wcs.utils import proj_plane_pixel_scales
 from astropy.io import fits
@@ -29,7 +30,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-from sourcefinder.accessors import sourcefinder_image_from_accessor, writefits
+from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors.fitsimage import FitsImage
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
@@ -182,16 +183,16 @@ def create_beam_kernel(
     assert x.mean() == 0
     assert y.mean() == 0
 
+    gaussian_function = gaussian(
+        peak_brightness, xoffset, yoffset, smaj_pix, smin_pix, theta_rad
+    )
+    gaussian_profile = gaussian_function(x, y)
+
     x_min = x.min()
     y_min = y.min()
 
     x += xoffset
     y += yoffset
-
-    gaussian_function = gaussian(
-        peak_brightness, xoffset, yoffset, smaj_pix, smin_pix, theta_rad
-    )
-    gaussian_profile = gaussian_function(x, y)
 
     # Return the Gaussian profile.
     # Also return the minimum values of x and y, since they should match
@@ -200,19 +201,15 @@ def create_beam_kernel(
 
 
 @pytest.fixture
-@requires_data(os.path.join(DATAPATH, "Dirty_beam", "psf.fits"))
-def generate_artificial_image():
+def generate_artificial_image(tmp_path):
     """Generate FITS image with either resolved or unresolved sources and save
     ground truth."""
 
+    @requires_data(os.path.join(DATAPATH, "Dirty_beam", "psf.fits"))
     def _generate(
         psf_fits_path: Path = os.path.join(DATAPATH, "Dirty_beam", "psf.fits"),
-        output_fits_path: Path = os.path.join(
-            DATAPATH, "test_unresolved_sources.fits"
-        ),
-        output_truth_path: Path = os.path.join(
-            DATAPATH, "test_unresolved_sources_truth.npz"
-        ),
+        output_fits_path: Path = tmp_path / "image_unresolved.fits",
+        output_truth_path: Path = tmp_path / "truth_unresolved.h5",
         output_size=4096,
         peak_brightness=50.0,
         num_sources=167_281,
@@ -397,15 +394,17 @@ def generate_artificial_image():
 
         coords_world = wcs_out.wcs_pix2world(coords_full, 0)
 
-        df_truth = pd.DataFrame(
+        truth_df = pd.DataFrame(
             {
+                SourceParams.X: coords_px[:, 0],
+                SourceParams.Y: coords_px[:, 1],
                 SourceParams.RA: coords_world[:, 0],
                 SourceParams.DEC: coords_world[:, 1],
             }
         )
 
         # Save ground truth to HDF5
-        df_truth.to_hdf(output_truth_path, key="truth", mode="w")
+        truth_df.to_hdf(output_truth_path, key="truth", mode="w")
 
         # Save FITS image.
         fits.writeto(
@@ -470,11 +469,11 @@ def test_measured_vectorized_forced_beam(
     number_measured_sources = source_params_df.shape[0]
 
     # Load the ground truth source parameters into a Pandas DataFrame.
-    truth = pd.read_hdf(truth_path, key="truth")
+    truth_df = pd.read_hdf(truth_path, key="truth")
 
-    assert number_measured_sources == truth.shape[0], (
+    assert number_measured_sources == truth_df.shape[0], (
         f"Number of measured sources {number_measured_sources} "
-        f"does not match number of ground truth sources {truth.shape[0]}"
+        f"does not match number of ground truth_df sources {truth_df.shape[0]}"
     )
 
     # Match sources by sky position
@@ -482,16 +481,52 @@ def test_measured_vectorized_forced_beam(
         ra=source_params_df[SourceParams.RA].to_numpy() * u.deg,
         dec=source_params_df[SourceParams.DEC].to_numpy() * u.deg,
     )
-    sky_truth = SkyCoord(
-        ra=truth[SourceParams.RA].to_numpy() * u.deg,
-        dec=truth[SourceParams.DEC].to_numpy() * u.deg,
+    sky_truth_df = SkyCoord(
+        ra=truth_df[SourceParams.RA].to_numpy() * u.deg,
+        dec=truth_df[SourceParams.DEC].to_numpy() * u.deg,
     )
 
-    idx, _, _ = sky_meas.match_to_catalog_sky(sky_truth)
+    idx, sep2d, _ = sky_meas.match_to_catalog_sky(sky_truth_df)
+
+    plt.hist(sep2d.arcsec, bins=100)
+    plt.xlabel("Separation (arcsec)")
+    plt.ylabel("Count")
+    plt.show()
+
+    _, counts = np.unique(idx, return_counts=True)
+    duplicates = np.sum(counts > 1)
+    assert (
+        duplicates == 0
+    ), f"{duplicates} measured sources were matched to multiple true sources."
+
+    true_x = truth_df[SourceParams.X].to_numpy()[idx]
+    true_y = truth_df[SourceParams.Y].to_numpy()[idx]
+
+    measured_x = source_params_df[SourceParams.X].to_numpy()
+    measured_y = source_params_df[SourceParams.Y].to_numpy()
+
+    # Compute normalized residuals
+    norm_x_resid = (measured_x - true_x) / source_params_df[
+        SourceParams.X_ERR
+    ].to_numpy()
+    norm_y_resid = (measured_y - true_y) / source_params_df[
+        SourceParams.Y_ERR
+    ].to_numpy()
+    # Check that the mean of the position is not biased
+    t_stat_x, p_x = ttest_1samp(norm_x_resid, popmean=0)
+    assert p_x > min_pvalue, f"X position not centred: p={p_x}"
+    t_stat_y, p_y = ttest_1samp(norm_y_resid, popmean=0)
+    assert p_y > min_pvalue, f"Y position not centred: p={p_y}"
+
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    std_x = np.std(norm_x_resid)
+    std_y = np.std(norm_y_resid)
+    assert 0.5 < std_x < 1.5, f"X errors not realistic: std={std_x}"
+    assert 0.5 < std_y < 1.5, f"Y errors not realistic: std={std_y}"
 
     # Extract matched true values
-    true_ra = truth[SourceParams.RA].to_numpy()[idx]
-    true_dec = truth[SourceParams.DEC].to_numpy()[idx]
+    true_ra = truth_df[SourceParams.RA].to_numpy()[idx]
+    true_dec = truth_df[SourceParams.DEC].to_numpy()[idx]
 
     measured_ra = source_params_df[SourceParams.RA].to_numpy()
     measured_dec = source_params_df[SourceParams.DEC].to_numpy()
