@@ -58,7 +58,7 @@ def writefits(data, filename, header={}):
     ----------
     data : numpy.ndarray
         The NumPy array to be written to the FITS file.
-    filename : str
+    filename : Path or str
         The path to the output FITS file.
     header : dict, default: {}
         A dictionary containing key-value pairs for the FITS header.
