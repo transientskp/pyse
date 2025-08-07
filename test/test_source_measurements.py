@@ -20,7 +20,7 @@ import warnings
 from pathlib import Path
 import pytest
 from scipy.signal import fftconvolve
-from scipy.stats import normaltest, ttest_1samp
+from scipy.stats import ttest_1samp
 import pandas as pd
 import matplotlib.pyplot as plt
 
