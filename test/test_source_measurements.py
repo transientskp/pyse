@@ -438,7 +438,7 @@ def generate_artificial_image(tmp_path):
         # Save FITS image.
         fits.writeto(
             output_fits_path,
-            data=corr_noise.astype(np.float32).T,
+            data=corr_noise.astype(np.float32),
             header=out_header,
             overwrite=True,
         )
