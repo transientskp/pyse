@@ -22,17 +22,13 @@ import pytest
 from scipy.signal import fftconvolve
 from scipy.stats import ttest_1samp
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from astropy.wcs.utils import proj_plane_pixel_scales
-from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-from sourcefinder.accessors import sourcefinder_image_from_accessor
+from sourcefinder.accessors import sourcefinder_image_from_accessor, writefits
 from sourcefinder.accessors.fitsimage import FitsImage
-from sourcefinder.accessors.dataaccessor import DataAccessor
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
@@ -157,9 +153,7 @@ class SourceParameters(unittest.TestCase):
 
 def create_beam_kernel(
     peak_brightness,
-    smaj_pix,
-    smin_pix,
-    theta_rad,
+    beam: tuple,
     size=15,
     xoffset=0.0,
     yoffset=0.0,
@@ -167,6 +161,7 @@ def create_beam_kernel(
     """Create a peak-normalized elliptical Gaussian kernel for the
     clean beam."""
 
+    smaj_pix, smin_pix, theta_rad = beam
     # Best to have a centrosymmetric grid, which requires size to be odd.
     if size % 2 == 0:
         size -= 1
@@ -212,29 +207,14 @@ def generate_artificial_image(tmp_path):
         unresolved=True,
     ):
 
-        # Load PSF and header
-        with fits.open(psf_fits_path) as hdul:
-            psf_data = hdul[0].data
-            psf_header = hdul[0].header
-            wcs_psf = WCS(psf_header)
-
-        # Extract clean beam parameters
-        bmaj_deg = psf_header["BMAJ"]
-        bmin_deg = psf_header["BMIN"]
-        bpa_deg = psf_header["BPA"]
-
-        pixel_scales_deg = proj_plane_pixel_scales(wcs_psf.celestial)
-        pixel_scale_x_deg = pixel_scales_deg[0]
-        pixel_scale_y_deg = pixel_scales_deg[1]
-
-        smaj_pix, smin_pix, theta_rad = DataAccessor.degrees2pixels(
-            bmaj_deg, bmin_deg, bpa_deg, pixel_scale_x_deg, pixel_scale_y_deg
-        )
+        psf_fits = FitsImage(psf_fits_path)
+        psf_im = sourcefinder_image_from_accessor(psf_fits)
+        psf_imdata = psf_im.data.data
 
         # Convolve white noise with PSF
         white_noise = np.random.normal(0, 1, (output_size, output_size))
         # Transpose the data before working with it.
-        psf_kernel = psf_data.squeeze().T / np.sum(psf_data)
+        psf_kernel = psf_imdata / np.sum(psf_imdata)
         corr_noise = fftconvolve(white_noise, psf_kernel, mode="same")
 
         # Normalize to mean 0, std 1 Jy/beam
@@ -277,9 +257,7 @@ def generate_artificial_image(tmp_path):
                 if unresolved:
                     source_to_be_inserted, x_min, y_min = create_beam_kernel(
                         peak_brightness,
-                        smaj_pix,
-                        smin_pix,
-                        theta_rad,
+                        psf_im.beam,
                         size=source_spacing,
                         xoffset=offset_x,
                         yoffset=offset_y,
@@ -367,38 +345,22 @@ def generate_artificial_image(tmp_path):
                     # Insert the source in the image, i.e. add it to the
                     # correlated noise.
                     corr_noise[subimage_indices] += source_to_be_inserted
-                    beam = (
-                        smaj_pix,
-                        smin_pix,
-                        theta_rad,
+                    psf_beamsize = utils.calculate_beamsize(
+                        psf_im.beam[0], psf_im.beam[1]
                     )
-                    beamsize = utils.calculate_beamsize(beam[0], beam[1])
                     moments_dict = moments(
-                        corr_noise[subimage_indices], 1, beam, beamsize
+                        corr_noise[subimage_indices],
+                        1,
+                        psf_im.beam,
+                        psf_beamsize,
                     )
 
-                    coords.append((pos_y, pos_x))
+                    coords.append((pos_x, pos_y))
                     diff_x.append(moments_dict["xbar"] - offset_x - space_ar)
                     diff_y.append(moments_dict["ybar"] - offset_y - space_ar)
 
-        norm_resid_x = np.array(diff_x) / (smaj_pix / peak_brightness)
-        plt.hist(norm_resid_x, bins=100)
-        plt.xlabel(
-            f"Error in x (theoretical error), " f"{norm_resid_x.std() = :.3f}"
-        )
-        plt.ylabel("Count")
-        plt.show()
-
-        norm_resid_y = np.array(diff_y) / (smin_pix / peak_brightness)
-        plt.hist(norm_resid_y, bins=100)
-        plt.xlabel(
-            f"Error in y (theoretical error), " f"{norm_resid_y.std() = :.3f}"
-        )
-        plt.ylabel("Count")
-        plt.show()
-
         # Construct output header
-        out_header = psf_header.copy()
+        out_header = psf_fits.header.copy()
         out_header["NAXIS1"] = output_size
         out_header["NAXIS2"] = output_size
         out_header["CRPIX1"] = output_size // 2
@@ -435,13 +397,7 @@ def generate_artificial_image(tmp_path):
         # Save ground truth to HDF5
         truth_df.to_hdf(output_truth_path, key="truth", mode="w")
 
-        # Save FITS image.
-        fits.writeto(
-            output_fits_path,
-            data=corr_noise.astype(np.float32),
-            header=out_header,
-            overwrite=True,
-        )
+        writefits(corr_noise, output_fits_path, header=out_header)
 
     return _generate
 
@@ -515,12 +471,7 @@ def test_measured_vectorized_forced_beam(
         dec=truth_df[SourceParams.DEC].to_numpy() * u.deg,
     )
 
-    idx, sep2d, _ = sky_meas.match_to_catalog_sky(sky_truth_df)
-
-    plt.hist(sep2d.arcsec, bins=100)
-    plt.xlabel("Separation (arcsec)")
-    plt.ylabel("Count")
-    plt.show()
+    idx, _, _ = sky_meas.match_to_catalog_sky(sky_truth_df)
 
     _, counts = np.unique(idx, return_counts=True)
     duplicates = np.sum(counts > 1)
