@@ -201,8 +201,6 @@ class FitsImage(DataAccessor):
             The bandwidth extracted from the FITS header.
 
         """
-        freq_eff = None
-        freq_bw = None
         try:
             header = self.header
             if "RESTFRQ" in header:
