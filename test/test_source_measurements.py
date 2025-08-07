@@ -221,8 +221,6 @@ def generate_artificial_image(tmp_path):
         corr_noise = (corr_noise - np.mean(corr_noise)) / np.std(corr_noise)
 
         coords = []
-        diff_x = []
-        diff_y = []
 
         # Round num_sources to the nearest squared integer.
         ns_sqrt = round(np.sqrt(num_sources))
@@ -345,19 +343,7 @@ def generate_artificial_image(tmp_path):
                     # Insert the source in the image, i.e. add it to the
                     # correlated noise.
                     corr_noise[subimage_indices] += source_to_be_inserted
-                    psf_beamsize = utils.calculate_beamsize(
-                        psf_im.beam[0], psf_im.beam[1]
-                    )
-                    moments_dict = moments(
-                        corr_noise[subimage_indices],
-                        1,
-                        psf_im.beam,
-                        psf_beamsize,
-                    )
-
                     coords.append((pos_x, pos_y))
-                    diff_x.append(moments_dict["xbar"] - offset_x - space_ar)
-                    diff_y.append(moments_dict["ybar"] - offset_y - space_ar)
 
         # Construct output header
         out_header = psf_fits.header.copy()
