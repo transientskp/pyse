@@ -34,8 +34,6 @@ from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
 from sourcefinder.gaussian import gaussian
-from sourcefinder.measuring import moments
-from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 
@@ -407,8 +405,11 @@ def test_measured_vectorized_forced_beam(
     tmp_path, generate_artificial_image, min_pvalue=1e-1
 ):
     """
-    Compare source parameters from vectorized source measurements with forced beam
-    to its corresponding ground truth values.
+    Compare source parameters from vectorized source measurements with forced
+    beam to its corresponding ground truth values. This includes checks for
+    biases. The artificial images are regenerated for each test run.
+    Consequently, if you run these tests often enough, it will fail at some
+    point, depending on the values of `min_pvalue` and `MAX_BIAS`.
     """
     image_path = tmp_path / "image_unresolved.fits"
     truth_path = tmp_path / "truth_unresolved.h5"
