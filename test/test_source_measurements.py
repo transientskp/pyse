@@ -39,7 +39,7 @@ from sourcefinder.utility.sourceparams import SourceParams
 
 MAX_BIAS = 5.0
 NUMBER_INSERTED = 3969
-TRUE_PEAK_FLUX = 1063.67945065
+TRUE_PEAK_BRIGHTNESS = 1063.67945065
 TRUE_DECONV_SMAJ = 2.0 * 5.5956 / 2.0
 TRUE_DECONV_SMIN = 0.5 * 4.6794 / 2.0
 TRUE_DECONV_BPA = -0.5 * (-49.8)
@@ -60,11 +60,11 @@ class SourceParameters(unittest.TestCase):
 
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background
-        # level and noise map.  In this way we make sure that any
+        # level and noise map. In this way we make sure that any
         # possible biases in the measured source parameters cannot
-        # come from biases in the background level.  The peak fluxes,
+        # come from biases in the background level. The peak brightnesses,
         # in particular, can be biased low if the background levels
-        # are biased high.  The background and noise levels supplied
+        # are biased high. The background and noise levels supplied
         # here are the true values.
 
         extraction_results = img.extract(
@@ -75,13 +75,13 @@ class SourceParameters(unittest.TestCase):
         )
         self.number_sources = len(extraction_results)
 
-        peak_fluxes = []
+        peak_brightnesses = []
         deconv_smajaxes = []
         deconv_sminaxes = []
         deconv_bpas = []
 
         for source in extraction_results:
-            peak_fluxes.append([source.peak.value, source.peak.error])
+            peak_brightnesses.append([source.peak.value, source.peak.error])
             deconv_smajaxes.append(
                 [source.smaj_dc.value, source.smaj_dc.error]
             )
@@ -90,7 +90,7 @@ class SourceParameters(unittest.TestCase):
             )
             deconv_bpas.append([source.theta_dc.value, source.theta_dc.error])
 
-        self.peak_fluxes = np.array(peak_fluxes)
+        self.peak_brightnesses = np.array(peak_brightnesses)
         self.deconv_smajaxes = np.array(deconv_smajaxes)
         self.deconv_sminaxes = np.array(deconv_sminaxes)
         self.deconv_bpas = np.array(deconv_bpas)
@@ -110,14 +110,14 @@ class SourceParameters(unittest.TestCase):
         # Test number of sources
         self.assertEqual(self.number_sources, NUMBER_INSERTED)
 
-        # Test peak fluxes
-        peak_weights = 1.0 / self.peak_fluxes[:, 1] ** 2
+        # Test peak brightnesses
+        peak_weights = 1.0 / self.peak_brightnesses[:, 1] ** 2
         sum_peak_weights = np.sum(peak_weights)
         av_peak = np.sum(
-            self.peak_fluxes[:, 0] * peak_weights / sum_peak_weights
+            self.peak_brightnesses[:, 0] * peak_weights / sum_peak_weights
         )
         av_peak_err = 1 / np.sqrt(sum_peak_weights)
-        signif_dev_peak = (TRUE_PEAK_FLUX - av_peak) / av_peak_err
+        signif_dev_peak = (TRUE_PEAK_BRIGHTNESS - av_peak) / av_peak_err
         self.assertTrue(np.abs(signif_dev_peak) < MAX_BIAS)
 
         # Test major axes
