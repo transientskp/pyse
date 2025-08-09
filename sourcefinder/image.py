@@ -1138,7 +1138,10 @@ class ImageData(object):
             above_det_thr, all_indices, axis=0
         )
 
-        print(f"Number of sources = {num_islands_above_detection_threshold}")
+        print(
+            f"Number of detected sources ="
+            f" {num_islands_above_detection_threshold}"
+        )
 
         return (
             labels_above_det_thr,
