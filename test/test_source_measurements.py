@@ -37,7 +37,9 @@ from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 
+# Numbers for `SourceParameters.testAllParameters` unit test.
 MAX_BIAS = 5.0
+STD_MAX_BIAS_FACTOR = 2.0
 NUMBER_INSERTED = 3969
 TRUE_PEAK_BRIGHTNESS = 1063.67945065
 TRUE_DECONV_SMAJ = 2.0 * 5.5956 / 2.0
@@ -352,6 +354,7 @@ def generate_artificial_image(tmp_path):
 
         wcs_out = WCS(out_header)
 
+        print()
         print(f"Number of sources intended to be inserted = {num_sources}")
         print(
             (
@@ -371,6 +374,7 @@ def generate_artificial_image(tmp_path):
 
         truth_df = pd.DataFrame(
             {
+                SourceParams.PEAK: peak_brightness * np.ones(len(coords_px)),
                 SourceParams.X: coords_px[:, 0],
                 SourceParams.Y: coords_px[:, 1],
                 SourceParams.RA: coords_world[:, 0],
@@ -386,36 +390,32 @@ def generate_artificial_image(tmp_path):
     return _generate
 
 
-def test_generated_files_unresolved(tmp_path, generate_artificial_image):
-    """
-    Test of de testbestanden succesvol zijn gegenereerd.
-    """
-    image_path = tmp_path / "image_unresolved.fits"
-    truth_path = tmp_path / "truth_unresolved.h5"
-
-    generate_artificial_image(
-        output_fits_path=image_path, output_truth_path=truth_path
-    )
-
-    assert image_path.exists(), f"File missing: {image_path}"
-    assert truth_path.exists(), f"File missing: {truth_path}"
-
-
 def test_measured_vectorized_forced_beam(
-    tmp_path, generate_artificial_image, min_pvalue=1e-1
+    tmp_path, generate_artificial_image, min_pvalue=0.1
 ):
     """
     Compare source parameters from vectorized source measurements with forced
     beam to its corresponding ground truth values. This includes checks for
     biases. The artificial images are regenerated for each test run.
     Consequently, if you run these tests often enough, it will fail at some
-    point, depending on the values of `min_pvalue` and `MAX_BIAS`.
+    point, depending on the value of `min_pvalue` and `MAX_BIAS`. We will
+    scale the latter with the square root of the ratio of the number of
+    inserted sources over the number of inserted sources in the
+    `SourceParameters.testAllParameters`
+    test.
     """
     image_path = tmp_path / "image_unresolved.fits"
     truth_path = tmp_path / "truth_unresolved.h5"
 
+    num_sources = 167_281
+
+    SCALED_MAX_BIAS = MAX_BIAS * np.sqrt(num_sources / NUMBER_INSERTED)
+
     generate_artificial_image(
-        output_fits_path=image_path, output_truth_path=truth_path
+        output_fits_path=image_path,
+        output_truth_path=truth_path,
+        peak_brightness=50.0,
+        num_sources=num_sources,
     )
 
     conf = Conf(
@@ -431,8 +431,8 @@ def test_measured_vectorized_forced_beam(
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
 
     source_params_df = img.extract(
-        det=30.0,
-        anl=20.0,
+        det=12.0,
+        anl=8.0,
         noisemap=np.ma.array(np.ones(img.data.shape)),
         bgmap=np.ma.array(np.zeros(img.data.shape)),
         force_beam=True,
@@ -479,17 +479,22 @@ def test_measured_vectorized_forced_beam(
     norm_y_resid = (measured_y - true_y) / source_params_df[
         SourceParams.Y_ERR
     ].to_numpy()
+
     # Check that the mean of the position is not biased
-    t_stat_x, p_x = ttest_1samp(norm_x_resid, popmean=0)
+    p_x = ttest_1samp(norm_x_resid, popmean=0)[1]
     assert p_x > min_pvalue, f"X position not centred: p={p_x}"
-    t_stat_y, p_y = ttest_1samp(norm_y_resid, popmean=0)
+    p_y = ttest_1samp(norm_y_resid, popmean=0)[1]
     assert p_y > min_pvalue, f"Y position not centred: p={p_y}"
 
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
     std_x = np.std(norm_x_resid)
     std_y = np.std(norm_y_resid)
-    assert 0.5 < std_x < 2.0, f"X errors not realistic: std={std_x}"
-    assert 0.5 < std_y < 2.0, f"Y errors not realistic: std={std_y}"
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_x < STD_MAX_BIAS_FACTOR, (
+        f"X errors not " f"realistic:td={std_x}"
+    )
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_y < STD_MAX_BIAS_FACTOR, (
+        f"Y errors not realistic: " f"std={std_y}"
+    )
 
     # Extract matched true values
     true_ra = truth_df[SourceParams.RA].to_numpy()[idx]
@@ -506,9 +511,9 @@ def test_measured_vectorized_forced_beam(
     norm_dec_resid = (measured_dec - true_dec) / measured_dec_err
 
     # Check that the mean of the position is not biased
-    t_stat_ra, p_ra = ttest_1samp(norm_ra_resid, popmean=0)
+    p_ra = ttest_1samp(norm_ra_resid, popmean=0)[1]
     assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra}"
-    t_stat_dec, p_dec = ttest_1samp(norm_dec_resid, popmean=0)
+    p_dec = ttest_1samp(norm_dec_resid, popmean=0)[1]
     assert (
         p_dec > min_pvalue
     ), f"DEC residuals deviate too much from normal: p={p_dec}"
@@ -517,8 +522,26 @@ def test_measured_vectorized_forced_beam(
     std_ra = np.std(norm_ra_resid)
     std_dec = np.std(norm_dec_resid)
 
-    assert 0.5 < std_ra < 2.0, f"RA errors not realistic: std={std_ra}"
-    assert 0.5 < std_dec < 2.0, f"DEC errors not realistic: std={std_dec}"
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_ra < STD_MAX_BIAS_FACTOR, (
+        f"RA errors not " f"realistic: std={std_ra}"
+    )
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_dec < STD_MAX_BIAS_FACTOR, (
+        f"DEC errors not " f"realistic: std" f"={std_dec}"
+    )
+
+    true_peak_brightnesses = truth_df[SourceParams.PEAK].to_numpy()[idx]
+    measured_peak_brightnesses = source_params_df[SourceParams.PEAK].to_numpy()
+    measured_peak_brightnesses_err = source_params_df[
+        SourceParams.PEAK_ERR
+    ].to_numpy()
+    norm_peak_resid = (
+        measured_peak_brightnesses - true_peak_brightnesses
+    ) / measured_peak_brightnesses_err
+    # Check that the mean of the peak brightnesses is not biased
+    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
+    assert (
+        np.abs(t_stat_peak) < SCALED_MAX_BIAS
+    ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak}"
 
 
 if __name__ == "__main__":
