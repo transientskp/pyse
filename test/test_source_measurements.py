@@ -51,6 +51,7 @@ class SourceParameters(unittest.TestCase):
     Note that oversampling of the synthesized beam will likely reduce bias,
     i.e. pixellation effects will become apparent.
     """
+
     def setUp(self):
         fitsfile = sourcefinder.accessors.open(
             os.path.join(DATAPATH, "deconvolved.fits")
