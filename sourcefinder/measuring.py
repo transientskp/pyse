@@ -472,6 +472,8 @@ def moments_enhanced(
     mask = (posx == rounded_barycenter[0]) & (posy == rounded_barycenter[1])
     if mask.any():
         # In this case the rounded barycenter position is in source_island.
+        # Note that mask, from the way that posx and posy have been constructed,
+        # can have no more than one True value.
         i = np.nonzero(mask)[0][0]
         basepos = rounded_barycenter
         basevalue = source_island[i]
