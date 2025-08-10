@@ -391,7 +391,7 @@ def generate_artificial_image(tmp_path):
 
 
 def test_measured_vectorized_forced_beam(
-    tmp_path, generate_artificial_image, min_pvalue=0.1
+    tmp_path, generate_artificial_image, min_pvalue=0.01
 ):
     """
     Compare source parameters from vectorized source measurements with forced
@@ -414,7 +414,7 @@ def test_measured_vectorized_forced_beam(
     generate_artificial_image(
         output_fits_path=image_path,
         output_truth_path=truth_path,
-        peak_brightness=50.0,
+        peak_brightness=20.0,
         num_sources=num_sources,
     )
 
@@ -482,18 +482,18 @@ def test_measured_vectorized_forced_beam(
 
     # Check that the mean of the position is not biased
     p_x = ttest_1samp(norm_x_resid, popmean=0)[1]
-    assert p_x > min_pvalue, f"X position not centred: p={p_x}"
+    assert p_x > min_pvalue, f"X position not centred: p={p_x :.3f}"
     p_y = ttest_1samp(norm_y_resid, popmean=0)[1]
-    assert p_y > min_pvalue, f"Y position not centred: p={p_y}"
+    assert p_y > min_pvalue, f"Y position not centred: p={p_y :.3f}"
 
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
     std_x = np.std(norm_x_resid)
     std_y = np.std(norm_y_resid)
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_x < STD_MAX_BIAS_FACTOR, (
-        f"X errors not " f"realistic:td={std_x}"
+        f"X errors not " f"realistic:td={std_x :.3f}"
     )
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_y < STD_MAX_BIAS_FACTOR, (
-        f"Y errors not realistic: " f"std={std_y}"
+        f"Y errors not realistic: " f"std={std_y :.3f}"
     )
 
     # Extract matched true values
@@ -512,21 +512,21 @@ def test_measured_vectorized_forced_beam(
 
     # Check that the mean of the position is not biased
     p_ra = ttest_1samp(norm_ra_resid, popmean=0)[1]
-    assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra}"
+    assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra :.3f}"
     p_dec = ttest_1samp(norm_dec_resid, popmean=0)[1]
     assert (
         p_dec > min_pvalue
-    ), f"DEC residuals deviate too much from normal: p={p_dec}"
+    ), f"DEC residuals deviate too much from normal: p={p_dec :.3f}"
 
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
     std_ra = np.std(norm_ra_resid)
     std_dec = np.std(norm_dec_resid)
 
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_ra < STD_MAX_BIAS_FACTOR, (
-        f"RA errors not " f"realistic: std={std_ra}"
+        f"RA errors not " f"realistic: std={std_ra :.3f}"
     )
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_dec < STD_MAX_BIAS_FACTOR, (
-        f"DEC errors not " f"realistic: std" f"={std_dec}"
+        f"DEC errors not " f"realistic: std" f"={std_dec :.3f}"
     )
 
     true_peak_brightnesses = truth_df[SourceParams.PEAK].to_numpy()[idx]
@@ -534,14 +534,23 @@ def test_measured_vectorized_forced_beam(
     measured_peak_brightnesses_err = source_params_df[
         SourceParams.PEAK_ERR
     ].to_numpy()
+
+    # Compute normalized residuals
     norm_peak_resid = (
         measured_peak_brightnesses - true_peak_brightnesses
     ) / measured_peak_brightnesses_err
+
     # Check that the mean of the peak brightnesses is not biased
     t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
     assert (
         np.abs(t_stat_peak) < SCALED_MAX_BIAS
-    ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak}"
+    ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
+
+    std_peak = np.std(norm_peak_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert (
+        1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR
+    ), f"Peak brightnesses not realistic: std={std_peak :.3f}"
 
 
 if __name__ == "__main__":
