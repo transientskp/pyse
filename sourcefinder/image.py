@@ -464,7 +464,6 @@ class ImageData(object):
         labelled_data=None,
         labels=None,
         deblend_nthresh=0,
-        reconvert=True,
     ):
 
         """Kick off conventional (ie, rms island finding) source
@@ -495,14 +494,6 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        reconvert : bool, default: True
-            Only applies to vectorized source meaurements, i.e. when
-            conf.image.vectorized==True and conf.deblend.thresholds=0.
-            If True, the results will be converted to the same format as
-            for non-vectorized source measurements, i.e. a
-            `utility.containers.ExtractionResults` object. If False,
-            the results will be stored in a Pandas DataFrame, which is much
-            faster.
 
         Returns
         -------
@@ -547,7 +538,6 @@ class ImageData(object):
             anl,
             anl * self.rmsmap,
             deblend_nthresh,
-            reconvert,
             labelled_data=labelled_data,
             labels=labels,
         )
@@ -595,7 +585,6 @@ class ImageData(object):
         noisemap=None,
         bgmap=None,
         deblend_nthresh=0,
-        reconvert=True,
     ):
         """False Detection Rate based source extraction.
 
@@ -620,14 +609,6 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        reconvert : bool, default: True
-            Only applies to vectorized source meaurements, i.e. when
-            conf.image.vectorized==True and conf.deblend.thresholds=0.
-            If True, the results will be converted to the same format as
-            for non-vectorized source measurements, i.e. a
-            `utility.containers.ExtractionResults` object. If False,
-            the results will be stored in a Pandas DataFrame, which is much
-            faster.
 
         Returns
         -------
@@ -697,7 +678,6 @@ class ImageData(object):
             anl,
             anl * self.rmsmap,
             deblend_nthresh,
-            reconvert,
         )
 
     @staticmethod
@@ -1274,7 +1254,6 @@ class ImageData(object):
         analysis_threshold,
         analysisthresholdmap,
         deblend_nthresh,
-        reconvert,
         labelled_data=None,
         labels=np.array([], dtype=np.int32),
     ):
@@ -1302,13 +1281,6 @@ class ImageData(object):
             map is computed as analysis_threshold * self.rmsmap.
         deblend_nthresh : int
             Number of subthresholds for deblending. 0 disables.
-        reconvert : bool
-            If True, the results will be converted to the same format as for
-            non-vectorized source measurements, i.e. a
-            `utility.containers.ExtractionResults` object. If False,
-            the results will be stored in a Pandas DataFrame, which is much
-            faster. This requires conf.image.vectorized==True and
-            conf.deblend.thresholds=0.
         labelled_data : np.ndarray, optional, default=None
             Labelled island map (output of np.ndimage.label()). Will be
             calculated automatically if not provided.
@@ -1509,7 +1481,7 @@ class ImageData(object):
             if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
-            if not reconvert:
+            if not self.conf.export.reconvert:
                 sources_df = make_measurements_dataframe(
                     moments_of_sources,
                     sky_barycenters,
