@@ -464,7 +464,6 @@ class ImageData(object):
         labelled_data=None,
         labels=None,
         deblend_nthresh=0,
-        force_beam=False,
         reconvert=True,
     ):
 
@@ -496,9 +495,6 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, default: False
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
         reconvert : bool, default: True
             Only applies to vectorized source meaurements, i.e. when
             conf.image.vectorized==True and conf.deblend.thresholds=0.
@@ -551,7 +547,6 @@ class ImageData(object):
             anl,
             anl * self.rmsmap,
             deblend_nthresh,
-            force_beam,
             reconvert,
             labelled_data=labelled_data,
             labels=labels,
@@ -600,7 +595,6 @@ class ImageData(object):
         noisemap=None,
         bgmap=None,
         deblend_nthresh=0,
-        force_beam=False,
         reconvert=True,
     ):
         """False Detection Rate based source extraction.
@@ -626,9 +620,6 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, default: False
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
         reconvert : bool, default: True
             Only applies to vectorized source meaurements, i.e. when
             conf.image.vectorized==True and conf.deblend.thresholds=0.
@@ -706,7 +697,6 @@ class ImageData(object):
             anl,
             anl * self.rmsmap,
             deblend_nthresh,
-            force_beam,
             reconvert,
         )
 
@@ -1284,7 +1274,6 @@ class ImageData(object):
         analysis_threshold,
         analysisthresholdmap,
         deblend_nthresh,
-        force_beam,
         reconvert,
         labelled_data=None,
         labels=np.array([], dtype=np.int32),
@@ -1313,9 +1302,6 @@ class ImageData(object):
             map is computed as analysis_threshold * self.rmsmap.
         deblend_nthresh : int
             Number of subthresholds for deblending. 0 disables.
-        force_beam : bool
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
         reconvert : bool
             If True, the results will be converted to the same format as for
             non-vectorized source measurements, i.e. a
@@ -1407,7 +1393,7 @@ class ImageData(object):
                 island_list = list(utils.flatten(deblended_list))
 
             # Set up the fixed fit parameters if 'force beam' is on:
-            if force_beam:
+            if self.conf.image.force_beam:
                 fixed = {
                     "semimajor": self.beam[0],
                     "semiminor": self.beam[1],
@@ -1511,7 +1497,7 @@ class ImageData(object):
                 self.fudge_max_pix_factor,
                 self.beam,
                 self.beamsize,
-                force_beam,
+                self.conf.image.force_beam,
                 self.correlation_lengths,
                 self.conf.image.eps_ra,
                 self.conf.image.eps_dec,
