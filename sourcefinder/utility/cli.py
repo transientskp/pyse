@@ -583,7 +583,6 @@ def run_sourcefinder(files, conf, mode):
                 sr = imagedata.fd_extract(
                     alpha=conf.image.alpha,
                     deblend_nthresh=conf.image.deblend_thresholds,
-                    force_beam=conf.image.force_beam,
                 )
             else:
                 if labelled_data is None:
@@ -598,7 +597,6 @@ def run_sourcefinder(files, conf, mode):
                     labelled_data=labelled_data,
                     labels=labels,
                     deblend_nthresh=conf.image.deblend_thresholds,
-                    force_beam=conf.image.force_beam,
                 )
 
         export_dir = Path(conf.export.output_dir)
