@@ -413,11 +413,14 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         testSingleSourceExtraction(), above). Here we force the lengths of the
         major/minor axes to be held constant when fitting.
         """
+        conf = Conf(image=ImgConf(force_beam=True), export=ExportSettings())
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A)
+            FitsImage(GRB120422A), conf=conf
         )
-        results = image.extract(det=5, anl=3, force_beam=True)
-        self.assertEqual(results[0].smaj.value, image.beam[0], places=6)
+        results = image.extract(det=5, anl=3)
+        self.assertEqual(
+            results[0].smaj.value, image.beam[0], places=6
+        )
         self.assertEqual(results[0].smin.value, image.beam[1])
 
     @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
