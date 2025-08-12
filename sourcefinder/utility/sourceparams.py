@@ -7,14 +7,14 @@ class SourceParams(str, Enum):
     PEAK_ERR = "peak_err"
     FLUX = "flux"
     FLUX_ERR = "flux_err"
-    X = "xbar"
-    X_ERR = "xbar_err"
-    Y = "ybar"
-    Y_ERR = "ybar_err"
-    SMAJ = "semimajor"
-    SMAJ_ERR = "semimajor_err"
-    SMIN = "semiminor"
-    SMIN_ERR = "semiminor_err"
+    X = "x"
+    X_ERR = "x_err"
+    Y = "y"
+    Y_ERR = "y_err"
+    SMAJ = "smaj"
+    SMAJ_ERR = "smaj_err"
+    SMIN = "smin"
+    SMIN_ERR = "smin_err"
     THETA = "theta"
     THETA_ERR = "theta_err"
     SMAJ_DC = "smaj_dc"
@@ -57,7 +57,7 @@ _source_params_descriptions = {
         "axis / beamsize' (Jy)"
     ),
     "flux_err": "1-sigma uncertainty in the flux density (Jy)",
-    "xbar": (
+    "x": (
         "x-position (float) of the barycenter of the source, "
         "correponding to the row index of the Numpy array with "
         "image data. After loading a FITS image, the data is "
@@ -65,12 +65,12 @@ _source_params_descriptions = {
         "except for an offset of 1 pixel, since the bottom left "
         "pixel in ds9 has x=y=1"
     ),
-    "xbar_err": (
+    "x_err": (
         "1-sigma uncertainty in the x-position (float) of the "
         "barycenter of the source, corresponding to the row index "
         "of the Numpy array with image data"
     ),
-    "ybar": (
+    "y": (
         "y-position (float) of the barycenter of the source, "
         "correponding to the column index of the Numpy array with "
         "image data. After loading a FITS image, the data is "
@@ -78,24 +78,24 @@ _source_params_descriptions = {
         "except for an offset of 1 pixel, since the bottom left "
         "pixel in ds9 has x=y=1"
     ),
-    "ybar_err": (
+    "y_err": (
         "1-sigma uncertainty in the y-position (float) of the "
         "barycenter of the source, corresponding to the column "
         "index of the Numpy array with image data"
     ),
-    "semimajor": (
+    "smaj": (
         "Semi-major axis of the Gaussian profile, "
         "not deconvolved from the clean beam (pixels)"
     ),
-    "semimajor_err": (
+    "smaj_err": (
         "1-sigma uncertainty in the semi-major axis, "
         "not deconvolved from the clean beam (pixels)"
     ),
-    "semiminor": (
+    "smin": (
         "Semi-minor axis of the Gaussian profile, "
         "not deconvolved from the clean beam (pixels)"
     ),
-    "semiminor_err": (
+    "smin_err": (
         "1-sigma uncertainty in the semi-minor axis, "
         "not deconvolved from the clean beam (pixels)"
     ),
