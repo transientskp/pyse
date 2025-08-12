@@ -424,7 +424,7 @@ def test_measured_vectorized_forced_beam(
             back_size_y=256,
             force_beam=True,
         ),
-        export=ExportSettings(),
+        export=ExportSettings(reconvert=False),
     )
     fits_img = FitsImage(image_path)
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
@@ -434,7 +434,6 @@ def test_measured_vectorized_forced_beam(
         anl=8.0,
         noisemap=np.ma.array(np.ones(img.data.shape)),
         bgmap=np.ma.array(np.zeros(img.data.shape)),
-        reconvert=False,
     )
     number_measured_sources = source_params_df.shape[0]
 
