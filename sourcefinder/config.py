@@ -191,11 +191,12 @@ class ImgConf(_Validate):
     """Allow multiprocessing for Gaussian fitting in parallel."""
 
     margin: int = 0
-    """Margin in pixels to ignore around the edge of the image."""
+    """Margin in pixels to ignore near the edge of the image, i.e. 
+    sources within this margin will not be detected."""
 
     radius: float = 0.0
-    """Radius in pixels (from image center around sources to include
-    in analysis.
+    """Radius in pixels (from image center) considered valid, i.e. sources 
+    beyond this radius will not be detected.
 
     """
 
