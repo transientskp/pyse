@@ -13,7 +13,7 @@ def run_pyse(files, extra_args, out_dir):
 
     nr_sources_per_image = []
     for line in output:
-        if "Number of sources" in line:
+        if "Number of detected sources" in line:
             nr_sources = int(line.split(" = ")[-1].strip())
             nr_sources_per_image.append(nr_sources)
 
