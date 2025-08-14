@@ -34,18 +34,19 @@ class TestNumpySubroutines(unittest.TestCase):
         central_value = a[y, x]  # 34
 
         round_down_to_single_pixel = a[
-            ImageData.box_slice_about_pixel(x, y, 0.9)]
+            ImageData.box_slice_about_pixel(x, y, 0.9)
+        ]
         self.assertEqual(round_down_to_single_pixel, [[central_value]])
 
         chunk_3_by_3 = a[ImageData.box_slice_about_pixel(x, y, 1)]
         self.assertEqual(chunk_3_by_3.shape, (3, 3))
         self.assertEqual(central_value, chunk_3_by_3[1, 1])
 
-        chunk_3_by_3_round_down = a[
-            ImageData.box_slice_about_pixel(x, y, 1.9)]
-        self.assertListEqual(list(chunk_3_by_3.reshape(9)),
-                             list(chunk_3_by_3_round_down.reshape(9))
-                             )
+        chunk_3_by_3_round_down = a[ImageData.box_slice_about_pixel(x, y, 1.9)]
+        self.assertListEqual(
+            list(chunk_3_by_3.reshape(9)),
+            list(chunk_3_by_3_round_down.reshape(9)),
+        )
 
 
 class TestMapsType(unittest.TestCase):
@@ -388,11 +389,13 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         ]  # chisq, reduced chisq
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A)
+        )
 
         results = image.extract(det=5, anl=3)
-        results = [result.serialize(conf, every_parm=True) for result in
-                   results]
+        results = [
+            result.serialize(conf, every_parm=True) for result in results
+        ]
         self.assertEqual(len(results), 2)
         r = np.array(results[1], dtype=np.float32)
         # Check if we derived source parameters from a fit or from moments.
@@ -418,9 +421,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             FitsImage(GRB120422A), conf=conf
         )
         results = image.extract(det=5, anl=3)
-        self.assertEqual(
-            results[0].smaj.value, image.beam[0], places=6
-        )
+        self.assertEqual(results[0].smaj.value, image.beam[0])
         self.assertEqual(results[0].smin.value, image.beam[1])
 
     @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
@@ -469,7 +470,8 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         this avoids requiring additional data).
         """
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A))
+            FitsImage(GRB120422A)
+        )
         results = image.extract(det=5e10, anl=5e10)
         results = [result.serialize() for result in results]
         self.assertEqual(len(results), 0)
@@ -555,8 +557,9 @@ class TestNegationImage(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
-                                                            'deconvolved.fits'))
+        fitsfile = sourcefinder.accessors.open(
+            os.path.join(DATAPATH, "deconvolved.fits")
+        )
         cls.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
 
     @classmethod
@@ -591,8 +594,9 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
-                                                            'deconvolved.fits'))
+        fitsfile = sourcefinder.accessors.open(
+            os.path.join(DATAPATH, "deconvolved.fits")
+        )
         cls.img = ImageData(
             fitsfile.data,
             fitsfile.beam,
@@ -604,14 +608,23 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
     def tearDownClass(cls):
         del cls.img
 
-    @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "mean_grid_deconvolved.fits.npy"),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "std_grid_deconvolved.fits.npy"),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "means_interpolated_deconvolved.fits.npz"),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                "stds_interpolated_deconvolved.fits.npz"))
+    @requires_data(
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            "mean_grid_deconvolved.fits.npy",
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping", "std_grid_deconvolved.fits.npy"
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            "means_interpolated_deconvolved.fits.npz",
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            "stds_interpolated_deconvolved.fits.npz",
+        ),
+    )
     def test_sigma_clip_deconvolved(self):
         grid = self.img.grids
 
@@ -714,8 +727,9 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        fitsfile = sourcefinder.accessors.open(os.path.join(DATAPATH,
-                                               'image_206-215-t0002.fits'))
+        fitsfile = sourcefinder.accessors.open(
+            os.path.join(DATAPATH, "image_206-215-t0002.fits")
+        )
         cls.img = ImageData(
             fitsfile.data,
             (0.208, 0.136, 15.619),
@@ -727,18 +741,24 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
     def tearDownClass(cls):
         del cls.img
 
-    @requires_data(os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                ("mean_grid_image_206-215-t0002.fits_radius" +
-                                 "_1000.npy")),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                ("std_grid_image_206-215-t0002.fits_radius" +
-                                 "_1000.npy")),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                ("means_interpolated_206-215-t0002.fits_" +
-                                 "radius_1000.npz")),
-                   os.path.join(DATAPATH + "/kappa_sigma_clipping",
-                                ("stds_interpolated_206-215-t0002.fits_" +
-                                 "radius_1000.npz")))
+    @requires_data(
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            ("mean_grid_image_206-215-t0002.fits_radius" + "_1000.npy"),
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            ("std_grid_image_206-215-t0002.fits_radius" + "_1000.npy"),
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            ("means_interpolated_206-215-t0002.fits_" + "radius_1000.npz"),
+        ),
+        os.path.join(
+            DATAPATH + "/kappa_sigma_clipping",
+            ("stds_interpolated_206-215-t0002.fits_" + "radius_1000.npz"),
+        ),
+    )
     def test_sigma_clip_AARTFAAC_TBB_MASKED(self):
         grid = self.img.grids
 
