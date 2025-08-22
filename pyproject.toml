@@ -25,6 +25,14 @@ dependencies = [
     "sphinx"
 ]
 
+[project.optional-dependencies]
+docs = [
+    "numpydoc",
+    "pydata-sphinx-theme",
+    "sphinx",
+    "sphinx-autoapi",
+]
+
 [project.urls]
 Homepage = "http://docs.transientskp.org/"
 
