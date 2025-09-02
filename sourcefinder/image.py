@@ -76,8 +76,13 @@ class ImageData(object):
 
     """
 
-    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(),
-                 export=ExportSettings())):
+    def __init__(
+        self,
+        data,
+        beam,
+        wcs,
+        conf: Conf = Conf(image=ImgConf(), export=ExportSettings()),
+    ):
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
@@ -353,7 +358,6 @@ class ImageData(object):
         return {"mean": mean_grid, "rms": rms_grid, "indices": centred_inds}
 
     def _interpolate(self, grid, inds, roundup=False):
-
         """Interpolate a grid to produce a map of the dimensions of
         the image.
 
@@ -465,7 +469,6 @@ class ImageData(object):
         labels=None,
         deblend_nthresh=0,
     ):
-
         """Kick off conventional (ie, rms island finding) source
         extraction.
 
@@ -1500,7 +1503,7 @@ class ImageData(object):
                     chisq,
                     reduced_chisq,
                 )
-                return sources_df
+                return sources_df[self.conf.export.source_params]
             else:
                 results = containers.ExtractionResults()
                 for count, label in enumerate(labels):
