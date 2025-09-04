@@ -13,7 +13,7 @@ from sourcefinder.utility import coordinates
 
 from numba import njit, prange, guvectorize, config as numba_config
 
-numba_config.THREADING_LAYER = 'workqueue'
+numba_config.THREADING_LAYER = "workqueue"
 
 
 def generate_subthresholds(min_value, max_value, num_thresholds):
@@ -107,18 +107,18 @@ def get_error_radius(wcs, x_value, x_error, y_value, y_error):
             (x_value + x_error, y_value + y_error),
             (x_value - x_error, y_value + y_error),
             (x_value + x_error, y_value - y_error),
-            (x_value - x_error, y_value - y_error)
+            (x_value - x_error, y_value - y_error),
         ]:
             error_ra, error_dec = wcs.p2s(pixpos)
             error_radius = max(
                 error_radius,
-                coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec)
+                coordinates.angsep(centre_ra, centre_dec, error_ra, error_dec),
             )
     except RuntimeError:
         # We get a runtime error from wcs.p2s if the errors place the
         # limits outside the image, in which case we set the angular
         # uncertainty to infinity.
-        error_radius = float('inf')
+        error_radius = float("inf")
     return error_radius
 
 
@@ -144,7 +144,7 @@ def circular_mask(xdim, ydim, radius):
 
     """
     centre_x, centre_y = (xdim - 1) / 2.0, (ydim - 1) / 2.0
-    x, y = np.ogrid[-centre_x: xdim - centre_x, -centre_y: ydim - centre_y]
+    x, y = np.ogrid[-centre_x : xdim - centre_x, -centre_y : ydim - centre_y]
     return x * x + y * y >= radius * radius
 
 
@@ -180,11 +180,13 @@ def generate_result_maps(data, sourcelist):
         box_size = 6 * src.smaj.value / math.sqrt(2 * math.log(2))
 
         lower_bound_x = max(0, int(src.x.value - 1 - box_size))
-        upper_bound_x = min(residual_map.shape[0],
-                            int(src.x.value - 1 + box_size))
+        upper_bound_x = min(
+            residual_map.shape[0], int(src.x.value - 1 + box_size)
+        )
         lower_bound_y = max(0, int(src.y.value - 1 - box_size))
-        upper_bound_y = min(residual_map.shape[1],
-                            int(src.y.value - 1 + box_size))
+        upper_bound_y = min(
+            residual_map.shape[1], int(src.y.value - 1 + box_size)
+        )
 
         local_gaussian = gaussian(
             src.peak.value,
@@ -192,27 +194,31 @@ def generate_result_maps(data, sourcelist):
             src.y.value,
             src.smaj.value,
             src.smin.value,
-            src.theta.value
+            src.theta.value,
         )(
-            np.indices(residual_map.shape)[0, lower_bound_x:upper_bound_x,
-                                           lower_bound_y:upper_bound_y],
-            np.indices(residual_map.shape)[1, lower_bound_x:upper_bound_x,
-                                           lower_bound_y:upper_bound_y]
+            np.indices(residual_map.shape)[
+                0, lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+            ],
+            np.indices(residual_map.shape)[
+                1, lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+            ],
         )
 
-        gaussian_map[lower_bound_x:upper_bound_x,
-                     lower_bound_y:upper_bound_y] += local_gaussian
-        residual_map[lower_bound_x:upper_bound_x,
-                     lower_bound_y:upper_bound_y] -= local_gaussian
+        gaussian_map[
+            lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+        ] += local_gaussian
+        residual_map[
+            lower_bound_x:upper_bound_x, lower_bound_y:upper_bound_y
+        ] -= local_gaussian
 
     return gaussian_map, residual_map
 
 
 def is_valid_beam_tuple(b) -> bool:
     return (
-            isinstance(b, tuple)
-            and len(b) == 3
-            and all(isinstance(x, Real) and x is not None for x in b)
+        isinstance(b, tuple)
+        and len(b) == 3
+        and all(isinstance(x, Real) and x is not None for x in b)
     )
 
 
@@ -327,9 +333,9 @@ def fudge_max_pix(semimajor, semiminor, theta):
         down = math.pow(((cos_theta * y - sin_theta * x) / semimajor), 2)
         return np.exp(log20 * (up + down))
 
-    (correction, abserr) = scipy.integrate.dblquad(landscape, -0.5, 0.5,
-                                                   lambda ymin: -0.5,
-                                                   lambda ymax: 0.5)
+    (correction, abserr) = scipy.integrate.dblquad(
+        landscape, -0.5, 0.5, lambda ymin: -0.5, lambda ymax: 0.5
+    )
 
     return correction
 
@@ -416,8 +422,9 @@ def nearest_nonzero(some_arr, rms):
     zero_mask = rms == 0
 
     # Calculate the distance transform and nearest non-zero indices
-    distances, nearest_indices = distance_transform_edt(zero_mask,
-                                                        return_indices=True)
+    distances, nearest_indices = distance_transform_edt(
+        zero_mask, return_indices=True
+    )
 
     nearest_values = some_arr[nearest_indices[0], nearest_indices[1]]
     # Use nearest indices from rms to update some_arr
@@ -477,10 +484,14 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     for i in prange(p):
         for j in range(r):
             # Extract the subimage (data and mask)
-            subimage_data = a_data[i * back_size_x:(i + 1) * back_size_x,
-                            j * back_size_y:(j + 1) * back_size_y]
-            subimage_mask = a_mask[i * back_size_x:(i + 1) * back_size_x,
-                            j * back_size_y:(j + 1) * back_size_y]
+            subimage_data = a_data[
+                i * back_size_x : (i + 1) * back_size_x,
+                j * back_size_y : (j + 1) * back_size_y,
+            ]
+            subimage_mask = a_mask[
+                i * back_size_x : (i + 1) * back_size_x,
+                j * back_size_y : (j + 1) * back_size_y,
+            ]
 
             # Preallocate an array for unmasked values (max size d*d)
             unmasked_values = np.empty(subimage_size, dtype=a_data.dtype)
@@ -509,7 +520,10 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
 @guvectorize(
     ["void(float32[:], float32[:], float32[:], float32[:])"],
     "(n),(n),(k)->(k)",
-    target="parallel", nopython=True, cache=True)
+    target="parallel",
+    nopython=True,
+    cache=True,
+)
 def interp_per_row(grid_row, y_initial, y_sought, interp_row):
     """Interpolate one row of the grid along the second dimension
     (y-axis).
@@ -564,25 +578,27 @@ def two_step_interp(grid, new_xdim, new_ydim):
     """
     # Define the main function for upsampling
     # Original grid coordinates
-    x_initial = np.linspace(0, grid.shape[0] - 1, grid.shape[0],
-                            dtype=np.float32)
-    y_initial = np.linspace(0, grid.shape[1] - 1, grid.shape[1],
-                            dtype=np.float32)
+    x_initial = np.linspace(
+        0, grid.shape[0] - 1, grid.shape[0], dtype=np.float32
+    )
+    y_initial = np.linspace(
+        0, grid.shape[1] - 1, grid.shape[1], dtype=np.float32
+    )
 
     # Target grid coordinates
-    x_sought = np.linspace(-0.5, grid.shape[0] - 0.5, new_xdim,
-                           dtype=np.float32)
-    y_sought = np.linspace(-0.5, grid.shape[1] - 0.5, new_ydim,
-                           dtype=np.float32)
+    x_sought = np.linspace(
+        -0.5, grid.shape[0] - 0.5, new_xdim, dtype=np.float32
+    )
+    y_sought = np.linspace(
+        -0.5, grid.shape[1] - 0.5, new_ydim, dtype=np.float32
+    )
 
     # Step 1: Interpolation per row.
-    interp_rows = np.empty((grid.shape[0], new_ydim),
-                           dtype=np.float32)
+    interp_rows = np.empty((grid.shape[0], new_ydim), dtype=np.float32)
     interp_per_row(grid, y_initial, y_sought, interp_rows)
 
     # Step 2: Interpolation along columns (reuse interpolate_rows)
-    interp_cols = np.empty((new_xdim, new_ydim),
-                           dtype=np.float32)
+    interp_cols = np.empty((new_xdim, new_ydim), dtype=np.float32)
     interp_per_row(interp_rows.T, x_initial, x_sought, interp_cols.T)
 
     return interp_cols
@@ -592,8 +608,9 @@ def two_step_interp(grid, new_xdim, new_ydim):
 # ChatGPT 4.0. Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 @njit
-def newton_raphson_root_finder(f, sigma0, min_sigma, max_sigma,
-                               tol=1e-8, max_iter=100, *args):
+def newton_raphson_root_finder(
+    f, sigma0, min_sigma, max_sigma, tol=1e-8, max_iter=100, *args
+):
     """Solve the transcendental equation for sigma using Newton's
     method with interval safeguards.
 

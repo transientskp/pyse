@@ -22,7 +22,10 @@ dependencies = [
     "scipy",
     "tomli; python_version < '3.11'",
     "numba",
-    "sphinx"
+    "sphinx",
+    "pytest",
+    "pandas",
+    "tables"
 ]
 
 [project.optional-dependencies]

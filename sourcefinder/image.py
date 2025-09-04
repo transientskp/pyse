@@ -15,6 +15,7 @@ from sourcefinder import utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
+from sourcefinder.utility.sourceparams import make_measurements_dataframe
 import psutil
 import multiprocessing
 from functools import cached_property
@@ -33,7 +34,7 @@ class ImageData(object):
     """Encapsulates an image in terms of a numpy array + meta/headerdata.
 
     This is your primary contact point for interaction with images: it
-    icludes facilities for source extraction and measurement, etc.
+    includes facilities for source extraction and measurement, etc.
 
     Parameters
     ----------
@@ -75,8 +76,13 @@ class ImageData(object):
 
     """
 
-    def __init__(self, data, beam, wcs, conf: Conf = Conf(image=ImgConf(),
-                 export=ExportSettings())):
+    def __init__(
+        self,
+        data,
+        beam,
+        wcs,
+        conf: Conf = Conf(image=ImgConf(), export=ExportSettings()),
+    ):
         # Do data, wcs and beam need deepcopy?
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
@@ -87,22 +93,28 @@ class ImageData(object):
         self.wcs = wcs  # a utility.coordinates.wcs instance
 
         if utils.is_valid_beam_tuple(beam):
-            self.beam = beam # tuple of (semimaj, semimin, theta) with
+            self.beam = beam  # tuple of (semimaj, semimin, theta) with
             # semimaj and semimin in pixel coordinates and theta, the position
             # angle, in radians.
         else:
-            raise ValueError(("Partial beam specification: one or more of "
-                              "(bmaj, bmin, bpa) are not specified, "
-                              "adequately, image processing is not possible.",
-                              RuntimeWarning))
+            raise ValueError(
+                (
+                    "Partial beam specification: one or more of "
+                    "(bmaj, bmin, bpa) are not specified, "
+                    "adequately, image processing is not possible.",
+                    RuntimeWarning,
+                )
+            )
 
         # These three quantities are only dependent on the beam, so should be
         # calculated once the beam is known and not for each source separately.
-        self.fudge_max_pix_factor = utils.fudge_max_pix(beam[0], beam[1],
-                                                        beam[2])
+        self.fudge_max_pix_factor = utils.fudge_max_pix(
+            beam[0], beam[1], beam[2]
+        )
         self.beamsize = utils.calculate_beamsize(beam[0], beam[1])
-        self.correlation_lengths = utils.calculate_correlation_lengths(beam[0],
-                                                                       beam[1])
+        self.correlation_lengths = utils.calculate_correlation_lengths(
+            beam[0], beam[1]
+        )
         self.clip: dict[float, np.ndarray] = {}
         self.labels: dict[float, tuple[np.ndarray, int]] = {}
         self.freq_low = 1
@@ -131,12 +143,11 @@ class ImageData(object):
         """Gridded RMS and background data for interpolating"""
         return self.__grids()
 
-
     @cached_property
     def backmap(self):
         """Mean background map"""
         if not hasattr(self, "_user_backmap"):
-            return self._interpolate(self.grids['mean'], self.grids['indices'])
+            return self._interpolate(self.grids["mean"], self.grids["indices"])
         else:
             return self._user_backmap
 
@@ -145,8 +156,9 @@ class ImageData(object):
         """root-mean-squares map, i.e. the standard deviation of the local
         background noise, interpolated across the image."""
         if not hasattr(self, "_user_noisemap"):
-            return self._interpolate(self.grids['rms'], self.grids['indices'],
-                                     roundup=True)
+            return self._interpolate(
+                self.grids["rms"], self.grids["indices"], roundup=True
+            )
         else:
             return self._user_noisemap
 
@@ -159,16 +171,19 @@ class ImageData(object):
         #
         # * A margin from the edge of the image;
         # * Any data outside a given radius from the centre of the image;
-        # * Data which is "obviously" bad (equal to 0 or NaN).
+        # * Data which is "obviously" bad (NaN).
         mask = np.zeros((self.xdim, self.ydim))
         if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
-            margin_mask[self.conf.image.margin:-self.conf.image.margin,
-            self.conf.image.margin:-self.conf.image.margin] = 0
+            margin_mask[
+                self.conf.image.margin : -self.conf.image.margin,
+                self.conf.image.margin : -self.conf.image.margin,
+            ] = 0
             mask = np.logical_or(mask, margin_mask)
         if self.conf.image.radius:
-            radius_mask = utils.circular_mask(self.xdim, self.ydim,
-                                              self.conf.image.radius)
+            radius_mask = utils.circular_mask(
+                self.xdim, self.ydim, self.conf.image.radius
+            )
             mask = np.logical_or(mask, radius_mask)
         mask = np.logical_or(mask, np.isnan(self.rawdata))
         return np.ma.array(self.rawdata, mask=mask)
@@ -245,23 +260,31 @@ class ImageData(object):
         # there's no point in working with the whole of the data array
         # if it's masked.
         useful_chunk = ndimage.find_objects(np.where(self.data.mask, 0, 1))
-        assert (len(useful_chunk) == 1)
-        x_dim, y_dim  = self.data[useful_chunk[0]].shape
+        assert len(useful_chunk) == 1
+        x_dim, y_dim = self.data[useful_chunk[0]].shape
         # Use 'back-size-x' and 'back-size-y' if available, fall back to 'grid'.
         back_size_x = self.conf.image.back_size_x or self.conf.image.grid
         if back_size_x is None:
-            raise ValueError(("Expected either back-size-x or grid to be set "
-                              "in the config object"))
+            raise ValueError(
+                (
+                    "Expected either back-size-x or grid to be set "
+                    "in the config object"
+                )
+            )
         back_size_y = self.conf.image.back_size_y or self.conf.image.grid
         if back_size_y is None:
-            raise ValueError(("Expected either back-size-y or grid to be set "
-                              "in the config object"))
+            raise ValueError(
+                (
+                    "Expected either back-size-y or grid to be set "
+                    "in the config object"
+                )
+            )
         # We should divide up the image into subimages such that each grid
         # node is centered on a subimage. This is only possible if
         # self.back_size_x and self.back_size_y are divisors of xdim and ydim,
         # respectively. If not, we need to select a frame within useful_chunk
-        # that does have the appropriate dimensions. At the same time, it should
-        # be as large as possible and centered within useful_chunk.
+        # that does have the appropriate dimensions. At the same time, it
+        # should be as large as possible and centered within useful_chunk.
         rem_row = np.mod(x_dim, back_size_x)
         rem_col = np.mod(y_dim, back_size_y)
 
@@ -270,8 +293,14 @@ class ImageData(object):
         end_offset_row = start_offset_row + rem_rem_row
         end_offset_col = start_offset_col + rem_rem_col
 
-        offsets = np.array([start_offset_row, -end_offset_row,
-                            start_offset_col, -end_offset_col])
+        offsets = np.array(
+            [
+                start_offset_row,
+                -end_offset_row,
+                start_offset_col,
+                -end_offset_col,
+            ]
+        )
 
         useful_chunk_inds = ImageData.slices_to_indices(useful_chunk)[0]
 
@@ -279,28 +308,39 @@ class ImageData(object):
 
         # Before proceeding, check that our data has the size of at least
         # one subimage, for both dimensions.
-        if (centred_inds[1] - centred_inds[0] > back_size_x and
-            centred_inds[3] - centred_inds[2] > back_size_y):
+        if (
+            centred_inds[1] - centred_inds[0] > back_size_x
+            and centred_inds[3] - centred_inds[2] > back_size_y
+        ):
 
-            subimages, number_of_elements_for_each_subimage = \
-                utils.make_subimages(self.data.data[centred_inds[0]:
-                                                    centred_inds[1],
-                                                    centred_inds[2]:
-                                                    centred_inds[3]],
-                                     self.data.mask[centred_inds[0]:
-                                                    centred_inds[1],
-                                                    centred_inds[2]:
-                                                    centred_inds[3]],
-                                     back_size_x, back_size_y)
+            subimages, number_of_elements_for_each_subimage = (
+                utils.make_subimages(
+                    self.data.data[
+                        centred_inds[0] : centred_inds[1],
+                        centred_inds[2] : centred_inds[3],
+                    ],
+                    self.data.mask[
+                        centred_inds[0] : centred_inds[1],
+                        centred_inds[2] : centred_inds[3],
+                    ],
+                    back_size_x,
+                    back_size_y,
+                )
+            )
 
-            mean_grid = np.zeros(number_of_elements_for_each_subimage.shape,
-                                 dtype=np.float32)
-            rms_grid = np.zeros(number_of_elements_for_each_subimage.shape,
-                                dtype=np.float32)
+            mean_grid = np.zeros(
+                number_of_elements_for_each_subimage.shape, dtype=np.float32
+            )
+            rms_grid = np.zeros(
+                number_of_elements_for_each_subimage.shape, dtype=np.float32
+            )
 
-            stats.data_clipper_dynamic(subimages,
-                                       number_of_elements_for_each_subimage,
-                                       mean_grid, rms_grid)
+            stats.data_clipper_dynamic(
+                subimages,
+                number_of_elements_for_each_subimage,
+                mean_grid,
+                rms_grid,
+            )
 
             # Fill in the zeroes with nearest neighbours.
             # In this way we do not have to make a MaskedArray, which
@@ -315,12 +355,12 @@ class ImageData(object):
             mean_grid = np.empty((0, 0), dtype=np.float32)
             rms_grid = np.empty((0, 0), dtype=np.float32)
 
-        return {'mean': mean_grid, 'rms': rms_grid, 'indices': centred_inds}
+        return {"mean": mean_grid, "rms": rms_grid, "indices": centred_inds}
 
     def _interpolate(self, grid, inds, roundup=False):
-
         """Interpolate a grid to produce a map of the dimensions of
         the image.
+
 
         Parameters
         ----------
@@ -347,8 +387,9 @@ class ImageData(object):
         # point for the mean background and rms background maps. Next, use
         # the interpolated values from the background grids, which were derived
         # using kappa * sigma clipping, to fill in all unmasked pixels.
-        my_map = np.ma.MaskedArray(np.zeros(self.data.shape),
-                                   mask=self.data.mask, dtype=np.float32)
+        my_map = np.ma.MaskedArray(
+            np.zeros(self.data.shape), mask=self.data.mask, dtype=np.float32
+        )
 
         # Remove the MaskedArrayFutureWarning warning and keep old numpy < 1.11
         # behavior
@@ -366,14 +407,16 @@ class ImageData(object):
             if self.conf.image.mf_threshold:
                 grid = np.where(
                     np.fabs(f_grid - grid) > self.conf.image.mf_threshold,
-                    f_grid, grid
+                    f_grid,
+                    grid,
                 )
             else:
                 grid = f_grid
 
         if self.conf.image.interpolate_order == 1:
-            my_map[inds[0]:inds[1], inds[2]:inds[3]] = \
+            my_map[inds[0] : inds[1], inds[2] : inds[3]] = (
                 utils.two_step_interp(grid, my_xdim, my_ydim)
+            )
         else:
             # This condition is there to make sure we actually have some
             # unmasked patch of the image to fill.
@@ -381,10 +424,14 @@ class ImageData(object):
             slicey = slice(-0.5, -0.5 + grid.shape[1], 1j * my_ydim)
 
             # Bicubic spline interpolation
-            my_map[inds[0]:inds[1], inds[2]:inds[3]] = (
-                ndimage.map_coordinates(grid, np.mgrid[slicex, slicey],
-                                        mode='nearest',
-                                        order=self.conf.image.interpolate_order))
+            my_map[inds[0] : inds[1], inds[2] : inds[3]] = (
+                ndimage.map_coordinates(
+                    grid,
+                    np.mgrid[slicex, slicey],
+                    mode="nearest",
+                    order=self.conf.image.interpolate_order,
+                )
+            )
 
         # If the input grid was entirely masked, then the output map must
         # also be masked: there's no useful data here. We don't search for
@@ -398,9 +445,8 @@ class ImageData(object):
             # can be trimmed off. No point doing this if the map is already
             # fully masked, though.
             my_map = np.ma.MaskedArray(
-                data=np.where(
-                    my_map >= np.min(grid), my_map, np.min(grid)),
-                mask=my_map.mask
+                data=np.where(my_map >= np.min(grid), my_map, np.min(grid)),
+                mask=my_map.mask,
             )
         return my_map
 
@@ -413,9 +459,16 @@ class ImageData(object):
     #                                                                         #
     ###########################################################################
 
-    def extract(self, det, anl, noisemap=None, bgmap=None, labelled_data=None,
-                labels=None, deblend_nthresh=0, force_beam=False):
-
+    def extract(
+        self,
+        det,
+        anl,
+        noisemap=None,
+        bgmap=None,
+        labelled_data=None,
+        labels=None,
+        deblend_nthresh=0,
+    ):
         """Kick off conventional (ie, rms island finding) source
         extraction.
 
@@ -444,13 +497,12 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, default: False
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
 
         Returns
         -------
-        :class:`sourcefinder.utility.containers.ExtractionResults`
+        A `utility.containers.ExtractionResults` instance or a
+        Pandas DataFrame containing the results of the source
+        extraction.
 
         """
         if anl > det:
@@ -478,12 +530,19 @@ class ImageData(object):
             else:
                 self.rmsmap = noisemap
 
-        if labelled_data is not None and labelled_data.shape != self.data.shape:
+        if (
+            labelled_data is not None
+            and labelled_data.shape != self.data.shape
+        ):
             raise ValueError("Labelled map is wrong shape")
 
         return self._pyse(
-            det * self.rmsmap, anl, anl * self.rmsmap, deblend_nthresh,
-            force_beam, labelled_data=labelled_data, labels=labels
+            det * self.rmsmap,
+            anl,
+            anl * self.rmsmap,
+            deblend_nthresh,
+            labelled_data=labelled_data,
+            labels=labels,
         )
 
     def reverse_se(self, det, anl):
@@ -529,12 +588,11 @@ class ImageData(object):
         noisemap=None,
         bgmap=None,
         deblend_nthresh=0,
-        force_beam=False,
     ):
         """False Detection Rate based source extraction.
 
-        The FDR procedure guarantees that the False Detection Rate (FDR) is less
-        than alpha.
+        The FDR procedure guarantees that the False Detection Rate (FDR) is
+        less than alpha.
 
         Parameters
         ----------
@@ -554,13 +612,12 @@ class ImageData(object):
         deblend_nthresh : int, default: 0
             Number of subthresholds to use for deblending. Set to 0
             to disable.
-        force_beam : bool, default: False
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
 
         Returns
         -------
-        :class:`sourcefinder.utility.containers.ExtractionResults`
+        A`utility.containers.ExtractionResults` instance or a
+        Pandas Dataframe containing the results of the source
+        extraction.
 
         Notes
         -----
@@ -575,7 +632,9 @@ class ImageData(object):
 
         C_n = (
             1.0
-            / np.arange(round(0.25 * np.pi * corlengthlong * corlengthshort + 1))[1:]
+            / np.arange(
+                round(0.25 * np.pi * corlengthlong * corlengthshort + 1)
+            )[1:]
         ).sum()
 
         # Calculate the FDR threshold
@@ -622,7 +681,6 @@ class ImageData(object):
             anl,
             anl * self.rmsmap,
             deblend_nthresh,
-            force_beam,
         )
 
     @staticmethod
@@ -648,11 +706,11 @@ class ImageData(object):
         ibr = int(box_radius)
         x = int(x)
         y = int(y)
-        return (slice(x - ibr, x + ibr + 1),
-                slice(y - ibr, y + ibr + 1))
+        return (slice(x - ibr, x + ibr + 1), slice(y - ibr, y + ibr + 1))
 
-    def fit_to_point(self, x: int, y: int, boxsize: int, threshold: float,
-                     fixed: str):
+    def fit_to_point(
+        self, x: int, y: int, boxsize: int, threshold: float, fixed: str
+    ):
         """Fit an elliptical Gaussian to a specified point on the
         image.
 
@@ -684,11 +742,11 @@ class ImageData(object):
         # If they are too high (positive), then indexing will fail
         # BUT, if they are negative, then we get wrap-around indexing
         # and the fit continues at the wrong position!
-        if (x < 0 or x > self.xdim
-                or y < 0 or y > self.ydim):
-            logger.warning("Dropping forced fit at ({},{}), "
-                           "pixel position outside image".format(x, y)
-                           )
+        if x < 0 or x > self.xdim or y < 0 or y > self.ydim:
+            logger.warning(
+                "Dropping forced fit at ({},{}), "
+                "pixel position outside image".format(x, y)
+            )
             return None
 
         # Next, check if any of the central pixels (in a 3x3 box about the
@@ -698,17 +756,18 @@ class ImageData(object):
         if self.data.mask[central_pixels_slice].any():
             logger.warning(
                 "Dropping forced fit at ({},{}), "
-                "Masked pixel in central fitting region".format(x, y))
+                "Masked pixel in central fitting region".format(x, y)
+            )
             return None
 
-        if ((
-                    # Recent NumPy
-                    hasattr(np.ma.core, "MaskedConstant") and
-                    isinstance(self.rmsmap, np.ma.core.MaskedConstant)
-            ) or (
-                # Old NumPy
-                np.ma.is_masked(self.rmsmap[int(x), int(y)])
-        )):
+        if (
+            # Recent NumPy
+            hasattr(np.ma.core, "MaskedConstant")
+            and isinstance(self.rmsmap, np.ma.core.MaskedConstant)
+        ) or (
+            # Old NumPy
+            np.ma.is_masked(self.rmsmap[int(x), int(y)])
+        ):
             logger.error("Background is masked: cannot fit")
             return None
 
@@ -724,15 +783,16 @@ class ImageData(object):
                         threshold,
                         np.where(
                             self.data_bgsubbed > threshold * self.rmsmap, 1, 0
-                        )
+                        ),
                     )
-                )
+                ),
             )
 
             mylabel = labels[int(x), int(y)]
             if mylabel == 0:  # 'Background'
                 raise ValueError(
-                    "Fit region is below specified threshold, fit aborted.")
+                    "Fit region is below specified threshold, fit aborted."
+                )
             mask = np.where(labels[chunk] == mylabel, 0, 1)
             fitme = np.ma.array(self.data_bgsubbed[chunk], mask=mask)
             if len(fitme.compressed()) < 1:
@@ -747,13 +807,16 @@ class ImageData(object):
             return None
 
         # set argument for fixed parameters based on input string
-        if fixed == 'position':
-            _fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0}
-        elif fixed == 'position+shape':
-            _fixed = {'xbar': boxsize / 2.0, 'ybar': boxsize / 2.0,
-                     'semimajor': self.beam[0],
-                     'semiminor': self.beam[1],
-                     'theta': self.beam[2]}
+        if fixed == "position":
+            _fixed = {"xbar": boxsize / 2.0, "ybar": boxsize / 2.0}
+        elif fixed == "position+shape":
+            _fixed = {
+                "xbar": boxsize / 2.0,
+                "ybar": boxsize / 2.0,
+                "semimajor": self.beam[0],
+                "semiminor": self.beam[1],
+                "theta": self.beam[2],
+            }
         elif fixed is None:
             _fixed = {}
         else:
@@ -766,10 +829,16 @@ class ImageData(object):
 
         try:
             measurement, _, _ = extract.source_profile_and_errors(
-                fitme, threshold_at_pixel, self.rmsmap[chunk],
+                fitme,
+                threshold_at_pixel,
+                self.rmsmap[chunk],
                 self.rmsmap[int(x), int(y)],
-                self.beam, self.fudge_max_pix_factor,
-                self.beamsize, self.correlation_lengths, fixed=_fixed)
+                self.beam,
+                self.fudge_max_pix_factor,
+                self.beamsize,
+                self.correlation_lengths,
+                fixed=_fixed,
+            )
         except ValueError:
             # Fit failed to converge
             # Moments are not applicable when holding parameters fixed
@@ -777,20 +846,25 @@ class ImageData(object):
             return None
 
         try:
-            assert (abs(measurement['xbar']) < boxsize)
-            assert (abs(measurement['ybar']) < boxsize)
+            assert abs(measurement["xbar"]) < boxsize
+            assert abs(measurement["ybar"]) < boxsize
         except AssertionError:
-            logger.warning('Fit falls outside of box.')
+            logger.warning("Fit falls outside of box.")
 
-        measurement['xbar'] += x - boxsize / 2.0
-        measurement['ybar'] += y - boxsize / 2.0
+        measurement["xbar"] += x - boxsize / 2.0
+        measurement["ybar"] += y - boxsize / 2.0
         measurement.sig = (fitme / self.rmsmap[chunk]).max()
 
         return extract.Detection(measurement, self)
 
-    def fit_fixed_positions(self, positions, boxsize, threshold=None,
-                            fixed='position+shape',
-                            ids=None):
+    def fit_fixed_positions(
+        self,
+        positions,
+        boxsize,
+        threshold=None,
+        fixed="position+shape",
+        ids=None,
+    ):
         """Convenience function to fit a list of sources at the given
         positions.
 
@@ -829,25 +903,32 @@ class ImageData(object):
         successful_ids = []
         for idx, posn in enumerate(positions):
             try:
-                x, y, = self.wcs.s2p((posn[0], posn[1]))
+                (
+                    x,
+                    y,
+                ) = self.wcs.s2p((posn[0], posn[1]))
             except RuntimeError as e:
-                if (str(e).startswith("wcsp2s error: 8:") or
-                        str(e).startswith("wcsp2s error: 9:")):
-                    logger.warning("Input coordinates (%.2f, %.2f) invalid: ",
-                                   posn[0], posn[1])
+                if str(e).startswith("wcsp2s error: 8:") or str(e).startswith(
+                    "wcsp2s error: 9:"
+                ):
+                    logger.warning(
+                        "Input coordinates (%.2f, %.2f) invalid: ",
+                        posn[0],
+                        posn[1],
+                    )
                 else:
                     raise
             else:
                 try:
-                    fit_results = self.fit_to_point(x, y,
-                                                    boxsize=boxsize,
-                                                    threshold=threshold,
-                                                    fixed=fixed)
+                    fit_results = self.fit_to_point(
+                        x, y, boxsize=boxsize, threshold=threshold, fixed=fixed
+                    )
                     if not fit_results:
                         # We were unable to get a good fit
                         continue
-                    if (fit_results.ra.error == float('inf') or
-                            fit_results.dec.error == float('inf')):
+                    if fit_results.ra.error == float(
+                        "inf"
+                    ) or fit_results.dec.error == float("inf"):
                         logging.warning("position errors extend outside image")
                     else:
                         successful_fits.append(fit_results)
@@ -855,9 +936,12 @@ class ImageData(object):
                             successful_ids.append(ids[idx])
 
                 except IndexError as e:
-                    logger.warning("Input pixel coordinates (%.2f, %.2f) "
-                                   "could not be fit because: " + str(e),
-                                   posn[0], posn[1])
+                    logger.warning(
+                        "Input pixel coordinates (%.2f, %.2f) "
+                        "could not be fit because: " + str(e),
+                        posn[0],
+                        posn[1],
+                    )
         if ids:
             return successful_fits, successful_ids
         return successful_fits
@@ -933,8 +1017,16 @@ class ImageData(object):
         # If there is no usable data, we return an empty set of islands.
         if not len(self.rmsmap.compressed()):
             logging.warning("RMS map masked; sourcefinding skipped")
-            return ([], np.zeros(self.data_bgsubbed.shape, dtype=np.int32),
-                   None, None, None, None, None, None)
+            return (
+                [],
+                np.zeros(self.data_bgsubbed.shape, dtype=np.int32),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
 
         # At this point, we select all the data which is eligible for
         # source fitting. We are actually using three separate filters, which
@@ -944,7 +1036,7 @@ class ImageData(object):
         # 2. Any pixels which fall below the analysis threshold at that pixel
         #    position;
         # 3. Any pixels corresponding to a position where the RMS noise is
-        #    less than RMS_FILTER (default 0.001) times the median RMS across
+        #    less than RMS_FILTER times the median RMS across
         #    the whole image.
         #
         # The third filter attempts to exclude those regions of the image
@@ -953,17 +1045,25 @@ class ImageData(object):
 
         if self.conf.image.rms_filter:
             clipped_data = np.ma.where(
-                (self.data_bgsubbed > analysisthresholdmap) &
-                (self.rmsmap >= (self.conf.image.rms_filter *
-                                 self.grids["rms"].mean())), 1, 0
+                (self.data_bgsubbed > analysisthresholdmap)
+                & (
+                    self.rmsmap
+                    >= (
+                        self.conf.image.rms_filter
+                        * np.median(self.grids["rms"])
+                    )
+                ),
+                1,
+                0,
             ).filled(fill_value=0)
         else:
             clipped_data = np.ma.where(
                 self.data_bgsubbed > analysisthresholdmap, 1, 0
             ).filled(fill_value=0)
 
-        labelled_data, num_labels = ndimage.label(clipped_data,
-                                        self.conf.image.structuring_element)
+        labelled_data, num_labels = ndimage.label(
+            clipped_data, self.conf.image.structuring_element
+        )
 
         # Get a bounding box for each island:
         # NB Slices ordered by label value (1...N,)
@@ -980,17 +1080,22 @@ class ImageData(object):
         maxis = np.empty(num_labels, dtype=np.float32)
         npixs = np.empty(num_labels, dtype=np.int32)
 
-        ImageData.extract_parms_image_slice(self.data_bgsubbed.data.astype(
-                                            dtype=np.float32, copy=False),
-                                            all_indices, labelled_data,
-                                            np.arange(1, num_labels+1,
-                                            dtype=np.int32),
-                                            dummy, maxposs, maxis, npixs)
+        ImageData.extract_parms_image_slice(
+            self.data_bgsubbed.data.astype(dtype=np.float32, copy=False),
+            all_indices,
+            labelled_data,
+            np.arange(1, num_labels + 1, dtype=np.int32),
+            dummy,
+            maxposs,
+            maxis,
+            npixs,
+        )
 
         # Here we remove the labels that correspond to islands below the
         # detection threshold.
-        above_det_thr = maxis > detectionthresholdmap[maxposs[:, 0],
-                                                      maxposs[:, 1]]
+        above_det_thr = (
+            maxis > detectionthresholdmap[maxposs[:, 0], maxposs[:, 1]]
+        )
 
         num_islands_above_detection_threshold = above_det_thr.sum()
 
@@ -998,31 +1103,44 @@ class ImageData(object):
         # (background).
         # Will break in the pathological case that all the image pixels
         # are covered by sources, but we will take that risk.
-        labels_above_det_thr = np.extract(above_det_thr, np.arange(1,
-                                          num_labels + 1))
+        labels_above_det_thr = np.extract(
+            above_det_thr, np.arange(1, num_labels + 1)
+        )
 
         maxposs_above_det_thr = np.compress(above_det_thr, maxposs, axis=0)
         maxis_above_det_thr = np.extract(above_det_thr, maxis)
         npixs_above_det = np.extract(above_det_thr, npixs)
-        all_indices_above_det_thr = np.compress(above_det_thr, all_indices,
-                                                axis=0)
+        all_indices_above_det_thr = np.compress(
+            above_det_thr, all_indices, axis=0
+        )
 
-        print(f"Number of sources = {num_islands_above_detection_threshold}")
+        print(
+            f"Number of detected sources ="
+            f" {num_islands_above_detection_threshold}"
+        )
 
-        return (labels_above_det_thr, labelled_data,
-                num_islands_above_detection_threshold, maxposs_above_det_thr,
-                maxis_above_det_thr, npixs_above_det, all_indices_above_det_thr,
-                slices)
+        return (
+            labels_above_det_thr,
+            labelled_data,
+            num_islands_above_detection_threshold,
+            maxposs_above_det_thr,
+            maxis_above_det_thr,
+            npixs_above_det,
+            all_indices_above_det_thr,
+            slices,
+        )
 
     @staticmethod
-    def fit_islands(fudge_max_pix_factor, beamsize, correlation_lengths,
-                    fixed, island):
+    def fit_islands(
+        fudge_max_pix_factor, beamsize, correlation_lengths, fixed, island
+    ):
         """This function was created to enable the use of 'partial'
         such that we can parallellize source measurements
 
         """
-        return island.fit(fudge_max_pix_factor, beamsize, correlation_lengths,
-                          fixed=fixed)
+        return island.fit(
+            fudge_max_pix_factor, beamsize, correlation_lengths, fixed=fixed
+        )
 
     # “The sliced_to_indices function has been accelerated by a factor 2.7
     # using ChatGPT 4.0.  Its AI-output has been verified for correctness,
@@ -1042,18 +1160,31 @@ class ImageData(object):
 
         # Extract start and stop indices for rows and columns
         all_indices[:, 0] = [s[0].start for s in slices]  # Row start
-        all_indices[:, 1] = [s[0].stop for s in slices]   # Row stop
+        all_indices[:, 1] = [s[0].stop for s in slices]  # Row stop
         all_indices[:, 2] = [s[1].start for s in slices]  # Column start
-        all_indices[:, 3] = [s[1].stop for s in slices]   # Column stop
+        all_indices[:, 3] = [s[1].stop for s in slices]  # Column stop
 
         return all_indices
 
     @staticmethod
-    @guvectorize([(float32[:, :], int32[:], int32[:, :], int32[:], int32[:],
-                   int32[:], float32[:], int32[:])], '(n, m), (l), (n, m), ' +
-                 '(), (k) -> (k), (), ()')
-    def extract_parms_image_slice(some_image, inds, labelled_data, label, dummy,
-                                  maxpos, maxi, npix):
+    @guvectorize(
+        [
+            (
+                float32[:, :],
+                int32[:],
+                int32[:, :],
+                int32[:],
+                int32[:],
+                int32[:],
+                float32[:],
+                int32[:],
+            )
+        ],
+        "(n, m), (l), (n, m), " + "(), (k) -> (k), (), ()",
+    )
+    def extract_parms_image_slice(
+        some_image, inds, labelled_data, label, dummy, maxpos, maxi, npix
+    ):
         """Find the highest pixel value and its position.
 
         For an island, indicated by a group of pixels with the same label,
@@ -1108,8 +1239,10 @@ class ImageData(object):
 
         """
 
-        labelled_data_chunk = labelled_data[inds[0]:inds[1], inds[2]:inds[3]]
-        image_chunk = some_image[inds[0]:inds[1], inds[2]:inds[3]]
+        labelled_data_chunk = labelled_data[
+            inds[0] : inds[1], inds[2] : inds[3]
+        ]
+        image_chunk = some_image[inds[0] : inds[1], inds[2] : inds[3]]
         segmented_island = np.where(labelled_data_chunk == label[0], 1, 0)
 
         selected_data = segmented_island * image_chunk
@@ -1122,9 +1255,14 @@ class ImageData(object):
         npix[0] = int32(segmented_island.sum())
 
     def _pyse(
-            self, detectionthresholdmap, analysis_threshold,
-            analysisthresholdmap, deblend_nthresh, force_beam,
-            labelled_data=None, labels=np.array([], dtype=np.int32)):
+        self,
+        detectionthresholdmap,
+        analysis_threshold,
+        analysisthresholdmap,
+        deblend_nthresh,
+        labelled_data=None,
+        labels=np.array([], dtype=np.int32),
+    ):
         """Run Python-based source extraction on this image.
 
         Parameters
@@ -1149,9 +1287,6 @@ class ImageData(object):
             map is computed as analysis_threshold * self.rmsmap.
         deblend_nthresh : int
             Number of subthresholds for deblending. 0 disables.
-        force_beam : bool
-            Force all extractions to have major/minor axes and position angle
-            equal to the restoring beam.
         labelled_data : np.ndarray, optional, default=None
             Labelled island map (output of np.ndimage.label()). Will be
             calculated automatically if not provided.
@@ -1161,8 +1296,8 @@ class ImageData(object):
 
         Returns
         -------
-        .utility.containers.ExtractionResults
-            Results of the source extraction.
+        A `utility.containers.ExtractionResults` instance or a Pandas
+        DataFrame containing the results of the source extraction.
 
         Notes
         -----
@@ -1174,15 +1309,21 @@ class ImageData(object):
         # Map our chunks onto a list of islands.
 
         if labelled_data is None:
-            (labels, labelled_data, num_islands, maxposs, maxis, npixs,
-             indices, slices) =\
-                self.label_islands(detectionthresholdmap, analysisthresholdmap)
+            (
+                labels,
+                labelled_data,
+                num_islands,
+                maxposs,
+                maxis,
+                npixs,
+                indices,
+                slices,
+            ) = self.label_islands(detectionthresholdmap, analysisthresholdmap)
 
         num_islands = len(labels)
 
-        results = containers.ExtractionResults()
-
-        if deblend_nthresh or force_beam or not self.conf.image.vectorized:
+        if deblend_nthresh or not self.conf.image.vectorized:
+            results = containers.ExtractionResults()
             island_list = []
             for label in labels:
                 chunk = slices[label - 1]
@@ -1194,7 +1335,8 @@ class ImageData(object):
                 # not affect the source measurements.
                 selected_data = np.ma.where(
                     labelled_data[chunk] == label,
-                    self.data_bgsubbed[chunk].data, -extract.BIGNUM
+                    self.data_bgsubbed[chunk].data,
+                    -extract.BIGNUM,
                 ).filled(fill_value=-extract.BIGNUM)
 
                 island_list.append(
@@ -1207,7 +1349,7 @@ class ImageData(object):
                         self.beam,
                         deblend_nthresh,
                         self.conf.image.deblend_mincont,
-                        self.conf.image.structuring_element
+                        self.conf.image.structuring_element,
                     )
                 )
 
@@ -1219,8 +1361,9 @@ class ImageData(object):
                 self.Gaussian_residuals = np.zeros(self.data.shape)
                 self.residuals_from_deblending = np.zeros(self.data.shape)
                 for island in island_list:
-                    self.residuals_from_deblending[island.chunk] += (
-                        island.data.filled(fill_value=0.))
+                    self.residuals_from_deblending[
+                        island.chunk
+                    ] += island.data.filled(fill_value=0.0)
 
             # Deblend each of the islands to its consituent parts, if necessary
             if deblend_nthresh:
@@ -1228,10 +1371,12 @@ class ImageData(object):
                 island_list = list(utils.flatten(deblended_list))
 
             # Set up the fixed fit parameters if 'force beam' is on:
-            if force_beam:
-                fixed = {'semimajor': self.beam[0],
-                         'semiminor': self.beam[1],
-                         'theta': self.beam[2]}
+            if self.conf.image.force_beam:
+                fixed = {
+                    "semimajor": self.beam[0],
+                    "semiminor": self.beam[1],
+                    "theta": self.beam[2],
+                }
             else:
                 fixed = None
 
@@ -1242,15 +1387,16 @@ class ImageData(object):
                 self.fudge_max_pix_factor,
                 self.beamsize,
                 self.correlation_lengths,
-                fixed
+                fixed,
             )
 
             if self.conf.image.allow_multiprocessing:
                 with multiprocessing.Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
-                fit_results = [fit_islands_partial(island) for island in
-                               island_list]
+                fit_results = [
+                    fit_islands_partial(island) for island in island_list
+                ]
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
@@ -1259,17 +1405,26 @@ class ImageData(object):
                     # Failed to fit; drop this island and go to the next.
                     continue
                 try:
-                    det = extract.Detection(measurement, self,
-                                            chunk=island.chunk,
-                                            eps_ra=self.conf.image.eps_ra,
-                                            eps_dec=self.conf.image.eps_dec)
-                    if (det.ra.error == float('inf') or
-                            det.dec.error == float('inf')):
-                        logger.warning('Bad fit from blind extraction at '
-                                       'pixel coords:'
-                                       '%f %f - measurement discarded'
-                                       '(increase fitting margin?)',
-                                       det.x, det.y)
+                    det = extract.Detection(
+                        measurement,
+                        self,
+                        chunk=island.chunk,
+                        eps_ra=self.conf.image.eps_ra,
+                        eps_dec=self.conf.image.eps_dec,
+                    )
+                    if det.ra.error == float("inf") or det.dec.error == float(
+                        "inf"
+                    ):
+                        logger.warning(
+                            (
+                                "Bad fit from blind extraction at "
+                                "pixel coords:%f %f - measurement "
+                                "discarded "
+                                "(increase fitting margin?)"
+                            ),
+                            det.x,
+                            det.y,
+                        )
                     else:
                         results.append(det)
                 except RuntimeError as e:
@@ -1279,23 +1434,52 @@ class ImageData(object):
                     self.Gaussian_islands[island.chunk] += Gauss_island
 
                 if self.conf.export.residuals:
-                    self.residuals_from_deblending[island.chunk] -= (
-                        island.data.filled(fill_value=0.))
+                    self.residuals_from_deblending[
+                        island.chunk
+                    ] -= island.data.filled(fill_value=0.0)
                     self.Gaussian_residuals[island.chunk] += Gauss_residual
 
-        elif num_islands > 0:
+        else:
 
-            (moments_of_sources, sky_barycenters, ra_errors, dec_errors,
-             error_radii, smaj_asec, errsmaj_asec, smin_asec, errsmin_asec,
-             theta_celes_values, theta_celes_errors, theta_dc_celes_values,
-             theta_dc_celes_errors, Gaussian_islands, Gaussian_residuals,
-             sig, chisq, reduced_chisq) = \
-                extract.source_measurements_pixels_and_celestial_vectorised(
-                    num_islands, npixs, maxposs, maxis, self.data_bgsubbed.data,
-                    self.rmsmap.data, analysisthresholdmap.data, indices,
-                    labelled_data, labels, self.wcs, self.fudge_max_pix_factor,
-                    self.beam, self.beamsize, self.correlation_lengths,
-                    self.conf.image.eps_ra, self.conf.image.eps_dec)
+            (
+                moments_of_sources,
+                sky_barycenters,
+                ra_errors,
+                dec_errors,
+                error_radii,
+                smaj_asec,
+                errsmaj_asec,
+                smin_asec,
+                errsmin_asec,
+                theta_celes_values,
+                theta_celes_errors,
+                theta_dc_celes_values,
+                theta_dc_celes_errors,
+                Gaussian_islands,
+                Gaussian_residuals,
+                sig,
+                chisq,
+                reduced_chisq,
+            ) = extract.source_measurements_vectorised(
+                num_islands,
+                npixs,
+                maxposs,
+                maxis,
+                self.data_bgsubbed.data,
+                self.rmsmap.data,
+                analysisthresholdmap.data,
+                indices,
+                labelled_data,
+                labels,
+                self.wcs,
+                self.fudge_max_pix_factor,
+                self.beam,
+                self.beamsize,
+                self.conf.image.force_beam,
+                self.correlation_lengths,
+                self.conf.image.eps_ra,
+                self.conf.image.eps_dec,
+            )
 
             if self.conf.export.islands:
                 self.Gaussian_islands = Gaussian_islands
@@ -1303,37 +1487,79 @@ class ImageData(object):
             if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
-            for count, label in enumerate(labels):
-                chunk = slices[label - 1]
+            if not self.conf.export.reconvert:
+                sources_df = make_measurements_dataframe(
+                    moments_of_sources,
+                    sky_barycenters,
+                    ra_errors,
+                    dec_errors,
+                    error_radii,
+                    smaj_asec,
+                    errsmaj_asec,
+                    smin_asec,
+                    errsmin_asec,
+                    theta_celes_values,
+                    theta_celes_errors,
+                    theta_dc_celes_values,
+                    theta_dc_celes_errors,
+                    sig,
+                    chisq,
+                    reduced_chisq,
+                )
+                return sources_df[self.conf.export.source_params]
+            else:
+                results = containers.ExtractionResults()
+                for count, label in enumerate(labels):
+                    chunk = slices[label - 1]
 
-                param = extract.ParamSet()
-                param.sig = sig[count]
-                param.chisq = chisq[count]
-                param.reduced_chisq = reduced_chisq[count]
+                    param = extract.ParamSet()
+                    param.sig = sig[count]
+                    param.chisq = chisq[count]
+                    param.reduced_chisq = reduced_chisq[count]
 
-                param["peak"] = Uncertain(moments_of_sources[count, 0, 0],
-                                          moments_of_sources[count, 1, 0])
-                param["flux"] = Uncertain(moments_of_sources[count, 0, 1],
-                                          moments_of_sources[count, 1, 1])
-                param["xbar"] = Uncertain(moments_of_sources[count, 0, 2],
-                                          moments_of_sources[count, 1, 2])
-                param["ybar"] = Uncertain(moments_of_sources[count, 0, 3],
-                                          moments_of_sources[count, 1, 3])
-                param["semimajor"] = Uncertain(moments_of_sources[count, 0, 4],
-                                               moments_of_sources[count, 1, 4])
-                param["semiminor"] = Uncertain(moments_of_sources[count, 0, 5],
-                                               moments_of_sources[count, 1, 5])
-                param["theta"] = Uncertain(moments_of_sources[count, 0, 6],
-                                           moments_of_sources[count, 1, 6])
-                param["semimaj_deconv"] = Uncertain(moments_of_sources[count, 0, 7],
-                                                    moments_of_sources[count, 1, 7])
-                param["semimin_deconv"] = Uncertain(moments_of_sources[count, 0, 8],
-                                                    moments_of_sources[count, 1, 8])
-                param["theta_deconv"] = Uncertain(moments_of_sources[count, 0, 9],
-                                                  moments_of_sources[count, 1, 9])
+                    param["peak"] = Uncertain(
+                        moments_of_sources[count, 0, 0],
+                        moments_of_sources[count, 1, 0],
+                    )
+                    param["flux"] = Uncertain(
+                        moments_of_sources[count, 0, 1],
+                        moments_of_sources[count, 1, 1],
+                    )
+                    param["xbar"] = Uncertain(
+                        moments_of_sources[count, 0, 2],
+                        moments_of_sources[count, 1, 2],
+                    )
+                    param["ybar"] = Uncertain(
+                        moments_of_sources[count, 0, 3],
+                        moments_of_sources[count, 1, 3],
+                    )
+                    param["semimajor"] = Uncertain(
+                        moments_of_sources[count, 0, 4],
+                        moments_of_sources[count, 1, 4],
+                    )
+                    param["semiminor"] = Uncertain(
+                        moments_of_sources[count, 0, 5],
+                        moments_of_sources[count, 1, 5],
+                    )
+                    param["theta"] = Uncertain(
+                        moments_of_sources[count, 0, 6],
+                        moments_of_sources[count, 1, 6],
+                    )
+                    param["semimaj_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 7],
+                        moments_of_sources[count, 1, 7],
+                    )
+                    param["semimin_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 8],
+                        moments_of_sources[count, 1, 8],
+                    )
+                    param["theta_deconv"] = Uncertain(
+                        moments_of_sources[count, 0, 9],
+                        moments_of_sources[count, 1, 9],
+                    )
 
-                det = extract.Detection(param, self, chunk=chunk)
-                results.append(det)
+                    det = extract.Detection(param, self, chunk=chunk)
+                    results.append(det)
 
         def is_usable(det):
             """Check that both ends of each axis are usable.
@@ -1343,6 +1569,7 @@ class ImageData(object):
             check all the surroundings.
 
             """
+
             def check_point(x, y):
                 x = (int(x), int(np.ceil(x)))
                 y = (int(y), int(np.ceil(y)))
@@ -1358,15 +1585,18 @@ class ImageData(object):
                 return True
 
             for point in (
-                    (det.start_smaj_x, det.start_smaj_y),
-                    (det.start_smin_x, det.start_smin_y),
-                    (det.end_smaj_x, det.end_smaj_y),
-                    (det.end_smin_x, det.end_smin_y)
+                (det.start_smaj_x, det.start_smaj_y),
+                (det.start_smin_x, det.start_smin_y),
+                (det.end_smaj_x, det.end_smaj_y),
+                (det.end_smin_x, det.end_smin_y),
             ):
                 if not check_point(*point):
-                    logger.debug("Unphysical source at pixel %f, %f" % (
-                        det.x.value, det.y.value))
+                    logger.debug(
+                        "Unphysical source at pixel %f, %f"
+                        % (det.x.value, det.y.value)
+                    )
                     return False
             return True
+
         # Filter will return a list; ensure we return an ExtractionResults.
         return containers.ExtractionResults(list(filter(is_usable, results)))

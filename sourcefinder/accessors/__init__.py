@@ -18,13 +18,9 @@ from sourcefinder.image import ImageData
 
 
 def sourcefinder_image_from_accessor(
-            image,
-            conf: Conf = Conf(
-                image=ImgConf(),
-                export=ExportSettings()
-            ),
-    ):
-
+    image,
+    conf: Conf = Conf(image=ImgConf(), export=ExportSettings()),
+):
     """Create a sourcefinder.image.ImageData object from an image
     'accessor'.
 
@@ -62,7 +58,7 @@ def writefits(data, filename, header={}):
     ----------
     data : numpy.ndarray
         The NumPy array to be written to the FITS file.
-    filename : str
+    filename : Path or str
         The path to the output FITS file.
     header : dict, default: {}
         A dictionary containing key-value pairs for the FITS header.
@@ -72,8 +68,14 @@ def writefits(data, filename, header={}):
     OSError
         If the file cannot be written due to permission issues or other errors.
 
+    Notes
+    -----
+    The data is transposed before writing to match the transpose from
+    `fitsimage.FitsImage.read_data()`. This is necessary to ensure that the
+    data is stored in the correct orientation in the FITS file.
+
     """
-    if header.__class__.__name__ == 'Header':
+    if header.__class__.__name__ == "Header":
         pyfits.writeto(filename, data.transpose(), header)
     else:
         hdu = pyfits.PrimaryHDU(data.transpose())

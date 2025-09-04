@@ -23,7 +23,7 @@ class FitsImage(DataAccessor):
 
     Parameters
     ----------
-    url : str
+    url : Path or str
         The path or URL to the FITS file.
     plane : int, default: None
         If the data is a datacube, specifies which plane to use.
@@ -34,6 +34,7 @@ class FitsImage(DataAccessor):
         The index of the HDU to use from the HDU list.
 
     """
+
     def __init__(self, url, plane=None, beam=None, hdu_index=0):
         self.url = url
         self.header = self._get_header(hdu_index)
@@ -47,8 +48,9 @@ class FitsImage(DataAccessor):
             # An argument-supplied beam overrides a beam derived from
             # (bmaj, bmin, bpa) in a config.toml. Only if those two options
             # are not specified, we parse the beam from the header.
-            bmaj, bmin, bpa = beam if is_valid_beam_tuple(beam) else (
-                self.parse_beam())
+            bmaj, bmin, bpa = (
+                beam if is_valid_beam_tuple(beam) else (self.parse_beam())
+            )
             self.beam = self.degrees2pixels(
                 bmaj, bmin, bpa, self.pixelsize[0], self.pixelsize[1]
             )
@@ -56,8 +58,8 @@ class FitsImage(DataAccessor):
         self.centre_ra, self.centre_decl = self.calculate_phase_centre()
 
         # Bonus attribute
-        if 'TELESCOP' in self.header:
-            self.telescope = self.header['TELESCOP']
+        if "TELESCOP" in self.header:
+            self.telescope = self.header["TELESCOP"]
 
     def _get_header(self, hdu_index):
         """Retrieve the header from the specified HDU in the FITS
@@ -109,8 +111,12 @@ class FitsImage(DataAccessor):
             data = data[plane].squeeze()
         n_dim = len(data.shape)
         if n_dim != 2:
-            logger.warning((f"Loaded datacube with {n_dim:d} dimensions, "
-                             "assuming Stokes I and taking plane 0."))
+            logger.warning(
+                (
+                    f"Loaded datacube with {n_dim:d} dimensions, "
+                    "assuming Stokes I and taking plane 0."
+                )
+            )
             data = data[0, :, :]
         data = data.transpose()
         return data
@@ -139,23 +145,23 @@ class FitsImage(DataAccessor):
         header = self.header
         wcs = WCS()
         try:
-            wcs.crval = header['crval1'], header['crval2']
-            wcs.crpix = header['crpix1'] - 1, header['crpix2'] - 1
-            wcs.cdelt = header['cdelt1'], header['cdelt2']
+            wcs.crval = header["crval1"], header["crval2"]
+            wcs.crpix = header["crpix1"] - 1, header["crpix2"] - 1
+            wcs.cdelt = header["cdelt1"], header["cdelt2"]
         except KeyError:
             msg = "Coordinate system not specified in FITS"
             logger.error(msg)
             raise TypeError(msg)
         try:
-            wcs.ctype = header['ctype1'], header['ctype2']
+            wcs.ctype = header["ctype1"], header["ctype2"]
         except KeyError:
-            wcs.ctype = 'unknown', 'unknown'
+            wcs.ctype = "unknown", "unknown"
         try:
-            wcs.crota = float(header['crota1']), float(header['crota2'])
+            wcs.crota = float(header["crota1"]), float(header["crota2"])
         except KeyError:
-            wcs.crota = 0., 0.
+            wcs.crota = 0.0, 0.0
         try:
-            wcs.cunit = header['cunit1'], header['cunit2']
+            wcs.cunit = header["cunit1"], header["cunit2"]
         except KeyError:
             # The "Definition of the Flexible Image Transport System", version
             # 3.0, tells us that "units for celestial coordinate systems defined
@@ -163,9 +169,8 @@ class FitsImage(DataAccessor):
             # else is specified.
             msg = "WCS units unknown; using degrees"
             logger.warning(msg)
-            wcs.cunit = 'deg', 'deg'
+            wcs.cunit = "deg", "deg"
         return wcs
-
 
     def calculate_phase_centre(self):
         """Calculate the phase center of the FITS image.
@@ -184,7 +189,6 @@ class FitsImage(DataAccessor):
         centre_ra, centre_decl = self.wcs.p2s((x / 2, y / 2))
         return float(centre_ra), float(centre_decl)
 
-
     def parse_frequency(self):
         """Set some 'shortcut' variables for access to the frequency
         parameters in the FITS file header.
@@ -197,28 +201,30 @@ class FitsImage(DataAccessor):
             The bandwidth extracted from the FITS header.
 
         """
-        freq_eff = None
-        freq_bw = None
         try:
             header = self.header
-            if 'RESTFRQ' in header:
-                freq_eff = header['RESTFRQ']
-                if 'RESTBW' in header:
-                    freq_bw = header['RESTBW']
+            if "RESTFRQ" in header:
+                freq_eff = header["RESTFRQ"]
+                if "RESTBW" in header:
+                    freq_bw = header["RESTBW"]
                 else:
-                    logger.warning("bandwidth header missing in image {},"
-                                   " setting to 1 MHz".format(self.url))
+                    logger.warning(
+                        "bandwidth header missing in image {},"
+                        " setting to 1 MHz".format(self.url)
+                    )
                     freq_bw = 1e6
-            elif ('CTYPE3' in header) and (header['CTYPE3'] in
-                                           ('FREQ', 'VOPT')):
-                freq_eff = header['CRVAL3']
-                freq_bw = header['CDELT3']
-            elif ('CTYPE4' in header) and (header['CTYPE4'] in
-                                           ('FREQ', 'VOPT')):
-                freq_eff = header['CRVAL4']
-                freq_bw = header['CDELT4']
+            elif ("CTYPE3" in header) and (
+                header["CTYPE3"] in ("FREQ", "VOPT")
+            ):
+                freq_eff = header["CRVAL3"]
+                freq_bw = header["CDELT3"]
+            elif ("CTYPE4" in header) and (
+                header["CTYPE4"] in ("FREQ", "VOPT")
+            ):
+                freq_eff = header["CRVAL4"]
+                freq_bw = header["CDELT4"]
             else:
-                freq_eff = header['RESTFREQ']
+                freq_eff = header["RESTFREQ"]
                 freq_bw = 1e6
         except KeyError:
             msg = "Frequency not specified in headers for {}".format(self.url)
@@ -245,7 +251,8 @@ class FitsImage(DataAccessor):
         AIPS FITS file: stored in the history section
 
         """
-        beam_regex = re.compile(r'''
+        beam_regex = re.compile(
+            r"""
             BMAJ
             \s*=\s*
             (?P<bmaj>[-\d\.eE]+)
@@ -257,15 +264,17 @@ class FitsImage(DataAccessor):
             BPA
             \s*=\s*
             (?P<bpa>[-\d\.eE]+)
-            ''', re.VERBOSE)
+            """,
+            re.VERBOSE,
+        )
 
         bmaj, bmin, bpa = None, None, None
         header = self.header
         try:
             # MIRIAD FITS file
-            bmaj = header['BMAJ']
-            bmin = header['BMIN']
-            bpa = header['BPA']
+            bmaj = header["BMAJ"]
+            bmin = header["BMIN"]
+            bpa = header["BPA"]
         except KeyError:
 
             def get_history(hdr):
@@ -288,12 +297,13 @@ class FitsImage(DataAccessor):
             for hist_entry in get_history(header):
                 results = beam_regex.search(hist_entry)
                 if results:
-                    bmaj, bmin, bpa = [float(results.group(key)) for
-                                       key in ('bmaj', 'bmin', 'bpa')]
+                    bmaj, bmin, bpa = [
+                        float(results.group(key))
+                        for key in ("bmaj", "bmin", "bpa")
+                    ]
                     break
 
         return bmaj, bmin, bpa
-
 
     def parse_times(self):
         """Attempt to do something sane with timestamps.
@@ -311,16 +321,21 @@ class FitsImage(DataAccessor):
             start = self.parse_start_time()
         except KeyError:
             # If no start time specified, give up:
-            logger.warning(("Timestamp not specified in FITS file:"
-                           " using 'now' with dummy (zero-valued) integration "
-                           "time."))
-            return datetime.datetime.now(), 0.
+            logger.warning(
+                (
+                    "Timestamp not specified in FITS file:"
+                    " using 'now' with dummy (zero-valued) integration "
+                    "time."
+                )
+            )
+            return datetime.datetime.now(), 0.0
 
         try:
-            end = dateutil.parser.parse(self.header['end_utc'])
+            end = dateutil.parser.parse(self.header["end_utc"])
         except KeyError:
             msg = "End time not specified in {}, setting to start".format(
-                self.url)
+                self.url
+            )
             logger.warning(msg)
             end = start
 
@@ -330,14 +345,13 @@ class FitsImage(DataAccessor):
         # For simplicity, the database requires naive datetimes (implicit UTC)
         # So we convert to UTC and then drop the timezone:
         try:
-            timezone = pytz.timezone(self.header['timesys'])
+            timezone = pytz.timezone(self.header["timesys"])
             start_w_tz = start.replace(tzinfo=timezone)
             start_utc = pytz.utc.normalize(start_w_tz.astimezone(pytz.utc))
             return start_utc.replace(tzinfo=None), tau_time
         except (pytz.UnknownTimeZoneError, KeyError):
             logger.debug("Timezone not specified in FITS file: assuming UTC.")
             return start, tau_time
-
 
     def parse_start_time(self):
         """Parse and return the start time of the observation, that
@@ -360,16 +374,17 @@ class FitsImage(DataAccessor):
         """
         header = self.header
         try:
-            if ";" in header['date-obs']:
-                start = dateutil.parser.parse(header['date-obs']\
-                    .split(";")[0].split('"')[1])
+            if ";" in header["date-obs"]:
+                start = dateutil.parser.parse(
+                    header["date-obs"].split(";")[0].split('"')[1]
+                )
             else:
-                start = dateutil.parser.parse(header['date-obs'])
+                start = dateutil.parser.parse(header["date-obs"])
         except AttributeError:
             # Maybe it's a float, Westerbork-style?
-            if isinstance(header['date-obs'], float):
+            if isinstance(header["date-obs"], float):
                 logger.warning("Non-standard date specified in FITS file!")
-                frac, year = numpy.modf(header['date-obs'])
+                frac, year = numpy.modf(header["date-obs"])
                 start = datetime.datetime(int(year), 1, 1)
                 delta = datetime.timedelta(365.242199 * frac)
                 start += delta
