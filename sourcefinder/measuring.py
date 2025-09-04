@@ -1,6 +1,4 @@
-"""Source measuring routines.
-
-"""
+"""Source measuring routines."""
 
 import math
 
@@ -91,7 +89,10 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
         or np.isnan(working1)
         or np.isnan(working2)
     ):
-        raise ValueError("Unable to estimate Gauss shape")
+        raise ValueError(
+            "Nans should not occur in these moments, since nans in the "
+            "observational image data should have been masked out."
+        )
 
     maxpos = np.unravel_index(data.argmax(), data.shape)
 
@@ -530,7 +531,10 @@ def moments_enhanced(
             or np.isnan(working1)
             or np.isnan(working2)
         ):
-            raise ValueError("Unable to estimate Gauss shape")
+            raise ValueError(
+                "Nans should not occur in these moments, since nans in the "
+                "observational image data should have been masked out."
+            )
 
         semimajor_tmp = (working1 + working2) * 2.0 * math.log(2.0)
         semiminor_tmp = (working1 - working2) * 2.0 * math.log(2.0)
