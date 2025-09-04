@@ -1036,7 +1036,7 @@ class ImageData(object):
         # 2. Any pixels which fall below the analysis threshold at that pixel
         #    position;
         # 3. Any pixels corresponding to a position where the RMS noise is
-        #    less than RMS_FILTER (default 0.001) times the median RMS across
+        #    less than RMS_FILTER times the median RMS across
         #    the whole image.
         #
         # The third filter attempts to exclude those regions of the image
