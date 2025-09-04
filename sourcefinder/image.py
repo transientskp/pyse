@@ -1048,7 +1048,10 @@ class ImageData(object):
                 (self.data_bgsubbed > analysisthresholdmap)
                 & (
                     self.rmsmap
-                    >= (self.conf.image.rms_filter * self.grids["rms"].mean())
+                    >= (
+                        self.conf.image.rms_filter
+                        * np.median(self.grids["rms"])
+                    )
                 ),
                 1,
                 0,
