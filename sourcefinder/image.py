@@ -171,7 +171,7 @@ class ImageData(object):
         #
         # * A margin from the edge of the image;
         # * Any data outside a given radius from the centre of the image;
-        # * Data which is "obviously" bad (equal to 0 or NaN).
+        # * Data which is "obviously" bad (NaN).
         mask = np.zeros((self.xdim, self.ydim))
         if self.conf.image.margin:
             margin_mask = np.ones((self.xdim, self.ydim))
