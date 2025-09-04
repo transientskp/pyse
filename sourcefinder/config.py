@@ -151,7 +151,7 @@ class ImgConf(_Validate):
 
     rms_filter: float = 0.001
     """Any interpolated background standard deviation (rms) value
-    should be above this threshold times the mean of all background
+    should be above this threshold times the median of all background
     standard deviation (rms) node values. This is used to avoid
     picking up sources towards the edges of the image where the values
     of the background rms map may be the result of poor interpolation,
@@ -335,6 +335,7 @@ class ImgConf(_Validate):
     NVSS. Therefore, its unit (degrees, arcseconds) is up to the user.
 
     """
+
 
 @dataclass(frozen=True)
 class ExportSettings(_Validate):
