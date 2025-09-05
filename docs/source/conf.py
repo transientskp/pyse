@@ -1,3 +1,4 @@
+from datetime import datetime
 import sourcefinder
 
 project = "PySE"
@@ -15,7 +16,8 @@ authors = [
     "Antonia Rowlinson",
 ]
 author = ", ".join(authors)
-copyright = ", ".join(["2025", *authors])
+current_year = str(datetime.now().year)
+copyright = f"2005-{current_year}, {author}"
 release = sourcefinder.__version__
 version = release.split(".dev")[0] if ".dev" in release else release
 
