@@ -15,8 +15,9 @@ authors = [
     "Antonia Rowlinson",
 ]
 author = ", ".join(authors)
-copyright = ", ".join(["2024", *authors])
+copyright = ", ".join(["2025", *authors])
 release = sourcefinder.__version__
+version = release.split(".dev")[0] if ".dev" in release else release
 
 extensions = [
     "sphinx.ext.autodoc",
