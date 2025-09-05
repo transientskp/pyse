@@ -25,7 +25,8 @@ A reason for starting this repo is to offer PySE as a standalone application.
 Documentation
 -------------
 
-Currently only offered as `part of the TraP documentation <https://tkp.readthedocs.io/en/latest/tools/pyse.html>`_.
+`Stable <https://https://pyse.readthedocs.io/en/stable/>`_ and `Latest <https://https://pyse.readthedocs.io/en/latest/>`_.
+
 
 Installation
 ------------
