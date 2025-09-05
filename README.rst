@@ -25,7 +25,7 @@ A reason for starting this repo is to offer PySE as a standalone application.
 Documentation
 -------------
 
-`Stable <https://pyse.readthedocs.io/en/stable/>`_ and `Latest <https://pyse.readthedocs.io/en/latest/>`_.
+`stable <https://pyse.readthedocs.io/en/stable/>`_ and `latest <https://pyse.readthedocs.io/en/latest/>`_.
 
 
 Installation
