@@ -21,10 +21,6 @@ copyright = f"2005-{current_year}, {author}"
 long_version = sourcefinder.__version__
 release = long_version.split(".dev")[0]
 
-html_theme_options = {
-    "show_version": False,  # hide version in top-left
-}
-
 # Make full version available to templates
 html_context = {
     "full_version": long_version,
