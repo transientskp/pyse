@@ -21,6 +21,10 @@ copyright = f"2005-{current_year}, {author}"
 full_release = sourcefinder.__version__
 release = version = full_release.split(".dev")[0]
 
+html_theme_options = {
+    "show_version": False,  # hide version in top-left
+}
+
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
