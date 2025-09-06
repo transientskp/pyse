@@ -18,8 +18,8 @@ authors = [
 author = ", ".join(authors)
 current_year = str(datetime.now().year)
 copyright = f"2005-{current_year}, {author}"
-release = sourcefinder.__version__
-version = release.split(".dev")[0] if ".dev" in release else release
+full_release = sourcefinder.__version__
+release = version = full_release.split(".dev")[0]
 
 extensions = [
     "sphinx.ext.autodoc",
