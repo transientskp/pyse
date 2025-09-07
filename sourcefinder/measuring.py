@@ -362,10 +362,13 @@ def moments_enhanced(
     beamsize : float
         FWHM size of the clean beam. Units: pixels.
 
-    force_beam : boolean
-        If 1, the restoring beam shape is fixed when the source is
-        measured, i.e. the source shape is not calculated, but set equal to
-        the restoring beam.
+    force_beam : int
+        If 1, the restoring beam is used to derive the peak spectral
+        brightnesses of the sources, see equation 2.66 of Spreeuw's (2010)
+        thesis. The sources are then assumed to be unresolved and their
+        shapes are set equal to the restoring beam. If 0, the peak
+        spectral brightnesses are derived using equation 2.67 of that thesis
+        and enhanced moments are used to derive the elliptical Gaussian axes.
 
     correlation_lengths : np.ndarray
         Array of two floats describing distances along the semi-major and
