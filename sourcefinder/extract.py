@@ -45,6 +45,46 @@ class Island(object):
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
 
+    Parameters
+    ----------
+    data : ndarray
+        A 2D array representing the rectangular patch of the observational
+        image encompassing the island. Values as small as -BIGNUM denote
+        pixels outside the island, they will typically be in the corners of
+        the patch.
+    rms : MaskedArray
+        A 2D masked array representing the patch of the rms noise map,
+        corresponding to the same pixel positions as `data`. The values are
+        interpolated from a grid of standard deviations of the background
+        noise across the image.
+    chunk : tuple of slices
+        Defines the corners of the patch encompassing the island as a
+        tuple of slices.
+    analysis_threshold : float
+        The analysis threshold, when multiplied with the local rms noise,
+        segments the observational image - with the mean background
+        subtracted - into islands.
+    detection_map : MaskedArray
+        A 2D masked array corresponding to the same patch of the sky as
+        `data`, but applied to the detection threshold map. Typically a
+        higher threshold than the analysis threshold map.
+    beam : tuple of floats
+        The clean beam parameters as the semi-major and semi-minor axes
+        in pixel coordinates and the position angle in radians.
+    deblend_nthresh : int
+        The number of subthresholds used for deblending.
+    deblend_mincont : float
+        Min. fraction of island flux in deblended subisland.
+    structuring_element : ndarray
+        A 2D array defining the connectivity between pixels.
+        Typically one chooses between 4-connectivity and 8-connectivity.
+    rms_orig : MaskedArray, default: None
+        The original rms noise of the island.
+    flux_orig : float, default: None
+        The original flux value of the island.
+    subthrrange : ndarray, default: None
+        The subthreshold range for deblending.
+
     """
 
     def __init__(
@@ -62,49 +102,6 @@ class Island(object):
         flux_orig=None,
         subthrrange=None,
     ):
-        """Initialise.
-
-        Parameters
-        ----------
-        data : ndarray
-            A 2D array representing the rectangular patch of the observational
-            image encompassing the island. Values as small as -BIGNUM denote
-            pixels outside the island, they will typically be in the corners of
-            the patch.
-        rms : MaskedArray
-            A 2D masked array representing the patch of the rms noise map,
-            corresponding to the same pixel positions as `data`. The values are
-            interpolated from a grid of standard deviations of the background
-            noise across the image.
-        chunk : tuple of slices
-            Defines the corners of the patch encompassing the island as a
-            tuple of slices.
-        analysis_threshold : float
-            The analysis threshold, when multiplied with the local rms noise,
-            segments the observational image - with the mean background
-            subtracted - into islands.
-        detection_map : MaskedArray
-            A 2D masked array corresponding to the same patch of the sky as
-            `data`, but applied to the detection threshold map. Typically a
-            higher threshold than the analysis threshold map.
-        beam : tuple of floats
-            The clean beam parameters as the semi-major and semi-minor axes
-            in pixel coordinates and the position angle in radians.
-        deblend_nthresh : int
-            The number of subthresholds used for deblending.
-        deblend_mincont : float
-            Min. fraction of island flux in deblended subisland.
-        structuring_element : ndarray
-            A 2D array defining the connectivity between pixels.
-            Typically one chooses between 4-connectivity and 8-connectivity.
-        rms_orig : MaskedArray, default: None
-            The original rms noise of the island.
-        flux_orig : float, default: None
-            The original flux value of the island.
-        subthrrange : ndarray, default: None
-            The subthreshold range for deblending.
-
-        """
 
         # deblend_nthresh is the number of subthresholds used when deblending.
         self.deblend_nthresh = deblend_nthresh
@@ -2012,10 +2009,8 @@ def source_measurements_vectorised(
     fudge_max_pix_factor,
     beam,
     beamsize,
-    force_beam,
     correlation_lengths,
-    eps_ra,
-    eps_dec,
+    conf,
 ):
     """Source measurements (vectorised).
 
@@ -2099,28 +2094,20 @@ def source_measurements_vectorised(
         over a large ensemble of unresolved sources, when a circular restoring
         beam is appropriate.
     beam : tuple
-        Tuple of 3 floats describing the restoring beam in terms of its
+        Three floats describing the restoring beam in terms of its
         semi-major and semi-minor axes (in pixels) and the position angle of the
         semi-major axis, east from local north, in radians.
     beamsize : float
         Area of the restoring beam, in square pixels.
-    force_beam : bool
-        If True, the restoring beam is used to derive the peak spectral
-        brightnesses of the sources, see equation 2.66 of Spreeuw's (2010)
-        thesis. The sources are then assumed to be unresolved and their
-        shapes are set equal to the restoring beam. If False, the peak
-        spectral brightnesses are derived using equation 2.67 of that thesis
-        and enhanced moments are used to derive the elliptical Gaussian axes.
     correlation_lengths : tuple
-        Tuple of 2 floats describing over which distance (in pixels) noise
+        Two floats describing over which distance (in pixels) noise
         should be considered correlated, along both principal axes of the
         Gaussian profile of the restoring beam.
-    eps_ra : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        right ascension, following equation 27a from the NVSS paper.
-    eps_dec : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        declination, following equation 27b from the NVSS paper.
+    conf : config.Conf instance
+        Configuration options for source finding. This includes settings
+        related to image processing (e.g., background and rms
+        noise estimation, thresholds) as well as export options (e.g., source
+        parameters and output maps).
 
     Returns
     -------
@@ -2336,7 +2323,7 @@ def source_measurements_vectorised(
         fudge_max_pix_factor,
         np.array(beam),
         beamsize,
-        force_beam,
+        conf.image.force_beam,
         np.array(correlation_lengths),
         0,
         0,
@@ -2430,12 +2417,12 @@ def source_measurements_vectorised(
         end_ra2_end_dec2 = wcs.all_p2s(pix_y_plus_errory_proj)
 
         # Here we include the position calibration errors
-        ra_errors = eps_ra + np.maximum(
+        ra_errors = conf.image.eps_ra + np.maximum(
             np.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
             np.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]),
         )
 
-        dec_errors = eps_dec + np.maximum(
+        dec_errors = conf.image.eps_dec + np.maximum(
             np.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
             np.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]),
         )
