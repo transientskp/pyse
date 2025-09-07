@@ -48,31 +48,11 @@ class ImageData(object):
     wcs : utility.coordinates.wcs
         World coordinate system specification, in our case it is always
         about sky coordinates.
-    margin : int, default: 0
-        Margin applied to each edge of image (in pixels). Introduces a mask.
-    radius : float, default: 0
-        Radius of usable portion of image (in pixels). Introduces a mask.
-    back_size_x : int, default: 32
-        Subimage size along rows. Subimages are centered on the nodes of the
-        background grid and serve to derive the mean and standard deviation
-        of the background pixels.
-    back_size_y : int, default: 32
-        Subimage size along columns. Subimages are centered on the nodes of
-        the background grid and serve to derive the mean and standard
-        deviation of the background pixels.
-    residuals : bool, default: False
-        Whether to save Gaussian residuals, at the pixels corresponding to
-        the islands, as an image. Other pixel values will be zero.
-    islands : bool, default: False
-        Whether to save the Gaussian reconstructions, at the pixels
-        corresponding to the islands, as an image. Other pixel values will
-        be zero.
-    eps_ra : float, default: 0
-        Calibration uncertainty along Right Ascension in degrees.
-        See equation 27a of NVSS paper.
-    eps_dec : float, default: 0
-        Calibration uncertainty along Declination in degrees.
-        See equation 27b of NVSS paper.
+    conf : Conf, default: Conf(image=ImgConf(), export=ExportSettings())
+        Configuration options for source finding. This includes settings
+        related to image processing (e.g., background and rms
+        noise estimation, thresholds) as well as export options (e.g., source
+        parameters and output maps).
 
     """
 
@@ -87,8 +67,8 @@ class ImageData(object):
         # Probably not (memory overhead, in particular for data),
         # but then the user shouldn't change them outside ImageData in the
         # meantime
-        # self.rawdata is a 2D numpy array, C-contiguous needed for sep.
-        # single precision is good enough in all cases.
+        # self.rawdata is a 2D numpy array.
+        # Single precision is good enough in all cases.
         self.rawdata = np.ascontiguousarray(data, dtype=np.float32)
         self.wcs = wcs  # a utility.coordinates.wcs instance
 
@@ -1475,10 +1455,8 @@ class ImageData(object):
                 self.fudge_max_pix_factor,
                 self.beam,
                 self.beamsize,
-                self.conf.image.force_beam,
                 self.correlation_lengths,
-                self.conf.image.eps_ra,
-                self.conf.image.eps_dec,
+                self.conf,
             )
 
             if self.conf.export.islands:
