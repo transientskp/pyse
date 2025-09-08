@@ -1017,6 +1017,11 @@ def source_profile_and_errors(
         island). Typically, this will be the analysis threshold (float) times
         the noise level (float) at the position of the island's pixel with the
         highest spectral brightness.
+    rms : MaskedArray
+        A 2D masked array representing the patch of the rms noise map,
+        corresponding to the same pixel positions as `data`. The values are
+        interpolated from a grid of standard deviations of the background
+        noise across the image.
     noise : float
         Noise level at the position of the island pixel with the highest
         spectral brightness.
