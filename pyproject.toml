@@ -25,7 +25,8 @@ dependencies = [
     "sphinx",
     "pytest",
     "pandas",
-    "tables"
+    "tables",
+    "pytest-cov",
 ]
 
 [project.optional-dependencies]
