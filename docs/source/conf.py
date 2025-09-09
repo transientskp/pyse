@@ -18,12 +18,17 @@ authors = [
 author = ", ".join(authors)
 current_year = str(datetime.now().year)
 copyright = f"2005-{current_year}, {author}"
-long_version = sourcefinder.__version__
-release = long_version.split(".dev")[0]
+version = sourcefinder.__version__
+release = version.split(".dev")[0]
+
+html_theme_options = {
+    "show_version": False,  # still hide it from top-left
+    "footer_end": ["version.html"],  # or footer_start/footer_center
+}
 
 # Make full version available to templates
 html_context = {
-    "full_version": long_version,
+    "version": version,
 }
 
 extensions = [
