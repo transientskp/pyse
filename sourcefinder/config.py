@@ -110,9 +110,7 @@ def validate_types(key: str, value, type_: type):
 @dataclass(frozen=True)
 class _Validate:
     def __post_init__(self):
-        for (key, type_), val in zip(
-            get_type_hints(self).items(), astuple(self)
-        ):
+        for (key, type_), val in zip(get_type_hints(self).items(), astuple(self)):
             validate_types(key, val, type_)
 
 
@@ -191,11 +189,11 @@ class ImgConf(_Validate):
     """Allow multiprocessing for Gaussian fitting in parallel."""
 
     margin: int = 0
-    """Margin in pixels to ignore near the edge of the image, i.e. 
+    """Margin in pixels to ignore near the edge of the image, i.e.
     sources within this margin will not be detected."""
 
     radius: float = 0.0
-    """Radius in pixels (from image center) considered valid, i.e. sources 
+    """Radius in pixels (from image center) considered valid, i.e. sources
     beyond this radius will not be detected.
 
     """
@@ -381,9 +379,7 @@ class ExportSettings(_Validate):
     source_params: list[str] = field(default_factory=lambda: _source_params)
     """Collect all possible source parameters."""
 
-    source_params_file: list[str] = field(
-        default_factory=lambda: _source_params_file
-    )
+    source_params_file: list[str] = field(default_factory=lambda: _source_params_file)
     """ Source parameters to include a file for storage."""
 
 
@@ -413,19 +409,19 @@ def normalize_none_values(val):
 
 
 def read_conf(path: str | Path):
-    data_raw = tomllib.loads(Path(path).read_text())
-    data = normalize_none_values(data_raw)
+    if path is None:
+        data = {"tool": {"pyse": {"image": {}, "export": {}}}}
+    else:
+        data_raw = tomllib.loads(Path(path).read_text())
+        data = normalize_none_values(data_raw)
+
     conf = data.get("tool", {}).get("pyse", {})
     if not conf:
         match data:
             case {"tool": {"pyse": dict(), **_rest1}, **_rest2}:
                 raise KeyError("tool.pyse: empty section in config file")
             case {"tool": dict(), **_rest}:
-                raise KeyError(
-                    "tool.pyse: section for PySE missing in config file"
-                )
+                raise KeyError("tool.pyse: section for PySE missing in config file")
             case _:
-                raise KeyError(
-                    "tool: top-level section missing in config file"
-                )
+                raise KeyError("tool: top-level section missing in config file")
     return Conf(**conf)
