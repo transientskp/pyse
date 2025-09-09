@@ -1,6 +1,10 @@
 .. image:: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml/badge.svg
    :target: https://github.com/transientskp/pyse/actions/workflows/python-tests.yml
 
+.. image:: https://app.readthedocs.org/projects/pyse/badge/?version=latest
+   :alt: Documentation Status
+   :target: https://pyse.readthedocs.io/en/latest/?badge=latest
+
 
 Python Source Extractor
 =======================
