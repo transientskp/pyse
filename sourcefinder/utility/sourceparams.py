@@ -211,6 +211,10 @@ _source_params_descriptions = {
 # Ensure that all source parameters have a description
 assert all(p.value in _source_params_descriptions for p in SourceParams)
 
+# This should render source parameter descriptions in Sphinx/RTD.
+for member in SourceParams:
+    member.__doc__ = _source_params_descriptions.get(member.value, "")
+
 # Set default set of source parameters to store in a file, e.g. a .csv file.
 _file_fields = [
     "PEAK",
