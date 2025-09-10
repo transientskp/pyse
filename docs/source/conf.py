@@ -22,7 +22,6 @@ version = sourcefinder.__version__
 release = version.split(".dev")[0]
 
 html_theme_options = {
-    "show_version": False,  # still hide it from top-left
     "footer_end": ["version.html"],  # or footer_start/footer_center
 }
 
