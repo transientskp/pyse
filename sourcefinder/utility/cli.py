@@ -111,10 +111,8 @@ def construct_argument_parser():
     general_group = parser.add_argument_group("General")
     general_group.add_argument(
         "--config-file",
-        default="pyse_config.toml",
         help="""
         TOML file containing default input arguments to PySE.
-        Default file name: pyse_config.toml
         This is especially convenient when swapping between configurations for the same project.
     """,
     )
