@@ -27,6 +27,7 @@ dependencies = [
     "pandas",
     "tables",
     "pytest-cov",
+    'enum-tools[sphinx]',
 ]
 
 [project.optional-dependencies]
