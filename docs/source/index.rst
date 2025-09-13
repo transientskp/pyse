@@ -5,6 +5,7 @@ Welcome to PySE's documentation!
    :maxdepth: 2
 
    README
+   sourceparams
 
 
 Indices and tables
