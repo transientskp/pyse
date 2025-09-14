@@ -2,7 +2,7 @@ from enum import Enum
 import pandas as pd
 
 
-class SourceParams(Enum):
+class SourceParams(str, Enum):
     """Enumeration of source parameters that can be measured and stored."""
 
     PEAK = "peak"
