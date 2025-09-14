@@ -3,6 +3,8 @@ import pandas as pd
 
 
 class SourceParams(str, Enum):
+    """Enumeration of source parameters that can be measured and stored."""
+
     PEAK = "peak"
     PEAK_ERR = "peak_err"
     FLUX = "flux"
@@ -213,7 +215,7 @@ assert all(p.value in _source_params_descriptions for p in SourceParams)
 
 # This should render source parameter descriptions in Sphinx/RTD.
 for member in SourceParams:
-    member.__doc__ = _source_params_descriptions.get(member.value, "")
+    member.__doc__ = SourceParams.describe(member)
 
 # Set default set of source parameters to store in a file, e.g. a .csv file.
 _file_fields = [
