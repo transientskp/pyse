@@ -1,8 +1,8 @@
-from enum_tools import DocumentedEnum
+from enum import Enum
 import pandas as pd
 
 
-class SourceParams(str, DocumentedEnum):
+class SourceParams(Enum):
     """Enumeration of source parameters that can be measured and stored."""
 
     PEAK = "peak"
