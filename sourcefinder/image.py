@@ -441,27 +441,16 @@ class ImageData(object):
 
     def extract(
         self,
-        det,
-        anl,
         noisemap=None,
         bgmap=None,
         labelled_data=None,
         labels=None,
-        deblend_nthresh=0,
     ):
         """Kick off conventional (ie, rms island finding) source
         extraction.
 
         Parameters
         ----------
-        det : float
-            Detection threshold, as a multiple of the rms noise. At
-            least one pixel in a source must exceed this for it to be
-            regarded as significant.
-        anl : float
-            Analysis threshold, as a multiple of the rms noise. All
-            the pixels within the island that exceed this will be used
-            when fitting the source.
         noisemap : np.ndarray, default: None
             Noise map, i.e. the standard deviation (rms) of the background
             noise across the observational image
@@ -474,9 +463,6 @@ class ImageData(object):
             have the same shape as the observational image.
         labels : np.ndarray, default: None
             Labels array, i.e. a 1D integer array of labels for each source.
-        deblend_nthresh : int, default: 0
-            Number of subthresholds to use for deblending. Set to 0
-            to disable.
 
         Returns
         -------
@@ -485,7 +471,7 @@ class ImageData(object):
         extraction.
 
         """
-        if anl > det:
+        if self.conf.image.analysis_thr > self.conf.image.detection_thr:
             logger.warning(
                 "Analysis threshold is higher than detection threshold"
             )
@@ -517,30 +503,17 @@ class ImageData(object):
             raise ValueError("Labelled map is wrong shape")
 
         return self._pyse(
-            det * self.rmsmap,
-            anl,
-            anl * self.rmsmap,
-            deblend_nthresh,
+            self.conf.image.detection_thr * self.rmsmap,
+            self.conf.image.analysis_thr * self.rmsmap,
             labelled_data=labelled_data,
             labels=labels,
         )
 
-    def reverse_se(self, det, anl):
+    def reverse_se(self):
         """Run source extraction on the negative of this image.
 
         This process can be used to estimate the false positive rate, as there
         should be no sources in the negative image.
-
-        Parameters
-        ----------
-        det : float
-            Detection threshold, as a multiple of the rms noise. At
-            least one pixel in a source must exceed this for it to be
-            regarded as significant.
-        anl : float
-            Analysis threshold, as a multiple of the rms noise. All
-            the pixels within the island that exceed this will be used
-            when fitting the source.
 
         Returns
         -------
@@ -555,7 +528,7 @@ class ImageData(object):
         self.labels.clear()
         self.clip.clear()
         self.data_bgsubbed *= -1
-        results = self.extract(det=det, anl=anl)
+        results = self.extract()
         self.data_bgsubbed *= -1
         self.labels.clear()
         self.clip.clear()
@@ -564,10 +537,8 @@ class ImageData(object):
     def fd_extract(
         self,
         alpha,
-        anl=None,
         noisemap=None,
         bgmap=None,
-        deblend_nthresh=0,
     ):
         """False Detection Rate based source extraction.
 
@@ -579,19 +550,12 @@ class ImageData(object):
         alpha : float
             Maximum allowed fraction of false positives. Must be between 0 and
             1, exclusive.
-        anl : float, default: None
-            Analysis threshold, as a multiple of the rms noise. All
-            the pixels within the island that exceed this will be used
-            when fitting the source.
         noisemap : np.ndarray, default: None
             Noise map, i.e. the standard deviation (rms) of the background
             noise across the observational image
         bgmap : np.ndarray, default: None
             Background map, i.e. the mean of the background noise across
             the observational image.
-        deblend_nthresh : int, default: 0
-            Number of subthresholds to use for deblending. Set to 0
-            to disable.
 
         Returns
         -------
@@ -654,13 +618,13 @@ class ImageData(object):
         # not only the peak pixel.  This gives a better guarantee that indeed
         # the fraction of false positives is less than fdr_alpha in config.py.
         # See, e.g., Hopkins et al., AJ 123, 1086 (2002).
-        if not anl:
+        if not self.conf.image.analysis_thr:
             anl = fdr_threshold
+        else:
+            anl = self.conf.image.analysis_thr
         return self._pyse(
             fdr_threshold * self.rmsmap,
-            anl,
             anl * self.rmsmap,
-            deblend_nthresh,
         )
 
     @staticmethod
@@ -1237,9 +1201,7 @@ class ImageData(object):
     def _pyse(
         self,
         detectionthresholdmap,
-        analysis_threshold,
         analysisthresholdmap,
-        deblend_nthresh,
         labelled_data=None,
         labels=np.array([], dtype=np.int32),
     ):
@@ -1252,11 +1214,6 @@ class ImageData(object):
             (self.rawdata). The detection threshold map imposes an extra
             threshold for source detection and is therefore higher than the
             analysis threshold map.
-        analysis_threshold: float
-            Analysis threshold, as a multiple of the rms noise. Should be larger
-            than 2 in all sensible cases, or source measurements could be
-            compromised by pixel values at the edges of islands that cannot be
-            attributed to cosmic sources.
         analysisthresholdmap : np.ma.MaskedArray
             2D array of floats with the same shape as the observational image
             (self.rawdata). analysisthresholdmap imposes the primary threshold
@@ -1265,8 +1222,6 @@ class ImageData(object):
             than detectionthresholdmap, or else we would be left with too few
             pixels for proper source shape measurements, in some cases. This
             map is computed as analysis_threshold * self.rmsmap.
-        deblend_nthresh : int
-            Number of subthresholds for deblending. 0 disables.
         labelled_data : np.ndarray, optional, default=None
             Labelled island map (output of np.ndimage.label()). Will be
             calculated automatically if not provided.
@@ -1302,7 +1257,7 @@ class ImageData(object):
 
         num_islands = len(labels)
 
-        if deblend_nthresh or not self.conf.image.vectorized:
+        if self.conf.image.deblend_nthresh or not self.conf.image.vectorized:
             results = containers.ExtractionResults()
             island_list = []
             for label in labels:
@@ -1324,12 +1279,9 @@ class ImageData(object):
                         selected_data,
                         self.rmsmap[chunk],
                         chunk,
-                        analysis_threshold,
                         detectionthresholdmap[chunk],
                         self.beam,
-                        deblend_nthresh,
-                        self.conf.image.deblend_mincont,
-                        self.conf.image.structuring_element,
+                        self.conf.image,
                     )
                 )
 
@@ -1346,7 +1298,7 @@ class ImageData(object):
                     ] += island.data.filled(fill_value=0.0)
 
             # Deblend each of the islands to its consituent parts, if necessary
-            if deblend_nthresh:
+            if self.conf.image.deblend_nthresh:
                 deblended_list = [x.deblend() for x in island_list]
                 island_list = list(utils.flatten(deblended_list))
 
