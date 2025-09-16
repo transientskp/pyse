@@ -56,7 +56,14 @@ class SourceParameters(unittest.TestCase):
         fitsfile = sourcefinder.accessors.open(
             os.path.join(DATAPATH, "deconvolved.fits")
         )
-        img = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        img = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=Conf(
+                ImgConf(detection_thr=10.0, analysis_thr=6.0), ExportSettings()
+            ),
+        )
 
         # This is quite subtle. We bypass any possible flaws in the
         # kappa, sigma clipping algorithm by supplying a background
@@ -68,8 +75,6 @@ class SourceParameters(unittest.TestCase):
         # here are the true values.
 
         extraction_results = img.extract(
-            det=10.0,
-            anl=6.0,
             noisemap=np.ma.array(BG_STD * np.ones((2048, 2048))),
             bgmap=np.ma.array(BG_MEAN * np.ones((2048, 2048))),
         )
@@ -418,6 +423,8 @@ def test_measured_vectorized_forced_beam(
 
     conf = Conf(
         image=ImgConf(
+            detection_thr=12.0,
+            analysis_thr=8.0,
             allow_multiprocessing=False,
             vectorized=True,
             back_size_x=256,
@@ -430,8 +437,6 @@ def test_measured_vectorized_forced_beam(
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
 
     source_params_df = img.extract(
-        det=12.0,
-        anl=8.0,
         noisemap=np.ma.array(np.ones(img.data.shape)),
         bgmap=np.ma.array(np.zeros(img.data.shape)),
     )
