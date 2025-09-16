@@ -60,10 +60,6 @@ class Island(object):
     chunk : tuple of slices
         Defines the corners of the patch encompassing the island as a
         tuple of slices.
-    analysis_threshold : float
-        The analysis threshold, when multiplied with the local rms noise,
-        segments the observational image - with the mean background
-        subtracted - into islands.
     detection_map : MaskedArray
         A 2D masked array corresponding to the same patch of the sky as
         `data`, but applied to the detection threshold map. Typically a
@@ -71,13 +67,14 @@ class Island(object):
     beam : tuple of floats
         The clean beam parameters as the semi-major and semi-minor axes
         in pixel coordinates and the position angle in radians.
-    deblend_nthresh : int
-        The number of subthresholds used for deblending.
-    deblend_mincont : float
-        Min. fraction of island flux in deblended subisland.
-    structuring_element : ndarray
-        A 2D array defining the connectivity between pixels.
-        Typically one chooses between 4-connectivity and 8-connectivity.
+    image_conf : config.ImgConf instance
+        Object holding configuration parameters for processing an astronomical
+        observational image.
+    analysis_threshold : float, default: None
+        The analysis threshold, when multiplied with the local rms noise,
+        segments the observational image - with the mean background
+        subtracted - into islands. Only applied in the deblending process,
+        then it will be set to 1.0.
     rms_orig : MaskedArray, default: None
         The original rms noise of the island.
     flux_orig : float, default: None
@@ -92,33 +89,34 @@ class Island(object):
         data,
         rms,
         chunk,
-        analysis_threshold,
         detection_map,
         beam,
-        deblend_nthresh,
-        deblend_mincont,
-        structuring_element,
+        image_conf,
+        analysis_threshold=None,
         rms_orig=None,
         flux_orig=None,
         subthrrange=None,
     ):
 
+        self.image_conf = image_conf
         # deblend_nthresh is the number of subthresholds used when deblending.
-        self.deblend_nthresh = deblend_nthresh
+        self.deblend_nthresh = self.image_conf.deblend_nthresh
         # If we deblend too far, we hit the recursion limit. And it's slow.
         if self.deblend_nthresh > 300:
             logger.warning("Limiting to 300 deblending subtresholds")
             self.deblend_nthresh = 300
         else:
-            logger.debug("Using %d subthresholds", deblend_nthresh)
+            logger.debug(
+                "Using %d subthresholds", self.image_conf.deblend_nthresh
+            )
 
         # Deblended components of this island must contain at least
         # deblend_mincont times the total flux of the original to be regarded
         # as significant.
-        self.deblend_mincont = deblend_mincont
+        self.deblend_mincont = self.image_conf.deblend_mincont
 
         # The structuring element defines connectivity between pixels.
-        self.structuring_element = structuring_element
+        self.structuring_element = self.image_conf.structuring_element
 
         # NB we have set all unused data to -(lots) before passing it to
         # Island().
@@ -126,7 +124,10 @@ class Island(object):
         self.data = np.ma.array(data, mask=mask)
         self.rms = rms
         self.chunk = chunk
-        self.analysis_threshold = analysis_threshold
+        if analysis_threshold is None:
+            self.analysis_threshold = self.image_conf.analysis_thr
+        else:
+            self.analysis_threshold = analysis_threshold
         self.detection_map = detection_map
         self.beam = beam
         self.max_pos = ndimage.maximum_position(self.data.filled(fill_value=0))
@@ -216,7 +217,7 @@ class Island(object):
                     # analysis_threshold=1.
                     island = Island(
                         newdata[chunk],
-                        (np.ones(self.data[chunk].shape) * level),
+                        np.ones(self.data[chunk].shape) * level,
                         (
                             slice(
                                 self.chunk[0].start + chunk[0].start,
@@ -227,12 +228,10 @@ class Island(object):
                                 self.chunk[1].start + chunk[1].stop,
                             ),
                         ),
-                        1,
                         self.detection_map[chunk],
                         self.beam,
-                        self.deblend_nthresh,
-                        self.deblend_mincont,
-                        self.structuring_element,
+                        self.image_conf,
+                        1,
                         self.rms_orig[
                             chunk[0].start : chunk[0].stop,
                             chunk[1].start : chunk[1].stop,
