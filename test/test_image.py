@@ -389,10 +389,11 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         ]  # chisq, reduced chisq
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A)
+            FitsImage(GRB120422A),
+            conf=Conf(image=ImgConf(detection_thr=5), export=ExportSettings()),
         )
 
-        results = image.extract(det=5, anl=3)
+        results = image.extract()
         results = [
             result.serialize(conf, every_parm=True) for result in results
         ]
@@ -416,11 +417,14 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         testSingleSourceExtraction(), above). Here we force the lengths of the
         major/minor axes to be held constant when fitting.
         """
-        conf = Conf(image=ImgConf(force_beam=True), export=ExportSettings())
+        conf = Conf(
+            image=ImgConf(detection_thr=5, force_beam=True),
+            export=ExportSettings(),
+        )
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A), conf=conf
         )
-        results = image.extract(det=5, anl=3)
+        results = image.extract()
         self.assertEqual(results[0].smaj.value, image.beam[0])
         self.assertEqual(results[0].smin.value, image.beam[1])
 
@@ -432,21 +436,23 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         same dataset gives the same results (especially, RA and Dec).
         """
 
+        conf = Conf(image=ImgConf(detection_thr=5), export=ExportSettings())
         fits_image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
+            FitsImage(os.path.join(DATAPATH, "SWIFT_554620-130504.fits")),
+            conf=conf,
         )
         # Abuse the KAT7 CasaImage class here, since we just want to access
         # the pixel data and the WCS:
         casa_image = accessors.sourcefinder_image_from_accessor(
             accessors.kat7casaimage.Kat7CasaImage(
                 os.path.join(DATAPATH, "SWIFT_554620-130504.image")
-            )
+            ),
+            conf=conf,
         )
 
-        conf = Conf(image=ImgConf(), export=ExportSettings())
-        fits_results = fits_image.extract(det=5, anl=3)
+        fits_results = fits_image.extract()
         fits_results = [result.serialize(conf) for result in fits_results]
-        casa_results = casa_image.extract(det=5, anl=3)
+        casa_results = casa_image.extract()
         casa_results = [result.serialize(conf) for result in casa_results]
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches two extra noise peaks at the 5 sigma level.
@@ -470,9 +476,10 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         this avoids requiring additional data).
         """
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A)
+            FitsImage(GRB120422A),
+            conf=Conf(ImgConf(detection_thr=5e10, analysis_thr=5e10), {}),
         )
-        results = image.extract(det=5e10, anl=5e10)
+        results = image.extract()
         results = [result.serialize() for result in results]
         self.assertEqual(len(results), 0)
 
@@ -494,7 +501,7 @@ class TestMaskedSource(unittest.TestCase):
         """
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A)
+            FitsImage(GRB120422A), conf=Conf(ImgConf(detection_thr=5), {})
         )
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
@@ -502,7 +509,7 @@ class TestMaskedSource(unittest.TestCase):
         # Our modified kappa,sigma clipper gives a slightly lower noise
         # which catches an extra noise peak at the 5 sigma level.
         image.data[42:50, 375:386] = np.ma.masked
-        results = image.extract(det=5, anl=3)
+        results = image.extract()
         self.assertFalse(results)
 
 
@@ -526,7 +533,7 @@ class TestMaskedBackground(unittest.TestCase):
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
             conf=Conf(ImgConf(radius=1.0), {}),
         )
-        result = image.extract(det=10.0, anl=3.0)
+        result = image.extract()
         self.assertFalse(result)
 
 
@@ -538,14 +545,15 @@ class TestFailureModes(unittest.TestCase):
 
     def testFlatImage(self):
         sfimage = accessors.sourcefinder_image_from_accessor(
-            SyntheticImage(data=np.zeros((512, 512)))
+            SyntheticImage(data=np.zeros((512, 512))),
+            conf=Conf(ImgConf(detection_thr=5), {}),
         )
         self.assertTrue(
             np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
             msg="Data should be flat",
         )
         with self.assertRaises(RuntimeError):
-            sfimage.extract(det=5, anl=3)
+            sfimage.extract()
 
 
 class TestNegationImage(unittest.TestCase):
@@ -558,9 +566,14 @@ class TestNegationImage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         fitsfile = sourcefinder.accessors.open(
-            os.path.join(DATAPATH, "deconvolved.fits")
+            os.path.join(DATAPATH, "deconvolved.fits"),
         )
-        cls.img = ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.img = ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=Conf(ImgConf(detection_thr=5, analysis_thr=4), {}),
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -576,7 +589,7 @@ class TestNegationImage(unittest.TestCase):
         assumes uncorrelated noise. A 6 sigma detection limit may be needed
         when this test is applied to other 2K *2K images or to larger images.
         """
-        extraction_results = self.img.reverse_se(det=5.0, anl=4.0)
+        extraction_results = self.img.reverse_se()
         self.assertTrue(
             len(extraction_results) == 0,
             msg=(
