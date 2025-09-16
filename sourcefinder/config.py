@@ -290,14 +290,14 @@ class ImgConf(_Validate):
 
     """
 
-    detection: float = 10.0
+    detection_thr: float = 10.0
     """Detection threshold as multiple of the background standard
     deviation (rms) map, after the background mean values have been
     subtracted from the image.
 
     """
 
-    analysis: float = 3.0
+    analysis_thr: float = 3.0
     """Analysis threshold as multiple of the background standard
     deviation (rms) map, after the background mean values have been
     subtracted from the image.
@@ -320,7 +320,7 @@ class ImgConf(_Validate):
 
     """
 
-    deblend_thresholds: int = 0
+    deblend_nthresh: int = 0
     """Number of deblending subthresholds; 0 to disable."""
 
     grid: int | None = None
