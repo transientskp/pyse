@@ -106,9 +106,7 @@ class Island(object):
             logger.warning("Limiting to 300 deblending subtresholds")
             self.deblend_nthresh = 300
         else:
-            logger.debug(
-                "Using %d subthresholds", self.image_conf.deblend_nthresh
-            )
+            logger.debug("Using %d subthresholds", self.deblend_nthresh)
 
         # Deblended components of this island must contain at least
         # deblend_mincont times the total flux of the original to be regarded
