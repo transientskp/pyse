@@ -229,13 +229,13 @@ class Island(object):
                         self.detection_map[chunk],
                         self.beam,
                         self.image_conf,
-                        1,
-                        self.rms_orig[
+                        analysis_threshold=1,
+                        rms_orig=self.rms_orig[
                             chunk[0].start : chunk[0].stop,
                             chunk[1].start : chunk[1].stop,
                         ],
-                        self.flux_orig,
-                        self.subthrrange,
+                        flux_orig=self.flux_orig,
+                        subthrrange=self.subthrrange,
                     )
 
                     subislands.append(island)
