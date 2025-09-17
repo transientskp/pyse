@@ -97,8 +97,6 @@ class ImageData(object):
         )
         self.clip: dict[float, np.ndarray] = {}
         self.labels: dict[float, tuple[np.ndarray, int]] = {}
-        self.freq_low = 1
-        self.freq_high = 1
         self._conf = conf
 
     @property
