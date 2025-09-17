@@ -1296,10 +1296,10 @@ class Detection(object):
 
     """
 
-    def __init__(self, paramset, imagedata, chunk=None, eps_ra=0, eps_dec=0):
+    def __init__(self, paramset, imagedata, chunk=None):
 
-        self.eps_ra = eps_ra
-        self.eps_dec = eps_dec
+        self.eps_ra = paramset.image_conf.eps_ra
+        self.eps_dec = paramset.image_conf.eps_dec
 
         self.imagedata = imagedata
         # self.wcs = imagedata.wcs

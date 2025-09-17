@@ -1342,8 +1342,6 @@ class ImageData(object):
                         measurement,
                         self,
                         chunk=island.chunk,
-                        eps_ra=self.conf.image.eps_ra,
-                        eps_dec=self.conf.image.eps_dec,
                     )
                     if det.ra.error == float("inf") or det.dec.error == float(
                         "inf"
