@@ -1,5 +1,6 @@
 """Source measuring routines."""
 
+from enum import Enum
 import math
 
 import numpy as np
@@ -14,7 +15,21 @@ from sourcefinder.utils import (
     complement_gaussian_args,
 )
 
-FIT_PARAMS = ("peak", "xbar", "ybar", "semimajor", "semiminor", "theta")
+
+class MomentParam(str, Enum):
+    PEAK = "peak"
+    FLUX = "flux"
+    XBAR = "xbar"
+    YBAR = "ybar"
+    SEMIMAJOR = "semimajor"
+    SEMIMINOR = "semiminor"
+    THETA = "theta"
+
+
+# Parameters that are fitted for in Gaussian fitting.
+FIT_PARAMS = tuple(
+    member.value for member in MomentParam if member.value != "flux"
+)
 
 
 @njit
@@ -114,13 +129,13 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
 
     if semiminor_tmp <= 0:
         return {
-            "peak": peak,
-            "flux": total,
-            "xbar": xbar,
-            "ybar": ybar,
-            "semimajor": beam[0],
-            "semiminor": beam[1],
-            "theta": beam[2],
+            MomentParam.PEAK: peak,
+            MomentParam.FLUX: total,
+            MomentParam.XBAR: xbar,
+            MomentParam.YBAR: ybar,
+            MomentParam.SEMIMAJOR: beam[0],
+            MomentParam.SEMIMINOR: beam[1],
+            MomentParam.THETA: beam[2],
         }
     if abs(semimajor_tmp - semiminor_tmp) < 0.01:
         # In this case the island is very thin in at least one dimension.
@@ -210,13 +225,13 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
     # NB: a dict should give us a bit more flexibility about arguments;
     # however, all those here are ***REQUIRED***.
     return {
-        "peak": peak,
-        "flux": np.pi * peak * semimajor * semiminor / beamsize,
-        "xbar": xbar,
-        "ybar": ybar,
-        "semimajor": semimajor,
-        "semiminor": semiminor,
-        "theta": theta,
+        MomentParam.PEAK: peak,
+        MomentParam.FLUX: np.pi * peak * semimajor * semiminor / beamsize,
+        MomentParam.XBAR: xbar,
+        MomentParam.YBAR: ybar,
+        MomentParam.SEMIMAJOR: semimajor,
+        MomentParam.SEMIMINOR: semiminor,
+        MomentParam.THETA: theta,
     }
 
 
