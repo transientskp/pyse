@@ -781,6 +781,7 @@ class ImageData(object):
                 self.fudge_max_pix_factor,
                 self.beamsize,
                 self.correlation_lengths,
+                self.conf.image,
                 fixed=_fixed,
             )
         except ValueError:
