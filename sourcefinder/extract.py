@@ -15,7 +15,7 @@ from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
 from . import measuring
 from . import utils
-from .config import Conf
+from .config import Conf, ImgConf
 from .gaussian import gaussian
 
 np.seterr(divide="raise", invalid="raise")
@@ -67,9 +67,8 @@ class Island(object):
     beam : tuple of floats
         The clean beam parameters as the semi-major and semi-minor axes
         in pixel coordinates and the position angle in radians.
-    image_conf : config.ImgConf instance
-        Object holding configuration parameters for processing an astronomical
-        observational image.
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
     analysis_threshold : float, default: None
         The analysis threshold, when multiplied with the local rms noise,
         segments the observational image - with the mean background
@@ -354,6 +353,7 @@ class Island(object):
                     fudge_max_pix_factor,
                     beamsize,
                     correlation_lengths,
+                    self.image_conf,
                     fixed=fixed,
                 )
             )
@@ -375,30 +375,23 @@ class ParamSet(MutableMapping):
     ParamSet, which gives all the information necessary to make a
     Detection.
 
+    Parameters
+    ----------
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
     """
 
-    def __init__(
-        self,
-        clean_bias=0.0,
-        clean_bias_error=0.0,
-        frac_flux_cal_error=0.0,
-        alpha_maj1=2.5,
-        alpha_min1=0.5,
-        alpha_maj2=0.5,
-        alpha_min2=2.5,
-        alpha_maj3=1.5,
-        alpha_min3=1.5,
-    ):
-
-        self.clean_bias = clean_bias
-        self.clean_bias_error = clean_bias_error
-        self.frac_flux_cal_error = frac_flux_cal_error
-        self.alpha_maj1 = alpha_maj1
-        self.alpha_min1 = alpha_min1
-        self.alpha_maj2 = alpha_maj2
-        self.alpha_min2 = alpha_min2
-        self.alpha_maj3 = alpha_maj3
-        self.alpha_min3 = alpha_min3
+    def __init__(self, image_conf: ImgConf | None = None):
+        self.image_conf = image_conf if image_conf is not None else ImgConf()
+        self.clean_bias = self.image_conf.clean_bias
+        self.clean_bias_error = self.image_conf.clean_bias_error
+        self.frac_flux_cal_error = self.image_conf.frac_flux_cal_error
+        self.alpha_maj1 = self.image_conf.alpha_maj1
+        self.alpha_maj2 = self.image_conf.alpha_maj2
+        self.alpha_min1 = self.image_conf.alpha_min1
+        self.alpha_min2 = self.image_conf.alpha_min2
+        self.alpha_brightness1 = self.image_conf.alpha_brightness1
+        self.alpha_brightness2 = self.image_conf.alpha_brightness2
 
         self.measurements = {
             "peak": Uncertain(),
@@ -423,7 +416,7 @@ class ParamSet(MutableMapping):
         # Gaussian fits are preferably performed with bounds for better
         # stability, but to establish those bounds in a meaningful manner
         # moments estimation is required, i.e. self.moments = True.
-        self.bounds = {}
+        self.bounds: dict[str, tuple[float, float, bool]] = {}
         self.gaussian = False
 
         # It is instructive to keep a record of the minimal cross-section of
@@ -626,22 +619,24 @@ class ParamSet(MutableMapping):
 
         theta_B, theta_b = correlation_lengths
 
+        # This is equation 26 from the NVSS paper (Condon et al. 1998,
+        # AJ, 115, 1693) in action.
         rho_sq1 = (
             (smaj * smin / (theta_B * theta_b))
             * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj1
-            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min1
+            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_maj2
             * (peak / noise) ** 2
         )
         rho_sq2 = (
             (smaj * smin / (theta_B * theta_b))
-            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj2
+            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_min1
             * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min2
             * (peak / noise) ** 2
         )
         rho_sq3 = (
             (smaj * smin / (theta_B * theta_b))
-            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj3
-            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min3
+            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_brightness1
+            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_brightness2
             * (peak / noise) ** 2
         )
 
@@ -989,6 +984,7 @@ def source_profile_and_errors(
     fudge_max_pix_factor,
     beamsize,
     correlation_lengths,
+    image_conf,
     fixed=None,
 ):
     """Return a number of measurable properties with errorbars.
@@ -1038,6 +1034,8 @@ def source_profile_and_errors(
         considerable effect on error estimates. We approximate this by
         considering all noise within the correlation length completely
         correlated and beyond that completely uncorrelated.
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
     fixed : dict, default: None
         Parameters (and their values) to hold fixed while fitting. Passed on
         to measuring.fitgaussian().
@@ -1061,7 +1059,7 @@ def source_profile_and_errors(
 
     if fixed is None:
         fixed = {}
-    param = ParamSet()
+    param = ParamSet(image_conf)
 
     if threshold is None:
         moments_threshold = 0
