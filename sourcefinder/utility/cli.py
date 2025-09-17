@@ -209,17 +209,17 @@ def construct_argument_parser():
         "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
     )
     image_group.add_argument(
-        "--detection", type=float, help="Detection threshold"
+        "--detection_thr", type=float, help="Detection threshold"
     )
     image_group.add_argument(
-        "--analysis", type=float, help="Analysis threshold"
+        "--analysis_thr", type=float, help="Analysis threshold"
     )
     image_group.add_argument(
         "--fdr", action="store_true", help="Use False Detection Rate algorithm"
     )
     image_group.add_argument("--alpha", type=float, help="FDR Alpha")
     image_group.add_argument(
-        "--deblend-thresholds",
+        "--deblend_nthresh",
         type=int,
         help="Number of deblending subthresholds; 0 to disable",
     )
@@ -548,8 +548,8 @@ def run_sourcefinder(files, conf, mode):
     if mode == "detimage":
         labels, labelled_data = get_detection_labels(
             conf.image.detection_image,
-            conf.image.detection,
-            conf.image.analysis,
+            conf.image.detection_thr,
+            conf.image.analysis_thr,
             beam,
             conf,
         )
@@ -580,21 +580,17 @@ def run_sourcefinder(files, conf, mode):
                 )
                 sr = imagedata.fd_extract(
                     alpha=conf.image.alpha,
-                    deblend_nthresh=conf.image.deblend_thresholds,
                 )
             else:
                 if labelled_data is None:
                     print(
                         "Thresholding with det = %f sigma, analysis = %f sigma"
-                        % (conf.image.detection, conf.image.analysis)
+                        % (conf.image.detection_thr, conf.image.analysis_thr)
                     )
 
                 sr = imagedata.extract(
-                    det=conf.image.detection,
-                    anl=conf.image.analysis,
                     labelled_data=labelled_data,
                     labels=labels,
-                    deblend_nthresh=conf.image.deblend_thresholds,
                 )
 
         export_dir = Path(conf.export.output_dir)

@@ -17,9 +17,9 @@ import sourcefinder.utility.coordinates as coords
 # measured flux.
 FUDGEFACTOR = 0.5
 
-corrected_fits = os.path.join(DATAPATH, 'corrected-all.fits')
-observed_fits = os.path.join(DATAPATH, 'observed-all.fits')
-all_fits = os.path.join(DATAPATH, 'model-all.fits')
+corrected_fits = os.path.join(DATAPATH, "corrected-all.fits")
+observed_fits = os.path.join(DATAPATH, "observed-all.fits")
+all_fits = os.path.join(DATAPATH, "model-all.fits")
 
 
 # This module appears to be the most memory-intensive of the TKP unit-tests
@@ -38,12 +38,11 @@ class L15_12hConstObs(unittest.TestCase):
     def setUpClass(cls):
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
-        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(observed_fits,
-                                                              beam=(0.2299,
-                                                                    0.1597,
-                                                                    -23.87))
+        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
+            observed_fits, beam=(0.2299, 0.1597, -23.87)
+        )
         cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
-        cls.results = cls.image.extract(det=10, anl=3.0)
+        cls.results = cls.image.extract()
 
     @classmethod
     def tearDownClass(cls):
@@ -69,12 +68,11 @@ class L15_12hConstCor(unittest.TestCase):
     def setUpClass(cls):
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
-        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
-                                                              beam=(0.2299,
-                                                                    0.1597,
-                                                                    -23.87))
+        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
+            corrected_fits, beam=(0.2299, 0.1597, -23.87)
+        )
         cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
-        cls.results = cls.image.extract(det=10.0, anl=3.0)
+        cls.results = cls.image.extract()
 
     @classmethod
     def tearDownClass(cls):
@@ -100,10 +98,15 @@ class L15_12hConstCor(unittest.TestCase):
         centre = self.results.closest_to(1440, 1440)[0]
         # How accurate should the '2 degrees' be?
         for mysource in filter(lambda src: src != centre, self.results):
-            self.assertAlmostEqual(round(
-                coords.angsep(centre.ra, centre.dec, mysource.ra,
-                              mysource.dec) /
-                60 ** 2), 2)
+            self.assertAlmostEqual(
+                round(
+                    coords.angsep(
+                        centre.ra, centre.dec, mysource.ra, mysource.dec
+                    )
+                    / 60**2
+                ),
+                2,
+            )
 
 
 class L15_12hConstMod(unittest.TestCase):
@@ -118,14 +121,16 @@ class L15_12hConstMod(unittest.TestCase):
         # all.
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
-        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(all_fits,
-                                                              beam=(0.2299,
-                                                                    0.1597,
-                                                                    -23.87))
-        cls.image = image.ImageData(
-            fitsfile.data, fitsfile.beam, fitsfile.wcs, Conf(ImgConf(radius=100), {})
+        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
+            all_fits, beam=(0.2299, 0.1597, -23.87)
         )
-        cls.results = cls.image.extract(det=5, anl=3.0)
+        cls.image = image.ImageData(
+            fitsfile.data,
+            fitsfile.beam,
+            fitsfile.wcs,
+            conf=Conf(ImgConf(detection_thr=5, radius=100), {}),
+        )
+        cls.results = cls.image.extract()
 
     @classmethod
     def tearDownClass(cls):
@@ -140,9 +145,11 @@ class L15_12hConstMod(unittest.TestCase):
     @requires_data(all_fits)
     def testFluxes(self):
 
-        #self.results.sort(lambda x, y: (y.peak > x.peak) - (y.peak < x.peak))
+        # self.results.sort(lambda x, y: (y.peak > x.peak) - (y.peak < x.peak))
         self.results.sort(key=lambda x: x.peak)
-        self.assertAlmostEqual(self.results[0].peak.value, 1.0 * FUDGEFACTOR, 1)
+        self.assertAlmostEqual(
+            self.results[0].peak.value, 1.0 * FUDGEFACTOR, 1
+        )
 
 
 class FitToPointTestCase(unittest.TestCase):
@@ -151,12 +158,11 @@ class FitToPointTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # FWHM of PSF taken from fit to unresolved source.
-        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(corrected_fits,
-                                                              beam=(2. * 500.099 / 3600,
-                                                                    2. * 319.482 / 3600,
-                                                                    168.676))
-        cls.my_im = image.ImageData(fitsfile.data, fitsfile.beam,
-                                     fitsfile.wcs)
+        fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
+            corrected_fits,
+            beam=(2.0 * 500.099 / 3600, 2.0 * 319.482 / 3600, 168.676),
+        )
+        cls.my_im = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
 
     @classmethod
     def tearDownClass(cls):
@@ -165,18 +171,20 @@ class FitToPointTestCase(unittest.TestCase):
 
     @requires_data(corrected_fits)
     def testFixed(self):
-        d = self.my_im.fit_to_point(1379.00938273, 1438.38801493, 20,
-                                    threshold=2, fixed='position')
+        d = self.my_im.fit_to_point(
+            1379.00938273, 1438.38801493, 20, threshold=2, fixed="position"
+        )
         self.assertAlmostEqual(d.x.value, 1379.00938273)
         self.assertAlmostEqual(d.y.value, 1438.38801493)
 
     @requires_data(corrected_fits)
     def testUnFixed(self):
-        d = self.my_im.fit_to_point(1379.00938273, 1438.38801493, 20,
-                                    threshold=2, fixed=None)
+        d = self.my_im.fit_to_point(
+            1379.00938273, 1438.38801493, 20, threshold=2, fixed=None
+        )
         self.assertAlmostEqual(d.x.value, 1379.00938273, 0)
         self.assertAlmostEqual(d.y.value, 1438.38801493, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

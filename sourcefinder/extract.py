@@ -15,7 +15,7 @@ from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
 from . import measuring
 from . import utils
-from .config import Conf
+from .config import Conf, ImgConf
 from .gaussian import gaussian
 
 np.seterr(divide="raise", invalid="raise")
@@ -45,6 +45,42 @@ class Island(object):
     The island should provide a means of deblending: splitting itself
     apart and returning multiple sub-islands, if necessary.
 
+    Parameters
+    ----------
+    data : ndarray
+        A 2D array representing the rectangular patch of the observational
+        image encompassing the island. Values as small as -BIGNUM denote
+        pixels outside the island, they will typically be in the corners of
+        the patch.
+    rms : MaskedArray
+        A 2D masked array representing the patch of the rms noise map,
+        corresponding to the same pixel positions as `data`. The values are
+        interpolated from a grid of standard deviations of the background
+        noise across the image.
+    chunk : tuple of slices
+        Defines the corners of the patch encompassing the island as a
+        tuple of slices.
+    detection_map : MaskedArray
+        A 2D masked array corresponding to the same patch of the sky as
+        `data`, but applied to the detection threshold map. Typically a
+        higher threshold than the analysis threshold map.
+    beam : tuple of floats
+        The clean beam parameters as the semi-major and semi-minor axes
+        in pixel coordinates and the position angle in radians.
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
+    analysis_threshold : float, default: None
+        The analysis threshold, when multiplied with the local rms noise,
+        segments the observational image - with the mean background
+        subtracted - into islands. Only applied in the deblending process,
+        then it will be set to 1.0.
+    rms_orig : MaskedArray, default: None
+        The original rms noise of the island.
+    flux_orig : float, default: None
+        The original flux value of the island.
+    subthrrange : ndarray, default: None
+        The subthreshold range for deblending.
+
     """
 
     def __init__(
@@ -52,76 +88,32 @@ class Island(object):
         data,
         rms,
         chunk,
-        analysis_threshold,
         detection_map,
         beam,
-        deblend_nthresh,
-        deblend_mincont,
-        structuring_element,
+        image_conf,
+        analysis_threshold=None,
         rms_orig=None,
         flux_orig=None,
         subthrrange=None,
     ):
-        """Initialise.
 
-        Parameters
-        ----------
-        data : ndarray
-            A 2D array representing the rectangular patch of the observational
-            image encompassing the island. Values as small as -BIGNUM denote
-            pixels outside the island, they will typically be in the corners of
-            the patch.
-        rms : MaskedArray
-            A 2D masked array representing the patch of the rms noise map,
-            corresponding to the same pixel positions as `data`. The values are
-            interpolated from a grid of standard deviations of the background
-            noise across the image.
-        chunk : tuple of slices
-            Defines the corners of the patch encompassing the island as a
-            tuple of slices.
-        analysis_threshold : float
-            The analysis threshold, when multiplied with the local rms noise,
-            segments the observational image - with the mean background
-            subtracted - into islands.
-        detection_map : MaskedArray
-            A 2D masked array corresponding to the same patch of the sky as
-            `data`, but applied to the detection threshold map. Typically a
-            higher threshold than the analysis threshold map.
-        beam : tuple of floats
-            The clean beam parameters as the semi-major and semi-minor axes
-            in pixel coordinates and the position angle in radians.
-        deblend_nthresh : int
-            The number of subthresholds used for deblending.
-        deblend_mincont : float
-            Min. fraction of island flux in deblended subisland.
-        structuring_element : ndarray
-            A 2D array defining the connectivity between pixels.
-            Typically one chooses between 4-connectivity and 8-connectivity.
-        rms_orig : MaskedArray, default: None
-            The original rms noise of the island.
-        flux_orig : float, default: None
-            The original flux value of the island.
-        subthrrange : ndarray, default: None
-            The subthreshold range for deblending.
-
-        """
-
+        self.image_conf = image_conf
         # deblend_nthresh is the number of subthresholds used when deblending.
-        self.deblend_nthresh = deblend_nthresh
+        self.deblend_nthresh = self.image_conf.deblend_nthresh
         # If we deblend too far, we hit the recursion limit. And it's slow.
         if self.deblend_nthresh > 300:
             logger.warning("Limiting to 300 deblending subtresholds")
             self.deblend_nthresh = 300
         else:
-            logger.debug("Using %d subthresholds", deblend_nthresh)
+            logger.debug("Using %d subthresholds", self.deblend_nthresh)
 
         # Deblended components of this island must contain at least
         # deblend_mincont times the total flux of the original to be regarded
         # as significant.
-        self.deblend_mincont = deblend_mincont
+        self.deblend_mincont = self.image_conf.deblend_mincont
 
         # The structuring element defines connectivity between pixels.
-        self.structuring_element = structuring_element
+        self.structuring_element = self.image_conf.structuring_element
 
         # NB we have set all unused data to -(lots) before passing it to
         # Island().
@@ -129,7 +121,10 @@ class Island(object):
         self.data = np.ma.array(data, mask=mask)
         self.rms = rms
         self.chunk = chunk
-        self.analysis_threshold = analysis_threshold
+        if analysis_threshold is None:
+            self.analysis_threshold = self.image_conf.analysis_thr
+        else:
+            self.analysis_threshold = analysis_threshold
         self.detection_map = detection_map
         self.beam = beam
         self.max_pos = ndimage.maximum_position(self.data.filled(fill_value=0))
@@ -219,7 +214,7 @@ class Island(object):
                     # analysis_threshold=1.
                     island = Island(
                         newdata[chunk],
-                        (np.ones(self.data[chunk].shape) * level),
+                        np.ones(self.data[chunk].shape) * level,
                         (
                             slice(
                                 self.chunk[0].start + chunk[0].start,
@@ -230,18 +225,16 @@ class Island(object):
                                 self.chunk[1].start + chunk[1].stop,
                             ),
                         ),
-                        1,
                         self.detection_map[chunk],
                         self.beam,
-                        self.deblend_nthresh,
-                        self.deblend_mincont,
-                        self.structuring_element,
-                        self.rms_orig[
+                        self.image_conf,
+                        analysis_threshold=1,
+                        rms_orig=self.rms_orig[
                             chunk[0].start : chunk[0].stop,
                             chunk[1].start : chunk[1].stop,
                         ],
-                        self.flux_orig,
-                        self.subthrrange,
+                        flux_orig=self.flux_orig,
+                        subthrrange=self.subthrrange,
                     )
 
                     subislands.append(island)
@@ -360,6 +353,7 @@ class Island(object):
                     fudge_max_pix_factor,
                     beamsize,
                     correlation_lengths,
+                    self.image_conf,
                     fixed=fixed,
                 )
             )
@@ -381,30 +375,23 @@ class ParamSet(MutableMapping):
     ParamSet, which gives all the information necessary to make a
     Detection.
 
+    Parameters
+    ----------
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
     """
 
-    def __init__(
-        self,
-        clean_bias=0.0,
-        clean_bias_error=0.0,
-        frac_flux_cal_error=0.0,
-        alpha_maj1=2.5,
-        alpha_min1=0.5,
-        alpha_maj2=0.5,
-        alpha_min2=2.5,
-        alpha_maj3=1.5,
-        alpha_min3=1.5,
-    ):
-
-        self.clean_bias = clean_bias
-        self.clean_bias_error = clean_bias_error
-        self.frac_flux_cal_error = frac_flux_cal_error
-        self.alpha_maj1 = alpha_maj1
-        self.alpha_min1 = alpha_min1
-        self.alpha_maj2 = alpha_maj2
-        self.alpha_min2 = alpha_min2
-        self.alpha_maj3 = alpha_maj3
-        self.alpha_min3 = alpha_min3
+    def __init__(self, image_conf: ImgConf | None = None):
+        self.image_conf = image_conf if image_conf is not None else ImgConf()
+        self.clean_bias = self.image_conf.clean_bias
+        self.clean_bias_error = self.image_conf.clean_bias_error
+        self.frac_flux_cal_error = self.image_conf.frac_flux_cal_error
+        self.alpha_maj1 = self.image_conf.alpha_maj1
+        self.alpha_maj2 = self.image_conf.alpha_maj2
+        self.alpha_min1 = self.image_conf.alpha_min1
+        self.alpha_min2 = self.image_conf.alpha_min2
+        self.alpha_brightness1 = self.image_conf.alpha_brightness1
+        self.alpha_brightness2 = self.image_conf.alpha_brightness2
 
         self.measurements = {
             "peak": Uncertain(),
@@ -429,7 +416,7 @@ class ParamSet(MutableMapping):
         # Gaussian fits are preferably performed with bounds for better
         # stability, but to establish those bounds in a meaningful manner
         # moments estimation is required, i.e. self.moments = True.
-        self.bounds = {}
+        self.bounds: dict[str, tuple[float, float, bool]] = {}
         self.gaussian = False
 
         # It is instructive to keep a record of the minimal cross-section of
@@ -632,22 +619,24 @@ class ParamSet(MutableMapping):
 
         theta_B, theta_b = correlation_lengths
 
+        # This is equation 26 from the NVSS paper (Condon et al. 1998,
+        # AJ, 115, 1693) in action.
         rho_sq1 = (
             (smaj * smin / (theta_B * theta_b))
             * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj1
-            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min1
+            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_maj2
             * (peak / noise) ** 2
         )
         rho_sq2 = (
             (smaj * smin / (theta_B * theta_b))
-            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj2
+            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_min1
             * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min2
             * (peak / noise) ** 2
         )
         rho_sq3 = (
             (smaj * smin / (theta_B * theta_b))
-            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_maj3
-            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_min3
+            * (1.0 + (theta_B / (2.0 * smaj)) ** 2) ** self.alpha_brightness1
+            * (1.0 + (theta_b / (2.0 * smin)) ** 2) ** self.alpha_brightness2
             * (peak / noise) ** 2
         )
 
@@ -995,6 +984,7 @@ def source_profile_and_errors(
     fudge_max_pix_factor,
     beamsize,
     correlation_lengths,
+    image_conf,
     fixed=None,
 ):
     """Return a number of measurable properties with errorbars.
@@ -1020,6 +1010,11 @@ def source_profile_and_errors(
         island). Typically, this will be the analysis threshold (float) times
         the noise level (float) at the position of the island's pixel with the
         highest spectral brightness.
+    rms : MaskedArray
+        A 2D masked array representing the patch of the rms noise map,
+        corresponding to the same pixel positions as `data`. The values are
+        interpolated from a grid of standard deviations of the background
+        noise across the image.
     noise : float
         Noise level at the position of the island pixel with the highest
         spectral brightness.
@@ -1039,6 +1034,8 @@ def source_profile_and_errors(
         considerable effect on error estimates. We approximate this by
         considering all noise within the correlation length completely
         correlated and beyond that completely uncorrelated.
+    image_conf : config.ImgConf
+        Holds the configuration parameters for observational image processing.
     fixed : dict, default: None
         Parameters (and their values) to hold fixed while fitting. Passed on
         to measuring.fitgaussian().
@@ -1062,7 +1059,7 @@ def source_profile_and_errors(
 
     if fixed is None:
         fixed = {}
-    param = ParamSet()
+    param = ParamSet(image_conf)
 
     if threshold is None:
         moments_threshold = 0
@@ -1299,10 +1296,10 @@ class Detection(object):
 
     """
 
-    def __init__(self, paramset, imagedata, chunk=None, eps_ra=0, eps_dec=0):
+    def __init__(self, paramset, imagedata, chunk=None):
 
-        self.eps_ra = eps_ra
-        self.eps_dec = eps_dec
+        self.eps_ra = paramset.image_conf.eps_ra
+        self.eps_dec = paramset.image_conf.eps_dec
 
         self.imagedata = imagedata
         # self.wcs = imagedata.wcs
@@ -2012,10 +2009,8 @@ def source_measurements_vectorised(
     fudge_max_pix_factor,
     beam,
     beamsize,
-    force_beam,
     correlation_lengths,
-    eps_ra,
-    eps_dec,
+    conf,
 ):
     """Source measurements (vectorised).
 
@@ -2099,28 +2094,20 @@ def source_measurements_vectorised(
         over a large ensemble of unresolved sources, when a circular restoring
         beam is appropriate.
     beam : tuple
-        Tuple of 3 floats describing the restoring beam in terms of its
+        Three floats describing the restoring beam in terms of its
         semi-major and semi-minor axes (in pixels) and the position angle of the
         semi-major axis, east from local north, in radians.
     beamsize : float
         Area of the restoring beam, in square pixels.
-    force_beam : bool
-        If True, the restoring beam is used to derive the peak spectral
-        brightnesses of the sources, see equation 2.66 of Spreeuw's (2010)
-        thesis. The sources are then assumed to be unresolved and their
-        shapes are set equal to the restoring beam. If False, the peak
-        spectral brightnesses are derived using equation 2.67 of that thesis
-        and enhanced moments are used to derive the elliptical Gaussian axes.
     correlation_lengths : tuple
-        Tuple of 2 floats describing over which distance (in pixels) noise
+        Two floats describing over which distance (in pixels) noise
         should be considered correlated, along both principal axes of the
         Gaussian profile of the restoring beam.
-    eps_ra : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        right ascension, following equation 27a from the NVSS paper.
-    eps_dec : float
-        Extra positional uncertainty (degrees) from calibration errors along
-        declination, following equation 27b from the NVSS paper.
+    conf : config.Conf instance
+        Configuration options for source finding. This includes settings
+        related to image processing (e.g., background and rms
+        noise estimation, thresholds) as well as export options (e.g., source
+        parameters and output maps).
 
     Returns
     -------
@@ -2336,10 +2323,10 @@ def source_measurements_vectorised(
         fudge_max_pix_factor,
         np.array(beam),
         beamsize,
-        force_beam,
+        conf.image.force_beam,
         np.array(correlation_lengths),
-        0,
-        0,
+        conf.image.clean_bias_error,
+        conf.image.frac_flux_cal_error,
         Gaussian_islands,
         Gaussian_residuals,
         dummy,
@@ -2430,12 +2417,12 @@ def source_measurements_vectorised(
         end_ra2_end_dec2 = wcs.all_p2s(pix_y_plus_errory_proj)
 
         # Here we include the position calibration errors
-        ra_errors = eps_ra + np.maximum(
+        ra_errors = conf.image.eps_ra + np.maximum(
             np.fabs(sky_barycenters[:, :1] - end_ra1_end_dec1[:, :1]),
             np.fabs(sky_barycenters[:, :1] - end_ra2_end_dec2[:, :1]),
         )
 
-        dec_errors = eps_dec + np.maximum(
+        dec_errors = conf.image.eps_dec + np.maximum(
             np.fabs(sky_barycenters[:, 1:2] - end_ra1_end_dec1[:, 1:2]),
             np.fabs(sky_barycenters[:, 1:2] - end_ra2_end_dec2[:, 1:2]),
         )

@@ -222,14 +222,80 @@ class ImgConf(_Validate):
 
     """
 
-    detection: float = 10.0
+    clean_bias: float = 0.0
+    """Clean bias to subtract from the peak brightnesses (Jy/beam), see
+    parapagraph 5.2.5 and equation 34 of the NVSS paper.
+
+    """
+
+    clean_bias_error: float = 0.0
+    """1-sigma uncertainty in clean bias (Jy/beam), see parapagraph 5.2.5 and
+    equation 37 of the NVSS paper.
+
+    """
+
+    frac_flux_cal_error: float = 0.0
+    """Intensity-proportional calibration uncertainty, see paragraph 5.2.5 and 
+    equation 37 of the NVSS paper.
+
+    """
+
+    alpha_maj1: float = 2.5
+    """First exponent for scaling errors along the fitted major 
+    axis, see equation 26 and paragraph 5.2.3 of the NVSS paper and 
+    equation 41 and paragraph 3 of Condon's (1997) "Errors in Elliptical 
+    Gaussian Fits".
+
+    """
+
+    alpha_maj2: float = 0.5
+    """Second exponent for scaling errors along the fitted major 
+    axis, see equation 26 and paragraph 5.2.3 of the NVSS paper and
+    equation 41 and paragraph 3 of Condon's (1997) "Errors in Elliptical
+    Gaussian Fits".
+
+    """
+
+    alpha_min1: float = 0.5
+    """First exponent for scaling errors along the fitted minor 
+    axis and for scaling errors in the position angle, see equation 26 and 
+    paragraph 5.2.3 of the NVSS paper and equation 41 and paragraph 3 of 
+    Condon's (1997) "Errors in Elliptical Gaussian Fits".
+
+    """
+
+    alpha_min2: float = 2.5
+    """Second exponent for scaling errors along the fitted minor 
+    axis and for scaling errors in the position angle, see equation 26 and 
+    paragraph 5.2.3 of the NVSS paper and equation 41 and paragraph 3 of 
+    Condon's (1997) "Errors in Elliptical Gaussian Fits".
+
+    """
+
+    alpha_brightness1: float = 1.5
+    """First exponent for scaling errors in peak brightness, see
+    equation 26 and paragraph 5.2.5 of the NVSS paper and equation 41
+    and paragraph 3 of Condon's (1997) "Errors in Elliptical Gaussian
+    Fits".
+
+    """
+
+    alpha_brightness2: float = 1.5
+    """Second exponent for scaling errors in peak brightness, see
+    equation 26 and paragraph 5.2.5 of the NVSS paper and equation 41
+    and paragraph 3 of Condon's (1997) "Errors in Elliptical Gaussian
+    Fits".
+
+    """
+
+    detection_thr: float = 10.0
     """Detection threshold as multiple of the background standard
     deviation (rms) map, after the background mean values have been
     subtracted from the image.
 
     """
 
-    analysis: float = 3.0
+    analysis_thr: float = 3.0
     """Analysis threshold as multiple of the background standard
     deviation (rms) map, after the background mean values have been
     subtracted from the image.
@@ -252,7 +318,7 @@ class ImgConf(_Validate):
 
     """
 
-    deblend_thresholds: int = 0
+    deblend_nthresh: int = 0
     """Number of deblending subthresholds; 0 to disable."""
 
     grid: int | None = None
