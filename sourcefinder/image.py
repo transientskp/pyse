@@ -16,8 +16,7 @@ from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
 from sourcefinder.utility.sourceparams import make_measurements_dataframe
-import psutil
-import multiprocessing
+from concurrent.futures import ThreadPoolExecutor
 from functools import cached_property
 from functools import partial
 
@@ -1319,13 +1318,10 @@ class ImageData(object):
                 fixed,
             )
 
-            if __name__ == "__main__":
-                with multiprocessing.Pool(psutil.cpu_count()) as p:
-                    fit_results = p.map(fit_islands_partial, island_list)
-            else:
-                fit_results = [
-                    fit_islands_partial(island) for island in island_list
-                ]
+            with ThreadPoolExecutor() as executor:
+                fit_results = list(
+                    executor.map(fit_islands_partial, island_list)
+                )
 
             for island, fit_result in zip(island_list, fit_results):
                 if fit_result:
