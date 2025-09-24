@@ -6,7 +6,6 @@ rms_filter = 0.001
 deblend_mincont = 0.005
 structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 vectorized = false
-allow_multiprocessing = true
 margin = 0
 radius = 0.0
 back_size_x = 32
