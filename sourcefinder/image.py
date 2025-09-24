@@ -25,8 +25,6 @@ from scipy import ndimage
 from numba import guvectorize, float32, int32
 import os
 
-multiprocessing.set_start_method("forkserver", force=True)
-
 logger = logging.getLogger(__name__)
 
 
@@ -1321,7 +1319,7 @@ class ImageData(object):
                 fixed,
             )
 
-            if self.conf.image.allow_multiprocessing:
+            if __name__ == "__main__":
                 with multiprocessing.Pool(psutil.cpu_count()) as p:
                     fit_results = p.map(fit_islands_partial, island_list)
             else:
