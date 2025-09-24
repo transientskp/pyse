@@ -425,7 +425,6 @@ def test_measured_vectorized_forced_beam(
         image=ImgConf(
             detection_thr=12.0,
             analysis_thr=8.0,
-            allow_multiprocessing=False,
             vectorized=True,
             back_size_x=256,
             back_size_y=256,
