@@ -172,12 +172,6 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
-        "--allow-multiprocessing",
-        action="store_true",
-        help="Allow use of multiprocessing to fit gaussians to islands in parallel.",
-    )
-
-    image_group.add_argument(
         "--margin",
         type=int,
         help="Margin in pixels to ignore around the edge of the image.",
