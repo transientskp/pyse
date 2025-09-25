@@ -172,6 +172,14 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
+        "--nr-threads",
+        type=int,
+        help="""The number of threads to use during source extraction.
+        Note: this does not change numba's 'num threads' for parallel numba operations.
+        """,
+    )
+
+    image_group.add_argument(
         "--margin",
         type=int,
         help="Margin in pixels to ignore around the edge of the image.",

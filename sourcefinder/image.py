@@ -1318,7 +1318,8 @@ class ImageData(object):
                 fixed,
             )
 
-            with ThreadPoolExecutor() as executor:
+            max_workers = self.conf.image.nr_threads
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 fit_results = list(
                     executor.map(fit_islands_partial, island_list)
                 )

@@ -187,6 +187,11 @@ class ImgConf(_Validate):
 
     """
 
+    nr_threads: int | None = None
+    """The number of threads to use during source extraction.
+    Note: this does not change numba's 'num threads' for parallel numba operations.
+    """
+
     margin: int = 0
     """Margin in pixels to ignore near the edge of the image, i.e.
     sources within this margin will not be detected."""
