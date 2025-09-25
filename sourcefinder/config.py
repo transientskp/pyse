@@ -187,6 +187,11 @@ class ImgConf(_Validate):
 
     """
 
+    nr_threads: int | None = None
+    """The number of threads to use for vectorized and multithreaded operations.
+    Defaults may differ per operation but are in the order of number of CPU cores available.
+    """
+
     margin: int = 0
     """Margin in pixels to ignore near the edge of the image, i.e.
     sources within this margin will not be detected."""
