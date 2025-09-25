@@ -188,7 +188,8 @@ class ImgConf(_Validate):
     """
 
     nr_threads: int | None = None
-    """The number of threads to use during source extraction.
+    """The number of threads used to parallelize Gaussian fits to detected 
+    sources.
     Note: this does not change numba's 'num threads' for parallel numba operations.
     """
 

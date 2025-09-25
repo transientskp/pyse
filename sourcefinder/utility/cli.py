@@ -174,7 +174,8 @@ def construct_argument_parser():
     image_group.add_argument(
         "--nr-threads",
         type=int,
-        help="""The number of threads to use during source extraction.
+        help="""The number of threads used to parallelize Gaussian fits to detected
+        sources.
         Note: this does not change numba's 'num threads' for parallel numba operations.
         """,
     )
