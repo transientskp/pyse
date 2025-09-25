@@ -188,8 +188,8 @@ class ImgConf(_Validate):
     """
 
     nr_threads: int | None = None
-    """The number of threads to use for vectorized and multithreaded operations.
-    Defaults may differ per operation but are in the order of number of CPU cores available.
+    """The number of threads to use during source extraction.
+    Note: this does not change numba's 'num threads' for parallel numba operations.
     """
 
     margin: int = 0

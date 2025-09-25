@@ -33,7 +33,6 @@ from pathlib import Path
 
 import astropy.io.fits as pyfits
 import numpy
-import numba
 
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
@@ -175,8 +174,8 @@ def construct_argument_parser():
     image_group.add_argument(
         "--nr-threads",
         type=int,
-        help="""The number of threads to use for vectorized and multithreaded operations.
-        Defaults may differ per operation but are in the order of number of CPU cores available.
+        help="""The number of threads to use during source extraction.
+        Note: this does not change numba's 'num threads' for parallel numba operations.
         """,
     )
 
@@ -431,10 +430,6 @@ def handle_args(args=None):
             pdb.post_mortem(traceback)
 
         sys.excepthook = excepthook
-
-    # Set the number of threads Numba is allowed to use for vectorized operations
-    if unstructured_args["nr_threads"] is not None:
-        numba.set_num_threads(unstructured_args["nr_threads"])
 
     # Merge the CLI arguments with the config file parameters
     config_file = unstructured_args.pop("config_file")
