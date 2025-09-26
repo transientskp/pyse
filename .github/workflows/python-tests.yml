@@ -74,7 +74,7 @@ jobs:
           hatch run +py=${{matrix.python-version}} test:pytest
       - name: Integration test
         run: |
-          hatch run pyse --config-file test/data/config.toml --detection_thr \
+          hatch run pyse --config-file test/data/config.toml --detection-thr \
           5 --radius 400 --csv --force-beam test/data/GRB120422A-120429.fits
 
   type-check:
