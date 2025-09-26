@@ -172,9 +172,12 @@ def construct_argument_parser():
     )
 
     image_group.add_argument(
-        "--allow-multiprocessing",
-        action="store_true",
-        help="Allow use of multiprocessing to fit gaussians to islands in parallel.",
+        "--nr-threads",
+        type=int,
+        help="""The number of threads used to parallelize Gaussian fits to detected
+        sources.
+        Note: this does not change numba's 'num threads' for parallel numba operations.
+        """,
     )
 
     image_group.add_argument(

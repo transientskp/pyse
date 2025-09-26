@@ -110,7 +110,9 @@ def validate_types(key: str, value, type_: type):
 @dataclass(frozen=True)
 class _Validate:
     def __post_init__(self):
-        for (key, type_), val in zip(get_type_hints(self).items(), astuple(self)):
+        for (key, type_), val in zip(
+            get_type_hints(self).items(), astuple(self)
+        ):
             validate_types(key, val, type_)
 
 
@@ -185,8 +187,11 @@ class ImgConf(_Validate):
 
     """
 
-    allow_multiprocessing: bool = True
-    """Allow multiprocessing for Gaussian fitting in parallel."""
+    nr_threads: int | None = None
+    """The number of threads used to parallelize Gaussian fits to detected 
+    sources.
+    Note: this does not change numba's 'num threads' for parallel numba operations.
+    """
 
     margin: int = 0
     """Margin in pixels to ignore near the edge of the image, i.e.
@@ -445,7 +450,9 @@ class ExportSettings(_Validate):
     source_params: list[str] = field(default_factory=lambda: _source_params)
     """Collect all possible source parameters."""
 
-    source_params_file: list[str] = field(default_factory=lambda: _source_params_file)
+    source_params_file: list[str] = field(
+        default_factory=lambda: _source_params_file
+    )
     """ Source parameters to include a file for storage."""
 
 
@@ -487,7 +494,11 @@ def read_conf(path: str | Path):
             case {"tool": {"pyse": dict(), **_rest1}, **_rest2}:
                 raise KeyError("tool.pyse: empty section in config file")
             case {"tool": dict(), **_rest}:
-                raise KeyError("tool.pyse: section for PySE missing in config file")
+                raise KeyError(
+                    "tool.pyse: section for PySE missing in config file"
+                )
             case _:
-                raise KeyError("tool: top-level section missing in config file")
+                raise KeyError(
+                    "tool: top-level section missing in config file"
+                )
     return Conf(**conf)
