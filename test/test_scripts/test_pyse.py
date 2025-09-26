@@ -36,7 +36,7 @@ def test_pyse_export(tmpdir):
         "--residuals",
         "--islands",
     ]
-    extra_args = ["--detection_thr", "6", "--analysis_thr", "5", *export_args]
+    extra_args = ["--detection-thr", "6", "--analysis-thr", "5", *export_args]
     nr_sources_per_image = run_pyse(files, extra_args, tmpdir)
 
     for n in nr_sources_per_image:
