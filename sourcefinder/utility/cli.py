@@ -212,10 +212,10 @@ def construct_argument_parser():
         "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
     )
     image_group.add_argument(
-        "--detection_thr", type=float, help="Detection threshold"
+        "--detection-thr", type=float, help="Detection threshold"
     )
     image_group.add_argument(
-        "--analysis_thr", type=float, help="Analysis threshold"
+        "--analysis-thr", type=float, help="Analysis threshold"
     )
     image_group.add_argument(
         "--fdr", action="store_true", help="Use False Detection Rate algorithm"
