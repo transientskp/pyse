@@ -222,7 +222,7 @@ def construct_argument_parser():
     )
     image_group.add_argument("--alpha", type=float, help="FDR Alpha")
     image_group.add_argument(
-        "--deblend_nthresh",
+        "--deblend-nthresh",
         type=int,
         help="Number of deblending subthresholds; 0 to disable",
     )
