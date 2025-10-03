@@ -18,7 +18,7 @@ from . import utils
 from .config import Conf, ImgConf
 from .gaussian import gaussian
 
-np.seterr(divide="raise", invalid="raise")
+np.seterr(divide="raise", over="raise", invalid="raise")
 
 try:
     import ndimage
@@ -2308,33 +2308,34 @@ def source_measurements_vectorised(
     # So we will add a dummy array with shape corresponding
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
-    measuring.moments_enhanced(
-        sources,
-        noises,
-        chunk_positions,
-        xpositions,
-        ypositions,
-        minimum_widths,
-        npixs,
-        thresholds,
-        local_noise_levels,
-        maxposs,
-        maxis,
-        fudge_max_pix_factor,
-        np.array(beam),
-        beamsize,
-        conf.image.force_beam,
-        np.array(correlation_lengths),
-        conf.image.clean_bias_error,
-        conf.image.frac_flux_cal_error,
-        Gaussian_islands,
-        Gaussian_residuals,
-        dummy,
-        moments_of_sources,
-        sig,
-        chisq,
-        reduced_chisq,
-    )
+    with np.errstate(invalid="ignore"):
+        measuring.moments_enhanced(
+            sources,
+            noises,
+            chunk_positions,
+            xpositions,
+            ypositions,
+            minimum_widths,
+            npixs,
+            thresholds,
+            local_noise_levels,
+            maxposs,
+            maxis,
+            fudge_max_pix_factor,
+            np.array(beam),
+            beamsize,
+            conf.image.force_beam,
+            np.array(correlation_lengths),
+            conf.image.clean_bias_error,
+            conf.image.frac_flux_cal_error,
+            Gaussian_islands,
+            Gaussian_residuals,
+            dummy,
+            moments_of_sources,
+            sig,
+            chisq,
+            reduced_chisq,
+        )
 
     barycentric_pixel_positions = moments_of_sources[:, 0, 2:4]
     # Convert the barycentric positions to celestial_coordinates.
