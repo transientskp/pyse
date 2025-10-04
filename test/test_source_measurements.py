@@ -22,14 +22,18 @@ from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 
-# Numbers for `SourceParameters.testAllParameters` unit test.
-MAX_BIAS = 5.0
+# Thresholds for unit tests in this module.
+# This is the maximum factor by which the standard deviation of the
+# normalized residuals may deviate from 1.0.
 STD_MAX_BIAS_FACTOR = 2.0
-NUMBER_INSERTED = 3969
-TRUE_PEAK_BRIGHTNESS = 1063.67945065
 TRUE_DECONV_SMAJ = 2.0 * 5.5956 / 2.0
 TRUE_DECONV_SMIN = 0.5 * 4.6794 / 2.0
 TRUE_DECONV_BPA = -0.5 * (-49.8)
+
+# These numbers only apply to the tests in the SourceParameters class.
+MAX_BIAS = 5.0
+NUMBER_INSERTED = 3969
+TRUE_PEAK_BRIGHTNESS = 1063.67945065
 
 # These are measured from the file CORRELATED_NOISE.FITS.
 # BG_MEAN = numpy.mean(sourcefinder_image_from_accessor(FitsFile("CORRELATED_NOISE.FITS")).data)
@@ -195,6 +199,10 @@ def create_beam_kernel(
 
 
 @pytest.fixture
+def generate_artificial_image_fixture(tmp_path):
+    return generate_artificial_image(tmp_path)
+
+
 def generate_artificial_image(tmp_path):
     """Generate FITS image with either resolved or unresolved sources and save
     ground truth."""
@@ -394,7 +402,7 @@ def generate_artificial_image(tmp_path):
 
 
 def test_measured_vectorized_forced_beam(
-    tmp_path, generate_artificial_image, min_pvalue=0.01
+    tmp_path, generate_artificial_image_fixture, min_pvalue=0.01
 ):
     """
     Compare source parameters from vectorized source measurements with forced
@@ -404,8 +412,10 @@ def test_measured_vectorized_forced_beam(
     point, depending on the value of `min_pvalue` and `MAX_BIAS`. We will
     scale the latter with the square root of the ratio of the number of
     inserted sources over the number of inserted sources in the
-    `SourceParameters.testAllParameters`
-    test.
+    `SourceParameters.testAllParameters` test.
+
+    Please note that any min_pvalue > 0 will eventually lead to a failure
+    if you run this test often enough.
     """
     image_path = tmp_path / "image_unresolved.fits"
     truth_path = tmp_path / "truth_unresolved.h5"
@@ -414,7 +424,7 @@ def test_measured_vectorized_forced_beam(
 
     SCALED_MAX_BIAS = MAX_BIAS * np.sqrt(num_sources / NUMBER_INSERTED)
 
-    generate_artificial_image(
+    generate_artificial_image_fixture(
         output_fits_path=image_path,
         output_truth_path=truth_path,
         peak_brightness=20.0,
@@ -551,7 +561,7 @@ def test_measured_vectorized_forced_beam(
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
     assert (
         1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR
-    ), f"Peak brightnesses not realistic: std={std_peak :.3f}"
+    ), f"Uncertainties in peak brightnesses not realistic: std={std_peak :.3f}"
 
 
 if __name__ == "__main__":
