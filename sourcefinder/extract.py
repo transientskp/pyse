@@ -2309,6 +2309,7 @@ def source_measurements_vectorised(
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
     with np.errstate(invalid="ignore"):
+        # Context manager added to fix issue #165.
         measuring.moments_enhanced(
             sources,
             noises,
