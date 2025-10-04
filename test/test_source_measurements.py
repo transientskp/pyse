@@ -22,7 +22,7 @@ from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 
-# Thresholds for unit tests in this module.
+# Thresholds and other numbers for unit tests in this module.
 # This is the maximum factor by which the standard deviation of the
 # normalized residuals may deviate from 1.0.
 STD_MAX_BIAS_FACTOR = 2.0
