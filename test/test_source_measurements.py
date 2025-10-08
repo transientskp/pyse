@@ -4,7 +4,7 @@ import numpy as np
 import warnings
 from pathlib import Path
 import pytest
-from scipy.signal import fftconvolve
+from scipy.signal import convolve
 from scipy.stats import ttest_1samp
 import pandas as pd
 
@@ -224,9 +224,8 @@ def generate_artificial_image(tmp_path):
 
         # Convolve white noise with PSF
         white_noise = np.random.normal(0, 1, (output_size, output_size))
-        # Transpose the data before working with it.
         psf_kernel = psf_imdata / np.sum(psf_imdata)
-        corr_noise = fftconvolve(white_noise, psf_kernel, mode="same")
+        corr_noise = convolve(white_noise, psf_kernel, mode="same")
 
         # Normalize to mean 0, std 1 Jy/beam
         corr_noise = (corr_noise - np.mean(corr_noise)) / np.std(corr_noise)
@@ -272,8 +271,38 @@ def generate_artificial_image(tmp_path):
                         yoffset=offset_y,
                     )
                 else:
-                    # Fill in later
-                    pass
+                    actual_source, x_min, y_min = create_beam_kernel(
+                        peak_brightness,
+                        (
+                            2 * TRUE_DECONV_SMAJ,
+                            2 * TRUE_DECONV_SMIN,
+                            TRUE_DECONV_BPA,
+                        ),
+                        size=source_spacing,
+                        xoffset=offset_x,
+                        yoffset=offset_y,
+                    )
+                    peak_position = np.unravel_index(
+                        actual_source.argmax(), actual_source.shape
+                    )
+                    psf_inner_lobe, _, _ = create_beam_kernel(
+                        peak_brightness,
+                        psf_im.beam,
+                        size=2 * source_spacing,
+                        xoffset=0,
+                        yoffset=0,
+                    )
+                    # Convolve with PSF to get the observed source.
+                    source_to_be_inserted = convolve(
+                        actual_source, psf_inner_lobe, mode="same"
+                    )
+                    # print(f"{source_to_be_inserted.shape = }")
+                    # print(f"{source_spacing = }")
+                    # Re-normalize to the desired peak brightness.
+                    source_to_be_inserted *= (
+                        actual_source[peak_position]
+                        / source_to_be_inserted[peak_position]
+                    )
 
                 subimage_indices = (
                     slice(roundx - space_ar, roundx + space_ar + 1),
@@ -413,9 +442,6 @@ def test_measured_vectorized_forced_beam(
     scale the latter with the square root of the ratio of the number of
     inserted sources over the number of inserted sources in the
     `SourceParameters.testAllParameters` test.
-
-    Please note that any min_pvalue > 0 will eventually lead to a failure
-    if you run this test often enough.
     """
     image_path = tmp_path / "image_unresolved.fits"
     truth_path = tmp_path / "truth_unresolved.h5"
@@ -439,6 +465,170 @@ def test_measured_vectorized_forced_beam(
             back_size_x=256,
             back_size_y=256,
             force_beam=True,
+        ),
+        export=ExportSettings(reconvert=False),
+    )
+    fits_img = FitsImage(image_path)
+    img = sourcefinder_image_from_accessor(fits_img, conf=conf)
+
+    source_params_df = img.extract(
+        noisemap=np.ma.array(np.ones(img.data.shape)),
+        bgmap=np.ma.array(np.zeros(img.data.shape)),
+    )
+    number_measured_sources = source_params_df.shape[0]
+
+    # Load the ground truth source parameters into a Pandas DataFrame.
+    truth_df = pd.read_hdf(truth_path, key="truth")
+
+    assert number_measured_sources == truth_df.shape[0], (
+        f"Number of measured sources {number_measured_sources} "
+        f"does not match number of ground truth_df sources {truth_df.shape[0]}"
+    )
+
+    # Match sources by sky position
+    sky_meas = SkyCoord(
+        ra=source_params_df[SourceParams.RA].to_numpy() * u.deg,
+        dec=source_params_df[SourceParams.DEC].to_numpy() * u.deg,
+    )
+    sky_truth_df = SkyCoord(
+        ra=truth_df[SourceParams.RA].to_numpy() * u.deg,
+        dec=truth_df[SourceParams.DEC].to_numpy() * u.deg,
+    )
+
+    idx, _, _ = sky_meas.match_to_catalog_sky(sky_truth_df)
+
+    _, counts = np.unique(idx, return_counts=True)
+    duplicates = np.sum(counts > 1)
+    assert (
+        duplicates == 0
+    ), f"{duplicates} measured sources were matched to multiple true sources."
+
+    true_x = truth_df[SourceParams.X].to_numpy()[idx]
+    true_y = truth_df[SourceParams.Y].to_numpy()[idx]
+
+    measured_x = source_params_df[SourceParams.X].to_numpy()
+    measured_y = source_params_df[SourceParams.Y].to_numpy()
+
+    # Compute normalized residuals
+    norm_x_resid = (measured_x - true_x) / source_params_df[
+        SourceParams.X_ERR
+    ].to_numpy()
+    norm_y_resid = (measured_y - true_y) / source_params_df[
+        SourceParams.Y_ERR
+    ].to_numpy()
+
+    # Check that the mean of the position is not biased
+    p_x = ttest_1samp(norm_x_resid, popmean=0)[1]
+    assert p_x > min_pvalue, f"X position not centred: p={p_x :.3f}"
+    p_y = ttest_1samp(norm_y_resid, popmean=0)[1]
+    assert p_y > min_pvalue, f"Y position not centred: p={p_y :.3f}"
+
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    std_x = np.std(norm_x_resid)
+    std_y = np.std(norm_y_resid)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_x < STD_MAX_BIAS_FACTOR, (
+        f"X errors not " f"realistic:td={std_x :.3f}"
+    )
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_y < STD_MAX_BIAS_FACTOR, (
+        f"Y errors not realistic: " f"std={std_y :.3f}"
+    )
+
+    # Extract matched true values
+    true_ra = truth_df[SourceParams.RA].to_numpy()[idx]
+    true_dec = truth_df[SourceParams.DEC].to_numpy()[idx]
+
+    measured_ra = source_params_df[SourceParams.RA].to_numpy()
+    measured_dec = source_params_df[SourceParams.DEC].to_numpy()
+
+    measured_ra_err = source_params_df[SourceParams.RA_ERR].to_numpy()
+    measured_dec_err = source_params_df[SourceParams.DEC_ERR].to_numpy()
+
+    # Compute normalized residuals
+    norm_ra_resid = (measured_ra - true_ra) / measured_ra_err
+    norm_dec_resid = (measured_dec - true_dec) / measured_dec_err
+
+    # Check that the mean of the position is not biased
+    p_ra = ttest_1samp(norm_ra_resid, popmean=0)[1]
+    assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra :.3f}"
+    p_dec = ttest_1samp(norm_dec_resid, popmean=0)[1]
+    assert (
+        p_dec > min_pvalue
+    ), f"DEC residuals deviate too much from normal: p={p_dec :.3f}"
+
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    std_ra = np.std(norm_ra_resid)
+    std_dec = np.std(norm_dec_resid)
+
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_ra < STD_MAX_BIAS_FACTOR, (
+        f"RA errors not " f"realistic: std={std_ra :.3f}"
+    )
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_dec < STD_MAX_BIAS_FACTOR, (
+        f"DEC errors not " f"realistic: std" f"={std_dec :.3f}"
+    )
+
+    true_peak_brightnesses = truth_df[SourceParams.PEAK].to_numpy()[idx]
+    measured_peak_brightnesses = source_params_df[SourceParams.PEAK].to_numpy()
+    measured_peak_brightnesses_err = source_params_df[
+        SourceParams.PEAK_ERR
+    ].to_numpy()
+
+    # Compute normalized residuals
+    norm_peak_resid = (
+        measured_peak_brightnesses - true_peak_brightnesses
+    ) / measured_peak_brightnesses_err
+
+    # Check that the mean of the peak brightnesses is not biased
+    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
+    assert (
+        np.abs(t_stat_peak) < SCALED_MAX_BIAS
+    ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
+
+    std_peak = np.std(norm_peak_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert (
+        1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR
+    ), f"Uncertainties in peak brightnesses not realistic: std={std_peak :.3f}"
+
+
+def test_measured_vectorized_free_shape(
+    tmp_path, generate_artificial_image_fixture, min_pvalue=0.01
+):
+    """
+    Compare source parameters from vectorized source measurements - without
+    forcing the Gaussian shape equal to the clean beam -
+    to its corresponding ground truth values. This includes checks for
+    biases. The artificial images are regenerated for each test run.
+    Consequently, if you run these tests often enough, it will fail at some
+    point, depending on the value of `min_pvalue` and `MAX_BIAS`. We will
+    scale the latter with the square root of the ratio of the number of
+    inserted sources over the number of inserted sources in the
+    `SourceParameters.testAllParameters` test.
+    """
+    image_path = tmp_path / "image_resolved.fits"
+    truth_path = tmp_path / "truth_resolved.h5"
+
+    # Convolved sources have more spread, we do not want them to overlap,
+    # therefore we reduce the number of sources compared to the unresolved case.
+    num_sources = 40_000
+
+    SCALED_MAX_BIAS = MAX_BIAS * np.sqrt(num_sources / NUMBER_INSERTED)
+
+    generate_artificial_image_fixture(
+        output_fits_path=image_path,
+        output_truth_path=truth_path,
+        peak_brightness=20.0,
+        num_sources=num_sources,
+        unresolved=False,
+    )
+
+    conf = Conf(
+        image=ImgConf(
+            detection_thr=12.0,
+            analysis_thr=8.0,
+            vectorized=True,
+            back_size_x=256,
+            back_size_y=256,
+            force_beam=False,
         ),
         export=ExportSettings(reconvert=False),
     )
