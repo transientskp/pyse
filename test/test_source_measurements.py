@@ -240,6 +240,15 @@ def generate_artificial_image(tmp_path):
         # Space around the center of the Gaussian.
         space_ar = (source_spacing - 1) // 2
 
+        psf_inner_lobe, _, _ = create_beam_kernel(
+            1.0,
+            psf_im.beam,
+            size=2 * source_spacing,
+            xoffset=0,
+            yoffset=0,
+        )
+        psf_inner_lobe /= np.sum(psf_inner_lobe)
+
         for x in np.linspace(
             space_ar + 1,
             output_size - space_ar - 1,
@@ -284,13 +293,6 @@ def generate_artificial_image(tmp_path):
                     )
                     peak_position = np.unravel_index(
                         actual_source.argmax(), actual_source.shape
-                    )
-                    psf_inner_lobe, _, _ = create_beam_kernel(
-                        peak_brightness,
-                        psf_im.beam,
-                        size=2 * source_spacing,
-                        xoffset=0,
-                        yoffset=0,
                     )
                     # Convolve with PSF to get the observed source.
                     source_to_be_inserted = convolve(
