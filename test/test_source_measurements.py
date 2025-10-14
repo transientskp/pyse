@@ -162,49 +162,12 @@ class SourceParameters(unittest.TestCase):
         self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS)
 
 
-def create_beam_kernel(
-    peak_brightness,
-    beam: tuple,
-    size=15,
-    xoffset=0.0,
-    yoffset=0.0,
-):
-    """Create a peak-normalized elliptical Gaussian kernel for the
-    clean beam."""
-
-    smaj_pix, smin_pix, theta_rad = beam
-    # Best to have a centrosymmetric grid, which requires size to be odd.
-    if size % 2 == 0:
-        size -= 1
-
-    # Creates indices starting at 0, ending at size - 1.
-    x, y = np.indices((size, size), dtype=float)
-
-    center = (size - 1) // 2
-    # This should ensure that both x.min() and y.min() are integers and equal.
-    x -= center
-    y -= center
-
-    assert x.mean() == 0
-    assert y.mean() == 0
-
-    gaussian_function = gaussian(
-        peak_brightness, xoffset, yoffset, smaj_pix, smin_pix, theta_rad
-    )
-    gaussian_profile = gaussian_function(x, y)
-
-    x_min = x.min()
-    y_min = y.min()
-
-    # Return the Gaussian profile.
-    # Also return the minimum values of x and y, since they should match
-    # with the lower bounds of the subimage.
-    return gaussian_profile, x_min, y_min
-
-
 @pytest.fixture
 def generate_artificial_image_fixture(tmp_path):
     return generate_artificial_image(tmp_path)
+
+
+rng = np.random.default_rng(13302)
 
 
 def generate_artificial_image(tmp_path):
@@ -228,7 +191,7 @@ def generate_artificial_image(tmp_path):
         psf_imdata = psf_im.data.data
 
         # Convolve white noise with PSF
-        white_noise = np.random.normal(0, 1, (output_size, output_size))
+        white_noise = rng.normal(0, 1, (output_size, output_size))
         psf_kernel = psf_imdata / np.sum(psf_imdata)
         corr_noise = convolve(white_noise, psf_kernel, mode="same")
 
@@ -296,8 +259,8 @@ def generate_artificial_image(tmp_path):
                 endpoint=True,
             ):
 
-                offset_x = np.random.uniform(-0.5, 0.5)
-                offset_y = np.random.uniform(-0.5, 0.5)
+                offset_x = rng.uniform(-0.5, 0.5)
+                offset_y = rng.uniform(-0.5, 0.5)
 
                 offset_arr = np.array([offset_x, offset_y])
 
@@ -454,10 +417,9 @@ def test_measured_vectorized_forced_beam(
     beam to its corresponding ground truth values. This includes checks for
     biases. The artificial images are regenerated for each test run.
     Consequently, if you run these tests often enough, it will fail at some
-    point, depending on the value of `min_pvalue` and `MAX_BIAS`. We will
-    scale the latter with the square root of the ratio of the number of
-    inserted sources over the number of inserted sources in the
-    `SourceParameters.testAllParameters` test.
+    point, depending on the value of `min_pvalue` and `MAX_BIAS`.
+    Update: we have set a seed for the random number generator, such that
+    this test should now be stable.
     """
     image_path = tmp_path / "image_unresolved.fits"
     truth_path = tmp_path / "truth_unresolved.h5"
@@ -613,10 +575,9 @@ def test_measured_vectorized_free_shape(
     to its corresponding ground truth values. This includes checks for
     biases. The artificial images are regenerated for each test run.
     Consequently, if you run these tests often enough, it will fail at some
-    point, depending on the value of `min_pvalue` and `MAX_BIAS`. We will
-    scale the latter with the square root of the ratio of the number of
-    inserted sources over the number of inserted sources in the
-    `SourceParameters.testAllParameters` test.
+    point, depending on the value of `min_pvalue` and `MAX_BIAS`.
+    Update: we have set a seed for the random number generator, such that
+    this test should now be stable.
     """
     image_path = tmp_path / "image_resolved.fits"
     truth_path = tmp_path / "truth_resolved.h5"
