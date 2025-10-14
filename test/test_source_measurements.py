@@ -585,7 +585,7 @@ def test_measured_vectorized_free_shape(
 
     true_smaj = 3.0
     true_smin = 2.0
-    true_bpa = np.deg2rad(137.0)  # degrees
+    true_bpa = np.deg2rad(137.0)  # radians
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
