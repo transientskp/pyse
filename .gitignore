@@ -132,3 +132,6 @@ ENV/
 
 # No version files
 _version.py
+
+# Do not track .lock files added by package and project managers like uv.
+*.lock
