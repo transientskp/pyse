@@ -167,9 +167,6 @@ def generate_artificial_image_fixture(tmp_path):
     return generate_artificial_image(tmp_path)
 
 
-rng = np.random.default_rng(13302)
-
-
 def generate_artificial_image(tmp_path):
     """Generate FITS image with either resolved or unresolved sources and save
     ground truth."""
@@ -182,8 +179,8 @@ def generate_artificial_image(tmp_path):
         output_size=4096,
         peak_brightness=50.0,
         num_sources=167_281,
-        unresolved=True,
-        resolved_shape=(3.0, 2.0, np.deg2rad(137.0)),
+        rng=np.random.default_rng(13302),
+        resolved_shape=None,
     ):
 
         psf_fits = FitsImage(psf_fits_path)
@@ -230,7 +227,7 @@ def generate_artificial_image(tmp_path):
 
         Sigma_psf_inner_lobe = covariance_matrix(*psf_im.beam)
 
-        if not unresolved:
+        if resolved_shape is not None:
             Sigma_resolved_source = covariance_matrix(*resolved_shape)
 
             # Analytic convolution of two Gaussians.
@@ -270,7 +267,7 @@ def generate_artificial_image(tmp_path):
                 pos_x = roundx + offset_x
                 pos_y = roundy + offset_y
 
-                if unresolved:
+                if resolved_shape is None:
                     source_to_be_inserted = gaussian_from_Sigma_matrix(
                         xx,
                         yy,
@@ -586,12 +583,16 @@ def test_measured_vectorized_free_shape(
     # therefore we reduce the number of sources compared to the unresolved case.
     num_sources = 40_000
 
+    true_smaj = 3.0
+    true_smin = 2.0
+    true_bpa = np.deg2rad(137.0)  # degrees
+
     generate_artificial_image_fixture(
         output_fits_path=image_path,
         output_truth_path=truth_path,
         peak_brightness=20.0,
         num_sources=num_sources,
-        unresolved=False,
+        resolved_shape=(true_smaj, true_smin, true_bpa),
     )
 
     conf = Conf(
