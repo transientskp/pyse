@@ -21,20 +21,24 @@ from sourcefinder import image
 from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
+from sourcefinder.testutil.convolve import (
+    gaussian_from_Sigma_matrix,
+    covariance_matrix,
+    convolve_gaussians,
+)
 
 # Thresholds and other numbers for unit tests in this module.
+MAX_BIAS = 5.0
 # This is the maximum factor by which the standard deviation of the
 # normalized residuals may deviate from 1.0.
 STD_MAX_BIAS_FACTOR = 2.0
+
+# The numbers below only apply to the tests in the SourceParameters class.
+NUMBER_INSERTED = 3969
+TRUE_PEAK_BRIGHTNESS = 1063.67945065
 TRUE_DECONV_SMAJ = 2.0 * 5.5956 / 2.0
 TRUE_DECONV_SMIN = 0.5 * 4.6794 / 2.0
 TRUE_DECONV_BPA = -0.5 * (-49.8)
-
-# These numbers only apply to the tests in the SourceParameters class.
-MAX_BIAS = 5.0
-NUMBER_INSERTED = 3969
-TRUE_PEAK_BRIGHTNESS = 1063.67945065
-
 # These are measured from the file CORRELATED_NOISE.FITS.
 # BG_MEAN = numpy.mean(sourcefinder_image_from_accessor(FitsFile("CORRELATED_NOISE.FITS")).data)
 BG_MEAN = -0.0072340798975137829
@@ -216,6 +220,7 @@ def generate_artificial_image(tmp_path):
         peak_brightness=50.0,
         num_sources=167_281,
         unresolved=True,
+        resolved_shape=(3.0, 2.0, np.deg2rad(137.0)),
     ):
 
         psf_fits = FitsImage(psf_fits_path)
@@ -237,17 +242,46 @@ def generate_artificial_image(tmp_path):
         ns_sqi = ns_sqrt**2
 
         source_spacing = round(output_size / (ns_sqrt + 1))
+
+        size = source_spacing
+        # Best to have a centrosymmetric grid, which requires size to be odd.
+        if size % 2 == 0:
+            size -= 1
+
+        # Creates indices starting at 0, ending at size - 1.
+        xx, yy = np.indices((size, size), dtype=float)
+
+        center = (size - 1) // 2
+        # This should ensure that both x.min() and y.min() are integers and equal.
+        xx -= center
+        yy -= center
+
+        assert xx.mean() == 0
+        assert yy.mean() == 0
+
+        xx_min = xx.min()
+        yy_min = yy.min()
+
         # Space around the center of the Gaussian.
         space_ar = (source_spacing - 1) // 2
 
-        psf_inner_lobe, _, _ = create_beam_kernel(
-            1.0,
-            psf_im.beam,
-            size=2 * source_spacing,
-            xoffset=0,
-            yoffset=0,
-        )
-        psf_inner_lobe /= np.sum(psf_inner_lobe)
+        Sigma_psf_inner_lobe = covariance_matrix(*psf_im.beam)
+
+        if not unresolved:
+            Sigma_resolved_source = covariance_matrix(*resolved_shape)
+
+            # Analytic convolution of two Gaussians.
+            # The returned peak is unimportant now, since we will scale it
+            # later. Same for the offset, since we will be adding a random
+            # offset.
+            _, _, Sigma_H = convolve_gaussians(
+                1,
+                np.array([0.0, 0.0]),
+                Sigma_psf_inner_lobe,
+                1,
+                np.array([0.0, 0.0]),
+                Sigma_resolved_source,
+            )
 
         for x in np.linspace(
             space_ar + 1,
@@ -265,6 +299,8 @@ def generate_artificial_image(tmp_path):
                 offset_x = np.random.uniform(-0.5, 0.5)
                 offset_y = np.random.uniform(-0.5, 0.5)
 
+                offset_arr = np.array([offset_x, offset_y])
+
                 roundx = round(x)
                 roundy = round(y)
 
@@ -272,38 +308,16 @@ def generate_artificial_image(tmp_path):
                 pos_y = roundy + offset_y
 
                 if unresolved:
-                    source_to_be_inserted, x_min, y_min = create_beam_kernel(
+                    source_to_be_inserted = gaussian_from_Sigma_matrix(
+                        xx,
+                        yy,
                         peak_brightness,
-                        psf_im.beam,
-                        size=source_spacing,
-                        xoffset=offset_x,
-                        yoffset=offset_y,
+                        offset_arr,
+                        Sigma_psf_inner_lobe,
                     )
                 else:
-                    actual_source, x_min, y_min = create_beam_kernel(
-                        peak_brightness,
-                        (
-                            2 * TRUE_DECONV_SMAJ,
-                            2 * TRUE_DECONV_SMIN,
-                            TRUE_DECONV_BPA,
-                        ),
-                        size=source_spacing,
-                        xoffset=offset_x,
-                        yoffset=offset_y,
-                    )
-                    peak_position = np.unravel_index(
-                        actual_source.argmax(), actual_source.shape
-                    )
-                    # Convolve with PSF to get the observed source.
-                    source_to_be_inserted = convolve(
-                        actual_source, psf_inner_lobe, mode="same"
-                    )
-                    # print(f"{source_to_be_inserted.shape = }")
-                    # print(f"{source_spacing = }")
-                    # Re-normalize to the desired peak brightness.
-                    source_to_be_inserted *= (
-                        actual_source[peak_position]
-                        / source_to_be_inserted[peak_position]
+                    source_to_be_inserted = gaussian_from_Sigma_matrix(
+                        xx, yy, peak_brightness, offset_arr, Sigma_H
                     )
 
                 subimage_indices = (
@@ -317,24 +331,24 @@ def generate_artificial_image(tmp_path):
 
                 try:
                     lowest_x_subimage = subimage_indices[0].start - roundx
-                    assert lowest_x_subimage == x_min
+                    assert lowest_x_subimage == xx_min
                 except AssertionError:
                     warnings.warn(
                         (
                             f"Lower x-bounds not aligned, {lowest_x_subimage = } ,"
-                            f"{x_min = }"
+                            f"{xx_min = }"
                         )
                     )
                     all_tests_pass = 0
 
                 try:
                     lowest_y_subimage = subimage_indices[1].start - roundy
-                    assert lowest_y_subimage == y_min
+                    assert lowest_y_subimage == yy_min
                 except AssertionError:
                     warnings.warn(
                         (
                             f"Lower y-bounds not aligned, {lowest_y_subimage = } ,"
-                            f"{y_min = }"
+                            f"{yy_min = }"
                         )
                     )
                     all_tests_pass = 0
@@ -449,8 +463,6 @@ def test_measured_vectorized_forced_beam(
     truth_path = tmp_path / "truth_unresolved.h5"
 
     num_sources = 167_281
-
-    SCALED_MAX_BIAS = MAX_BIAS * np.sqrt(num_sources / NUMBER_INSERTED)
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
@@ -582,7 +594,7 @@ def test_measured_vectorized_forced_beam(
     # Check that the mean of the peak brightnesses is not biased
     t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
     assert (
-        np.abs(t_stat_peak) < SCALED_MAX_BIAS
+        np.abs(t_stat_peak) < MAX_BIAS
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
@@ -612,8 +624,6 @@ def test_measured_vectorized_free_shape(
     # Convolved sources have more spread, we do not want them to overlap,
     # therefore we reduce the number of sources compared to the unresolved case.
     num_sources = 40_000
-
-    SCALED_MAX_BIAS = MAX_BIAS * np.sqrt(num_sources / NUMBER_INSERTED)
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
@@ -746,7 +756,7 @@ def test_measured_vectorized_free_shape(
     # Check that the mean of the peak brightnesses is not biased
     t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
     assert (
-        np.abs(t_stat_peak) < SCALED_MAX_BIAS
+        np.abs(t_stat_peak) < MAX_BIAS
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
