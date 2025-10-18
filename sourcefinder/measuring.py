@@ -775,9 +775,9 @@ def moments_enhanced(
     fminerror = 2.0 * errorsmin
     fpa = np.degrees(theta)
     fpaerror = np.degrees(errortheta)
-    cmaj = 2.0 * beam[0]
-    cmin = 2.0 * beam[1]
-    cpa = np.degrees(beam[2])
+    cmaj = float(2.0 * beam[0])
+    cmin = float(2.0 * beam[1])
+    cpa = float(np.degrees(beam[2]))
 
     rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
     # This parameter gives the number of components that could not be
