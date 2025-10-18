@@ -17,7 +17,7 @@ def covariance_matrix(a, b, theta):
     theta : float
         Position angle in radians, measured from +Y toward -X (north through east).
     """
-    c, s = np.sin(theta), np.cos(theta)
+    c, s = -np.sin(theta), np.cos(theta)
     R = np.array([[c, -s], [s, c]])
     sigma_maj = a / np.sqrt(2.0 * np.log(2.0))
     sigma_min = b / np.sqrt(2.0 * np.log(2.0))
