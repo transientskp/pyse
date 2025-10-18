@@ -1469,7 +1469,11 @@ class Detection(object):
         # The formula above is commented out because the angle computed
         # in this way will always be 0<=yoffset_angle<=90.
         # We'll use the dotproduct instead.
-        yoffs_rad = np.arccos(np.dot(diff1, diff2) / np.sqrt(normalization))
+        arg_for_arccos = np.dot(diff1, diff2) / np.sqrt(normalization)
+        if np.abs(arg_for_arccos) > 1.000001:
+            raise ValueError("arccos argument outside valid domain by >1e-6")
+        arg_for_arccos = min(1.0, max(-1.0, arg_for_arccos))
+        yoffs_rad = np.arccos(arg_for_arccos)
 
         # The multiplication with -sign_cor makes sure that the angle
         # is measured eastwards (increasing RA), not westwards.
