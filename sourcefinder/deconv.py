@@ -1,10 +1,14 @@
 """Gaussian deconvolution."""
 
 from math import sin, cos, atan, sqrt, pi
-from numba import njit
+from numba import njit, float64, int64, types
 
 
-@njit
+@njit(
+    types.Tuple((float64, float64, float64, int64))(
+        float64, float64, float64, float64, float64, float64
+    )
+)
 def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
     """Deconvolve a Gaussian "beam" from a Gaussian component.
 
