@@ -397,7 +397,8 @@ def generate_artificial_image(tmp_path):
 
         if resolved_shape is not None:
             truth_dict[SourceParams.SMAJ_DC] = resolved_shape[0] * np.ones(
-                 len(coords_px))
+                len(coords_px)
+            )
 
         truth_df = pd.DataFrame(truth_dict)
 
@@ -425,6 +426,8 @@ def test_measured_vectorized_forced_beam(
     truth_path = tmp_path / "truth_unresolved.h5"
 
     num_sources = 167_281
+
+    MAX_BIAS_BRIGHTNESSES = 6.0
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
@@ -556,7 +559,7 @@ def test_measured_vectorized_forced_beam(
     # Check that the mean of the peak brightnesses is not biased
     t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
     assert (
-        np.abs(t_stat_peak) < MAX_BIAS
+        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
