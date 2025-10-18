@@ -18,7 +18,6 @@ from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
-from sourcefinder.gaussian import gaussian
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
 from sourcefinder.testutil.convolve import (
@@ -388,15 +387,19 @@ def generate_artificial_image(tmp_path):
 
         coords_world = wcs_out.wcs_pix2world(coords_full, 0)
 
-        truth_df = pd.DataFrame(
-            {
-                SourceParams.PEAK: peak_brightness * np.ones(len(coords_px)),
-                SourceParams.X: coords_px[:, 0],
-                SourceParams.Y: coords_px[:, 1],
-                SourceParams.RA: coords_world[:, 0],
-                SourceParams.DEC: coords_world[:, 1],
-            }
-        )
+        truth_dict = {
+            SourceParams.PEAK: peak_brightness * np.ones(len(coords_px)),
+            SourceParams.X: coords_px[:, 0],
+            SourceParams.Y: coords_px[:, 1],
+            SourceParams.RA: coords_world[:, 0],
+            SourceParams.DEC: coords_world[:, 1],
+        }
+
+        if resolved_shape is not None:
+            truth_dict[SourceParams.SMAJ_DC] = resolved_shape[0] * np.ones(
+                 len(coords_px))
+
+        truth_df = pd.DataFrame(truth_dict)
 
         # Save ground truth to HDF5
         truth_df.to_hdf(output_truth_path, key="truth", mode="w")
@@ -723,9 +726,35 @@ def test_measured_vectorized_free_shape(
 
     std_peak = np.std(norm_peak_resid)
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
-    assert (
-        1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR
-    ), f"Uncertainties in peak brightnesses not realistic: std={std_peak :.3f}"
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in peak brightnesses not realistic: std="
+        f"{std_peak :.3f}"
+    )
+
+    true_smaj_dc = truth_df[SourceParams.SMAJ_DC].to_numpy()[idx]
+    measured_smaj_dc = source_params_df[SourceParams.SMAJ_DC].to_numpy()
+    measured_smaj_dc_err = source_params_df[
+        SourceParams.SMAJ_DC_ERR
+    ].to_numpy()
+
+    # Compute normalized residuals
+    norm_smaj_dc_resid = (
+        measured_smaj_dc - true_smaj_dc
+    ) / measured_smaj_dc_err
+
+    # Check that the mean of the smaj brightnesses is not biased
+    t_stat_smaj = ttest_1samp(norm_smaj_dc_resid, popmean=0)[0]
+    assert np.abs(t_stat_smaj) < MAX_BIAS, (
+        f"Deconvolved semi-major axes severely biased: t_statistic ="
+        f" {t_stat_smaj :.3f}"
+    )
+
+    # std_smaj = np.std(norm_smaj_dc_resid)
+    # # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    # assert 1.0 / STD_MAX_BIAS_FACTOR < std_smaj < STD_MAX_BIAS_FACTOR, (
+    #     f"Uncertainties in deconvolved semi-major axes not realistic: std"
+    #     f"={std_smaj :.3f}"
+    # )
 
 
 if __name__ == "__main__":
