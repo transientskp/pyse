@@ -399,6 +399,12 @@ def generate_artificial_image(tmp_path):
             truth_dict[SourceParams.SMAJ_DC] = resolved_shape[0] * np.ones(
                 len(coords_px)
             )
+            truth_dict[SourceParams.SMIN_DC] = resolved_shape[1] * np.ones(
+                len(coords_px)
+            )
+            truth_dict[SourceParams.THETA_DC] = resolved_shape[2] * np.ones(
+                len(coords_px)
+            )
 
         truth_df = pd.DataFrame(truth_dict)
 
@@ -587,18 +593,23 @@ def test_measured_vectorized_free_shape(
 
     # Convolved sources have more spread, we do not want them to overlap,
     # therefore we reduce the number of sources compared to the unresolved case.
-    num_sources = 40_000
+    num_sources = 90_000
 
-    true_smaj = 3.0
-    true_smin = 2.0
-    true_bpa = np.deg2rad(137.0)  # radians
+    MAX_BIAS_BRIGHTNESSES = 10.0
+
+    # Define an extended source; we are testing whether the deconvolution
+    # algorithms can recover this shape.
+    smaj_dc = 3.0  # pixels
+    smin_dc = 2.0  # pixels
+    theta_dc = -37.0  # The default unit in PySE for this quantity is
+    # degrees, but for convenience we will pass it on as radians later on.
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
         output_truth_path=truth_path,
         peak_brightness=20.0,
         num_sources=num_sources,
-        resolved_shape=(true_smaj, true_smin, true_bpa),
+        resolved_shape=(smaj_dc, smin_dc, np.deg2rad(theta_dc)),
     )
 
     conf = Conf(
@@ -724,7 +735,7 @@ def test_measured_vectorized_free_shape(
     # Check that the mean of the peak brightnesses is not biased
     t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
     assert (
-        np.abs(t_stat_peak) < MAX_BIAS
+        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
@@ -758,6 +769,42 @@ def test_measured_vectorized_free_shape(
     #     f"Uncertainties in deconvolved semi-major axes not realistic: std"
     #     f"={std_smaj :.3f}"
     # )
+
+    true_smin_dc = truth_df[SourceParams.SMIN_DC].to_numpy()[idx]
+    measured_smin_dc = source_params_df[SourceParams.SMIN_DC].to_numpy()
+    measured_smin_dc_err = source_params_df[
+        SourceParams.SMIN_DC_ERR
+    ].to_numpy()
+
+    # Compute normalized residuals
+    norm_smin_dc_resid = (
+        measured_smin_dc - true_smin_dc
+    ) / measured_smin_dc_err
+
+    # Check that the mean of the smin brightnesses is not biased
+    t_stat_smin = ttest_1samp(norm_smin_dc_resid, popmean=0)[0]
+    assert np.abs(t_stat_smin) < MAX_BIAS, (
+        f"Deconvolved semi-minor axes severely biased: t_statistic ="
+        f" {t_stat_smin :.3f}"
+    )
+
+    true_theta_dc = np.rad2deg(truth_df[SourceParams.THETA_DC].to_numpy()[idx])
+    measured_theta_dc = source_params_df[SourceParams.THETA_DC].to_numpy()
+    measured_theta_dc_err = source_params_df[
+        SourceParams.THETA_DC_ERR
+    ].to_numpy()
+
+    # Compute normalized residuals
+    norm_theta_dc_resid = (
+        measured_theta_dc - true_theta_dc
+    ) / measured_theta_dc_err
+
+    # Check that the mean of the theta brightnesses is not biased
+    t_stat_theta_dc = ttest_1samp(norm_theta_dc_resid, popmean=0)[0]
+    assert np.abs(t_stat_theta_dc) < MAX_BIAS, (
+        f"Deconvolved position angles severely biased: t_statistic ="
+        f" {t_stat_theta_dc :.3f}"
+    )
 
 
 if __name__ == "__main__":
