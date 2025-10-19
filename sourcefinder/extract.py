@@ -675,9 +675,9 @@ class ParamSet(MutableMapping):
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho2
         else:
-            errortheta = np.pi
-        if errortheta > np.pi:
-            errortheta = np.pi
+            errortheta = np.pi / 2.0
+        if errortheta > np.pi / 2.0:
+            errortheta = np.pi / 2.0
 
         # Formula (34) of the NVSS paper, without the general fitting bias,
         # since we don't observe that. On the contrary, there may be peak
@@ -801,9 +801,9 @@ class ParamSet(MutableMapping):
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho
         else:
-            errortheta = np.pi
-        if errortheta > np.pi:
-            errortheta = np.pi
+            errortheta = np.pi / 2.0
+        if errortheta > np.pi / 2.0:
+            errortheta = np.pi / 2.0
 
         # The peak from "moments" is just the value of the maximum pixel
         # times a correction, fudge_max_pix, for the fact that the

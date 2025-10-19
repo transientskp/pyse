@@ -745,9 +745,9 @@ def moments_enhanced(
     if smaj > smin:
         errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho
     else:
-        errortheta = np.pi
-    if errortheta > np.pi:
-        errortheta = np.pi
+        errortheta = np.pi / 2.0
+    if errortheta > np.pi / 2.0:
+        errortheta = np.pi / 2.0
 
     # This should reflect the equivalent of equation 37 of the NVSS paper for
     # moments calculations. The middle term in that equation 37 is heuristically
