@@ -1,4 +1,5 @@
 import numpy as np
+from numba import njit
 
 # --- Helper functions --------------------------------------------------------
 
@@ -6,22 +7,28 @@ import numpy as np
 # “This function has been generated using ChatGPT 5.0. Its AI-output has
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
-def covariance_matrix(a, b, theta):
+@njit
+def covariance_matrix(sigma_maj, sigma_min, theta):
     """
     Build covariance matrix for an anisotropic Gaussian.
 
     Parameters
     ----------
-    a, b : float
-        Semi-major and semi-minor axes (same units as x,y grid).
+    sigma_maj, sigma_min : float
+        Standard deviations along major and minor axes (same units as x,
+        y grid).
     theta : float
         Position angle in radians, measured from +Y toward -X (north through east).
     """
     c, s = np.cos(theta), np.sin(theta)
     R = np.array([[-s, -c], [c, -s]])
-    sigma_maj = a / np.sqrt(2.0 * np.log(2.0))
-    sigma_min = b / np.sqrt(2.0 * np.log(2.0))
-    D = np.diag([sigma_maj**2, sigma_min**2])
+
+    # Diagonal covariance matrix of σ²
+    D = np.empty((2, 2))
+    D[0, 0] = sigma_maj * sigma_maj
+    D[0, 1] = 0.0
+    D[1, 0] = 0.0
+    D[1, 1] = sigma_min * sigma_min
     return R @ D @ R.T
 
 
