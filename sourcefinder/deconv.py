@@ -1,5 +1,6 @@
 """Gaussian deconvolution."""
 
+import numpy as np
 from math import sin, cos, atan, sqrt, pi
 from numba import njit, float64, int64, types
 
@@ -98,3 +99,31 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
         rpa = (rpa + 450.0) % 180.0
 
     return rmaj, rmin, rpa, ierr
+
+
+# “This function has been generated using ChatGPT 5.0. Its AI-output has
+# been verified for correctness, accuracy and completeness, adapted where
+# needed, and approved by the author.”
+@njit
+def covariance_matrix(sigma_maj, sigma_min, theta):
+    """
+    Build covariance matrix for an anisotropic Gaussian.
+
+    Parameters
+    ----------
+    sigma_maj, sigma_min : float
+        Standard deviations along major and minor axes (same units as x,
+        y grid).
+    theta : float
+        Position angle in radians, measured from +Y toward -X (north through east).
+    """
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([[-s, -c], [c, -s]])
+
+    # Diagonal covariance matrix of σ²
+    D = np.empty((2, 2))
+    D[0, 0] = sigma_maj * sigma_maj
+    D[0, 1] = 0.0
+    D[1, 0] = 0.0
+    D[1, 1] = sigma_min * sigma_min
+    return R @ D @ R.T

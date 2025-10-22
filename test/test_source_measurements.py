@@ -20,9 +20,9 @@ import sourcefinder.accessors
 from sourcefinder import image
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility.sourceparams import SourceParams
+from sourcefinder.deconv import covariance_matrix
 from sourcefinder.testutil.convolve import (
     gaussian_from_Sigma_matrix,
-    covariance_matrix,
     convolve_gaussians,
 )
 
