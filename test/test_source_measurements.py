@@ -24,6 +24,7 @@ from sourcefinder.deconv import covariance_matrix
 from sourcefinder.testutil.convolve import (
     gaussian_from_Sigma_matrix,
     convolve_gaussians,
+    params_from_sigma,
 )
 
 # Thresholds and other numbers for unit tests in this module.
@@ -255,6 +256,9 @@ def generate_artificial_image(tmp_path):
                 np.array([0.0, 0.0]),
                 Sigma_resolved_source,
             )
+            sigma_maj_convolved, sigma_min_convolved, theta_convolved = (
+                params_from_sigma(Sigma_H)
+            )
 
         for x in np.linspace(
             space_ar + 1,
@@ -419,6 +423,15 @@ def generate_artificial_image(tmp_path):
             truth_dict[SourceParams.THETA_DC] = resolved_shape[2] * np.ones(
                 len(coords_px)
             )
+            truth_dict[SourceParams.SMAJ] = (
+                sigma_maj_convolved * sigma_to_ax * np.ones(len(coords_px))
+            )
+            truth_dict[SourceParams.SMIN] = (
+                sigma_min_convolved * sigma_to_ax * np.ones(len(coords_px))
+            )
+            truth_dict[SourceParams.THETA] = theta_convolved * np.ones(
+                len(coords_px)
+            )
 
         truth_df = pd.DataFrame(truth_dict)
 
@@ -447,7 +460,18 @@ def test_measured_vectorized_forced_beam(
 
     num_sources = 167_281
 
-    MAX_BIAS_BRIGHTNESSES = 6.0
+    # Set maximum allowed bias equal to maximum allowed
+    # bias from SourceParameters regression tests times a scaling factor
+    # equal to sqrt(num_sources / NUMBER_INSERTED).
+    # NUMBER_INSERTED is the number of sources measured in the
+    # SourceParameters regression tests.
+    MAX_BIAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS
+    # For vectorized source measurements, we apply "tweaked moments",
+    # which results in smaller biases on the brightnesses - compared to
+    # Gaussian fits, but still lower than the true values - and larger
+    # biases on the elliptical axes than from Gaussian fits, although both
+    # methods overestimate the axes.
+    MAX_BIAS_BRIGHTNESSES = MAX_BIAS_SCALED / 3.0
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
@@ -517,9 +541,9 @@ def test_measured_vectorized_forced_beam(
     ].to_numpy()
 
     # Check that the mean of the position is not biased
-    p_x = ttest_1samp(norm_x_resid, popmean=0)[1]
+    p_x = ttest_1samp(norm_x_resid, popmean=0, nan_policy="raise")[1]
     assert p_x > min_pvalue, f"X position not centred: p={p_x :.3f}"
-    p_y = ttest_1samp(norm_y_resid, popmean=0)[1]
+    p_y = ttest_1samp(norm_y_resid, popmean=0, nan_policy="raise")[1]
     assert p_y > min_pvalue, f"Y position not centred: p={p_y :.3f}"
 
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
@@ -547,9 +571,9 @@ def test_measured_vectorized_forced_beam(
     norm_dec_resid = (measured_dec - true_dec) / measured_dec_err
 
     # Check that the mean of the position is not biased
-    p_ra = ttest_1samp(norm_ra_resid, popmean=0)[1]
+    p_ra = ttest_1samp(norm_ra_resid, popmean=0, nan_policy="raise")[1]
     assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra :.3f}"
-    p_dec = ttest_1samp(norm_dec_resid, popmean=0)[1]
+    p_dec = ttest_1samp(norm_dec_resid, popmean=0, nan_policy="raise")[1]
     assert (
         p_dec > min_pvalue
     ), f"DEC residuals deviate too much from normal: p={p_dec :.3f}"
@@ -577,7 +601,9 @@ def test_measured_vectorized_forced_beam(
     ) / measured_peak_brightnesses_err
 
     # Check that the mean of the peak brightnesses is not biased
-    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
+    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0, nan_policy="raise")[
+        0
+    ]
     assert (
         np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
@@ -607,13 +633,25 @@ def test_measured_vectorized_free_shape(
 
     # Convolved sources have more spread, we do not want them to overlap,
     # therefore we reduce the number of sources compared to the unresolved case.
-    num_sources = 90_000
+    num_sources = 40_000
 
-    MAX_BIAS_BRIGHTNESSES = 10.0
+    # Set maximum allowed bias equal to maximum allowed
+    # bias from SourceParameters regression tests times a scaling factor
+    # equal to sqrt(num_sources / NUMBER_INSERTED).
+    # NUMBER_INSERTED is the number of sources measured in the
+    # SourceParameters regression tests.
+    MAX_BIAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS
+    # For vectorized source measurements, we apply "tweaked moments",
+    # which results in smaller biases on the brightnesses - compared to
+    # Gaussian fits, but still lower than the true values - and larger
+    # biases on the elliptical axes than from Gaussian fits, although both
+    # methods overestimate the axes.
+    MAX_BIAS_BRIGHTNESSES = MAX_BIAS_SCALED / 3.0
+    MAX_BIAS_AXES = MAX_BIAS_SCALED * 3.0
 
     # Define an extended source; we are testing whether the deconvolution
     # algorithms can recover this shape.
-    smaj_dc = 3.0  # pixels
+    smaj_dc = 4.0  # pixels
     smin_dc = 2.0  # pixels
     theta_dc = -37.0  # The default unit in PySE for this quantity is
     # degrees, but for convenience we will pass it on as radians later on.
@@ -687,9 +725,9 @@ def test_measured_vectorized_free_shape(
     ].to_numpy()
 
     # Check that the measurements of the positions are not biased.
-    p_x = ttest_1samp(norm_x_resid, popmean=0)[1]
+    p_x = ttest_1samp(norm_x_resid, popmean=0, nan_policy="raise")[1]
     assert p_x > min_pvalue, f"X position not centred: p={p_x :.3f}"
-    p_y = ttest_1samp(norm_y_resid, popmean=0)[1]
+    p_y = ttest_1samp(norm_y_resid, popmean=0, nan_policy="raise")[1]
     assert p_y > min_pvalue, f"Y position not centred: p={p_y :.3f}"
 
     # Check standard deviation is ~1 (roughly Gaussian-distributed errors).
@@ -717,9 +755,9 @@ def test_measured_vectorized_free_shape(
     norm_dec_resid = (measured_dec - true_dec) / measured_dec_err
 
     # Check that the measurements of the positions are not biased.
-    p_ra = ttest_1samp(norm_ra_resid, popmean=0)[1]
+    p_ra = ttest_1samp(norm_ra_resid, popmean=0, nan_policy="raise")[1]
     assert p_ra > min_pvalue, f"Right ascension not centred: p={p_ra :.3f}"
-    p_dec = ttest_1samp(norm_dec_resid, popmean=0)[1]
+    p_dec = ttest_1samp(norm_dec_resid, popmean=0, nan_policy="raise")[1]
     assert (
         p_dec > min_pvalue
     ), f"DEC residuals deviate too much from normal: p={p_dec :.3f}"
@@ -747,7 +785,9 @@ def test_measured_vectorized_free_shape(
     ) / measured_peak_brightnesses_err
 
     # Check that the weighted mean of the peak brightnesses is not too biased.
-    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0)[0]
+    t_stat_peak = ttest_1samp(norm_peak_resid, popmean=0, nan_policy="raise")[
+        0
+    ]
     assert (
         np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
@@ -757,6 +797,78 @@ def test_measured_vectorized_free_shape(
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR, (
         f"Uncertainties in peak brightnesses not realistic: std="
         f"{std_peak :.3f}"
+    )
+
+    true_smaj = truth_df[SourceParams.SMAJ].to_numpy()[idx]
+    measured_smaj = source_params_df[SourceParams.SMAJ].to_numpy()
+    measured_smaj_err = source_params_df[SourceParams.SMAJ_ERR].to_numpy()
+
+    # Compute normalized residuals
+    norm_smaj_resid = (measured_smaj - true_smaj) / measured_smaj_err
+
+    # Check that the weighted mean of the convolved semi-major axes is not
+    # too biased.
+    t_stat_smaj = ttest_1samp(norm_smaj_resid, popmean=0, nan_policy="raise")[
+        0
+    ]
+    assert np.abs(t_stat_smaj) < MAX_BIAS_AXES, (
+        f"Convolved semi-major axes severely biased: t_statistic ="
+        f" {t_stat_smaj :.3f}"
+    )
+
+    std_smaj = np.std(norm_smaj_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_smaj < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in convolved semi-major axes not realistic: std"
+        f"={std_smaj :.3f}"
+    )
+
+    true_smin = truth_df[SourceParams.SMIN].to_numpy()[idx]
+    measured_smin = source_params_df[SourceParams.SMIN].to_numpy()
+    measured_smin_err = source_params_df[SourceParams.SMIN_ERR].to_numpy()
+
+    # Compute normalized residuals
+    norm_smin_resid = (measured_smin - true_smin) / measured_smin_err
+
+    # Check that the weighted mean of the convolved semi-minor axes is not
+    # too biased.
+    t_stat_smin = ttest_1samp(norm_smin_resid, popmean=0, nan_policy="raise")[
+        0
+    ]
+    assert np.abs(t_stat_smin) < MAX_BIAS_AXES, (
+        f"Convolved semi-minor axes severely biased: t_statistic ="
+        f" {t_stat_smin :.3f}"
+    )
+
+    std_smin = np.std(norm_smin_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_smin < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in convolved semi-major axes not realistic: std"
+        f"={std_smin :.3f}"
+    )
+
+    true_theta = truth_df[SourceParams.THETA].to_numpy()[idx]
+    measured_theta = source_params_df[SourceParams.THETA].to_numpy()
+    measured_theta_err = source_params_df[SourceParams.THETA_ERR].to_numpy()
+
+    # Compute normalized residuals.
+    norm_theta_resid = (measured_theta - true_theta) / measured_theta_err
+
+    # Check that the weighted mean of the convolved position angles is not
+    # biased.
+    t_stat_theta = ttest_1samp(
+        norm_theta_resid, popmean=0, nan_policy="raise"
+    )[0]
+    assert np.abs(t_stat_theta) < MAX_BIAS_SCALED, (
+        f"Convolved position angles severely biased: t_statistic ="
+        f" {t_stat_theta :.3f}"
+    )
+
+    std_theta = np.std(norm_theta_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_theta < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in convolved semi-major axes not realistic: std"
+        f"={std_theta :.3f}"
     )
 
     true_smaj_dc = truth_df[SourceParams.SMAJ_DC].to_numpy()[idx]
@@ -772,18 +884,20 @@ def test_measured_vectorized_free_shape(
 
     # Check that the weighted mean of the deconvolved semi-major axes is not
     # too biased.
-    t_stat_smaj = ttest_1samp(norm_smaj_dc_resid, popmean=0)[0]
-    assert np.abs(t_stat_smaj) < MAX_BIAS, (
+    t_stat_smaj_dc = ttest_1samp(
+        norm_smaj_dc_resid, popmean=0, nan_policy="raise"
+    )[0]
+    assert np.abs(t_stat_smaj_dc) < MAX_BIAS_AXES, (
         f"Deconvolved semi-major axes severely biased: t_statistic ="
-        f" {t_stat_smaj :.3f}"
+        f" {t_stat_smaj_dc :.3f}"
     )
 
-    # std_smaj = np.std(norm_smaj_dc_resid)
-    # # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
-    # assert 1.0 / STD_MAX_BIAS_FACTOR < std_smaj < STD_MAX_BIAS_FACTOR, (
-    #     f"Uncertainties in deconvolved semi-major axes not realistic: std"
-    #     f"={std_smaj :.3f}"
-    # )
+    std_smaj_dc = np.std(norm_smaj_dc_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_smaj_dc < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in deconvolved semi-major axes not realistic: std"
+        f"={std_smaj_dc :.3f}"
+    )
 
     true_smin_dc = truth_df[SourceParams.SMIN_DC].to_numpy()[idx]
     measured_smin_dc = source_params_df[SourceParams.SMIN_DC].to_numpy()
@@ -798,10 +912,19 @@ def test_measured_vectorized_free_shape(
 
     # Check that the weighted mean of the deconvolved semi-minor axes is not
     # too biased.
-    t_stat_smin = ttest_1samp(norm_smin_dc_resid, popmean=0)[0]
-    assert np.abs(t_stat_smin) < MAX_BIAS, (
+    t_stat_smin_dc = ttest_1samp(
+        norm_smin_dc_resid, popmean=0, nan_policy="raise"
+    )[0]
+    assert np.abs(t_stat_smin_dc) < MAX_BIAS_AXES, (
         f"Deconvolved semi-minor axes severely biased: t_statistic ="
-        f" {t_stat_smin :.3f}"
+        f" {t_stat_smin_dc :.3f}"
+    )
+
+    std_smin_dc = np.std(norm_smin_dc_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_smin_dc < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in deconvolved semi-major axes not realistic: std"
+        f"={std_smin_dc :.3f}"
     )
 
     true_theta_dc = np.rad2deg(truth_df[SourceParams.THETA_DC].to_numpy()[idx])
@@ -817,11 +940,20 @@ def test_measured_vectorized_free_shape(
 
     # Check that the weighted mean of the deconvolved position angles is not
     # biased.
-    # t_stat_theta_dc = ttest_1samp(norm_theta_dc_resid, popmean=0)[0]
-    # assert np.abs(t_stat_theta_dc) < MAX_BIAS, (
-    #     f"Deconvolved position angles severely biased: t_statistic ="
-    #     f" {t_stat_theta_dc :.3f}"
-    # )
+    t_stat_theta_dc = ttest_1samp(
+        norm_theta_dc_resid, popmean=0, nan_policy="raise"
+    )[0]
+    assert np.abs(t_stat_theta_dc) < MAX_BIAS_SCALED, (
+        f"Deconvolved position angles severely biased: t_statistic ="
+        f" {t_stat_theta_dc :.3f}"
+    )
+
+    std_theta_dc = np.std(norm_theta_dc_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert 1.0 / STD_MAX_BIAS_FACTOR < std_theta_dc < STD_MAX_BIAS_FACTOR, (
+        f"Uncertainties in deconvolved semi-major axes not realistic: std"
+        f"={std_theta_dc :.3f}"
+    )
 
 
 if __name__ == "__main__":
