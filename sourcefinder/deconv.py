@@ -116,7 +116,13 @@ def covariance_matrix(sigma_maj, sigma_min, theta):
         Standard deviations along major and minor axes (same units as x,
         y grid).
     theta : float
-        Position angle in radians, measured from +Y toward -X (north through east).
+        Position angle in radians, measured CCW from +Y toward -X (north
+        through east).
+
+    Returns
+    -------
+    Sigma : (2,2) ndarray
+        Covariance matrix.
     """
     c, s = np.cos(theta), np.sin(theta)
     R = np.array([[-s, -c], [c, -s]])
@@ -151,6 +157,7 @@ def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):
           sigma_maj, sigma_min, theta].
     """
     phi = theta + np.pi / 2.0  # convert to math convention (CCW from +x)
+
     c = np.cos(phi)
     s = np.sin(phi)
     c2 = c * c
@@ -230,6 +237,7 @@ def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):
     theta is angle (radians) CCW from +y.
     J is the 3x3 Jacobian d[a,b,theta]/d[sxx,syy,sxy] (rows outputs,
     cols inputs).
+
     Parameters
     ----------
     sxx, syy, sxy : float
