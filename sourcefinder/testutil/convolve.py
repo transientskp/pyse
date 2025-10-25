@@ -140,3 +140,71 @@ def convolve_gaussians(I1, mu1, Sigma1, I2, mu2, Sigma2):
         )
     )
     return I_H, mu_H, Sigma_H
+
+
+# “This function has been generated using ChatGPT 5.0. Its AI-output has
+# been verified for correctness, accuracy and completeness, adapted where
+# needed, and approved by the author.”
+def params_from_sigma(Sigma):
+    """
+    From covariance matrix Sigma (2x2) return (sigma_maj, sigma_min,
+    theta) with
+    sigma_maj>=sigma_min>=0.
+
+    Parameters
+    ----------
+    Sigma : array_like, shape (2, 2)
+        Covariance matrix defining the shape and orientation of the
+        ellipse. Must be symmetric.
+        Covariance matrix elements: if sigma_maj is major axis stddev,
+        sigma_min is minor axis stddev, and theta the position angle (CCW
+        from +Y), then
+            S = [[sxx, sxy],
+                 [sxy, syy]] = R @ [[sigma_maj^2, 0],
+                                    [0, sigma_min^2]] @ R.T
+        where R = [[-sin(theta), -cos(theta)],
+                   [ cos(theta), -sin(theta)]]
+        i.e. sxx = sigma_maj^2 sin^2(theta) + sigma_min^2 cos^2(theta)
+             syy = sigma_maj^2 cos^2(theta) + sigma_min^2 sin^2(theta)
+             sxy = -(sigma_maj^2 - sigma_min^2) sin(theta) cos(theta)
+    Returns
+    -------
+    sigma_maj : float
+        Standard deviation along major axis.
+    sigma_min : float
+        Standard deviation along minor axis.
+    theta : float
+        Position angle of the major axis in radians, in [0, pi).
+        Measured from the positive y-axis toward the negative-axis.
+    Notes
+    -----
+    - The covariance matrix Sigma is related to the ellipse parameters
+      (sigma_maj, sigma_min, theta) by its eigen-decomposition.
+    - The stddevs sigma_maj and sigma_min are the square roots of the
+      eigenvalues of Sigma.
+    - The position angle theta is derived from the eigenvector
+      corresponding to the largest eigenvalue.
+    """
+    # Symmetrize for numerical safety
+    S = 0.5 * (Sigma + Sigma.T)
+    vals, vecs = np.linalg.eigh(S)  # ascending eigenvalues
+    # sort descending
+    idx = np.argsort(vals)[::-1]
+    vals = vals[idx]
+    vecs = vecs[:, idx]
+    # clamp small negatives to zero (numerical)
+    vals = np.maximum(vals, 0.0)
+    sigma_maj = np.sqrt(vals[0])
+    sigma_min = np.sqrt(vals[1])
+    # principal axis: eigenvector for largest eigenvalue
+    v = vecs[:, 0]
+    pa = np.arctan2(v[1], v[0])
+
+    theta = np.mod(pa + 10.5 * np.pi, np.pi)
+    # Ensure theta is between -pi/2 and pi/2.
+    if theta > np.pi / 2:
+        theta = -np.mod(-theta, np.pi)
+    if theta < -np.pi / 2:
+        theta = np.mod(theta, np.pi)
+
+    return sigma_maj, sigma_min, theta
