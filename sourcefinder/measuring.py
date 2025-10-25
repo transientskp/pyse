@@ -839,7 +839,7 @@ def moments_enhanced(
             # Now the errors.
             semimaj_deconv_error = np.sqrt(C_r_[0, 0]) * sigma_to_ax
             semimin_deconv_error = np.sqrt(C_r_[1, 1]) * sigma_to_ax
-            theta_deconv_error = np.rad2deg(np.sqrt(C_r_[2, 2]))
+            theta_deconv_error = np.mod(np.rad2deg(np.sqrt(C_r_[2, 2])), 90)
     else:
         # In this case at least one of the elliptical components could not be
         # deconvolved. This makes any kind of error analysis on the remaining
