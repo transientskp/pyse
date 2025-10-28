@@ -37,7 +37,7 @@ MAX_BIAS_BRIGHTNESSES = 5.0
 # than the axes.
 MAX_BIAS_AXES = 10.0
 # The major axes position angles have much lower biases than the axes.
-MAX_BIAS_PAS = 1.0
+MAX_BIAS_BPAS = 1.0
 
 # This is the maximum factor by which the standard deviation of the
 # normalized residuals may deviate from 1.0. Used in the regression tests
@@ -170,7 +170,7 @@ class SourceParameters(unittest.TestCase):
         av_bpa = np.sum(self.deconv_bpas[:, 0] * bpa_weights / sum_bpa_weights)
         av_bpa_err = 1 / np.sqrt(sum_bpa_weights)
         signif_dev_bpa = (TRUE_DECONV_BPA - av_bpa) / av_bpa_err
-        self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS_PAS)
+        self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS_BPAS)
 
 
 @pytest.fixture
@@ -657,7 +657,7 @@ def test_measured_vectorized_free_shape(
     MAX_BIAS_AXES_SCALED = (
         np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_AXES
     )
-    MAX_BIAS_PAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_PAS
+    MAX_BIAS_BPAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_BPAS
     # For vectorized source measurements, we apply "tweaked moments",
     # which results in smaller biases on the brightnesses - compared to
     # Gaussian fits, but still lower than the true values - and larger
@@ -665,7 +665,7 @@ def test_measured_vectorized_free_shape(
     # methods overestimate the axes.
     MAX_BIAS_BRIGHTNESSES_SCALED /= 5.0
     MAX_BIAS_AXES_SCALED *= 1.5
-    MAX_BIAS_PAS_SCALED *= 3.0
+    MAX_BIAS_BPAS_SCALED *= 3.0
 
     # Define an extended source; we are testing whether the deconvolution
     # algorithms can recover this shape.
@@ -877,7 +877,7 @@ def test_measured_vectorized_free_shape(
     t_stat_theta = ttest_1samp(
         norm_theta_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_theta) < MAX_BIAS_PAS_SCALED, (
+    assert np.abs(t_stat_theta) < MAX_BIAS_BPAS_SCALED, (
         f"Convolved position angles severely biased: t_statistic ="
         f" {t_stat_theta :.3f}"
     )
@@ -961,7 +961,7 @@ def test_measured_vectorized_free_shape(
     t_stat_theta_dc = ttest_1samp(
         norm_theta_dc_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_theta_dc) < MAX_BIAS_PAS_SCALED, (
+    assert np.abs(t_stat_theta_dc) < MAX_BIAS_BPAS_SCALED, (
         f"Deconvolved position angles severely biased: t_statistic ="
         f" {t_stat_theta_dc :.3f}"
     )
