@@ -28,9 +28,20 @@ from sourcefinder.testutil.convolve import (
 )
 
 # Thresholds and other numbers for unit tests in this module.
-MAX_BIAS = 5.0
+MAX_BIAS_BRIGHTNESSES = 5.0
+# Peak brightnesses are biased low and the elliptical axes are biased high -
+# and larger in absolute sense. This is true both for Gaussian fits and for
+# vectorized source measurements with "tweaked moments". The latter results
+# in a lower bias on the brightnesses than Gaussian fits, but a larger bias on
+# the axes. The major axes position angles generally have a much lower bias
+# than the axes.
+MAX_BIAS_AXES = 10.0
+# The major axes position angles have much lower biases than the axes.
+MAX_BIAS_PAS = 1.0
+
 # This is the maximum factor by which the standard deviation of the
-# normalized residuals may deviate from 1.0.
+# normalized residuals may deviate from 1.0. Used in the regression tests
+# for the vectorized source measurements.
 STD_MAX_BIAS_FACTOR = 2.0
 
 # The numbers below only apply to the tests in the SourceParameters class.
@@ -131,7 +142,7 @@ class SourceParameters(unittest.TestCase):
         )
         av_peak_err = 1 / np.sqrt(sum_peak_weights)
         signif_dev_peak = (TRUE_PEAK_BRIGHTNESS - av_peak) / av_peak_err
-        self.assertTrue(np.abs(signif_dev_peak) < MAX_BIAS)
+        self.assertTrue(np.abs(signif_dev_peak) < MAX_BIAS_BRIGHTNESSES)
 
         # Test major axes
         smaj_weights = 1.0 / self.deconv_smajaxes[:, 1] ** 2
@@ -141,7 +152,7 @@ class SourceParameters(unittest.TestCase):
         )
         av_smaj_err = 1 / np.sqrt(sum_smaj_weights)
         signif_dev_smaj = (TRUE_DECONV_SMAJ - av_smaj) / av_smaj_err
-        self.assertTrue(np.abs(signif_dev_smaj) < MAX_BIAS)
+        self.assertTrue(np.abs(signif_dev_smaj) < MAX_BIAS_AXES)
 
         # Test minor axes
         smin_weights = 1.0 / self.deconv_sminaxes[:, 1] ** 2
@@ -151,7 +162,7 @@ class SourceParameters(unittest.TestCase):
         )
         av_smin_err = 1 / np.sqrt(sum_smin_weights)
         signif_dev_smin = (TRUE_DECONV_SMIN - av_smin) / av_smin_err
-        self.assertTrue(np.abs(signif_dev_smin) < MAX_BIAS)
+        self.assertTrue(np.abs(signif_dev_smin) < MAX_BIAS_AXES)
 
         # Test position angles
         bpa_weights = 1.0 / self.deconv_bpas[:, 1] ** 2
@@ -159,7 +170,7 @@ class SourceParameters(unittest.TestCase):
         av_bpa = np.sum(self.deconv_bpas[:, 0] * bpa_weights / sum_bpa_weights)
         av_bpa_err = 1 / np.sqrt(sum_bpa_weights)
         signif_dev_bpa = (TRUE_DECONV_BPA - av_bpa) / av_bpa_err
-        self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS)
+        self.assertTrue(np.abs(signif_dev_bpa) < MAX_BIAS_PAS)
 
 
 @pytest.fixture
@@ -465,13 +476,13 @@ def test_measured_vectorized_forced_beam(
     # equal to sqrt(num_sources / NUMBER_INSERTED).
     # NUMBER_INSERTED is the number of sources measured in the
     # SourceParameters regression tests.
-    MAX_BIAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS
+    MAX_BIAS_BRIGHTNESSES_SCALED = (
+        np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_BRIGHTNESSES
+    )
     # For vectorized source measurements, we apply "tweaked moments",
     # which results in smaller biases on the brightnesses - compared to
-    # Gaussian fits, but still lower than the true values - and larger
-    # biases on the elliptical axes than from Gaussian fits, although both
-    # methods overestimate the axes.
-    MAX_BIAS_BRIGHTNESSES = MAX_BIAS_SCALED / 3.0
+    # Gaussian fits, but still lower than the true values.
+    MAX_BIAS_BRIGHTNESSES_SCALED /= 5.0
 
     generate_artificial_image_fixture(
         output_fits_path=image_path,
@@ -605,7 +616,7 @@ def test_measured_vectorized_forced_beam(
         0
     ]
     assert (
-        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
+        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES_SCALED
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
@@ -633,21 +644,28 @@ def test_measured_vectorized_free_shape(
 
     # Convolved sources have more spread, we do not want them to overlap,
     # therefore we reduce the number of sources compared to the unresolved case.
-    num_sources = 40_000
+    num_sources = 90_000
 
     # Set maximum allowed bias equal to maximum allowed
     # bias from SourceParameters regression tests times a scaling factor
     # equal to sqrt(num_sources / NUMBER_INSERTED).
     # NUMBER_INSERTED is the number of sources measured in the
     # SourceParameters regression tests.
-    MAX_BIAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS
+    MAX_BIAS_BRIGHTNESSES_SCALED = (
+        np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_BRIGHTNESSES
+    )
+    MAX_BIAS_AXES_SCALED = (
+        np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_AXES
+    )
+    MAX_BIAS_PAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_PAS
     # For vectorized source measurements, we apply "tweaked moments",
     # which results in smaller biases on the brightnesses - compared to
     # Gaussian fits, but still lower than the true values - and larger
     # biases on the elliptical axes than from Gaussian fits, although both
     # methods overestimate the axes.
-    MAX_BIAS_BRIGHTNESSES = MAX_BIAS_SCALED / 3.0
-    MAX_BIAS_AXES = MAX_BIAS_SCALED * 3.0
+    MAX_BIAS_BRIGHTNESSES_SCALED /= 5.0
+    MAX_BIAS_AXES_SCALED *= 1.5
+    MAX_BIAS_PAS_SCALED *= 3.0
 
     # Define an extended source; we are testing whether the deconvolution
     # algorithms can recover this shape.
@@ -789,7 +807,7 @@ def test_measured_vectorized_free_shape(
         0
     ]
     assert (
-        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES
+        np.abs(t_stat_peak) < MAX_BIAS_BRIGHTNESSES_SCALED
     ), f"Peak brightnesses severely biased: t_statistic = {t_stat_peak :.3f}"
 
     std_peak = np.std(norm_peak_resid)
@@ -811,7 +829,7 @@ def test_measured_vectorized_free_shape(
     t_stat_smaj = ttest_1samp(norm_smaj_resid, popmean=0, nan_policy="raise")[
         0
     ]
-    assert np.abs(t_stat_smaj) < MAX_BIAS_AXES, (
+    assert np.abs(t_stat_smaj) < MAX_BIAS_AXES_SCALED, (
         f"Convolved semi-major axes severely biased: t_statistic ="
         f" {t_stat_smaj :.3f}"
     )
@@ -835,7 +853,7 @@ def test_measured_vectorized_free_shape(
     t_stat_smin = ttest_1samp(norm_smin_resid, popmean=0, nan_policy="raise")[
         0
     ]
-    assert np.abs(t_stat_smin) < MAX_BIAS_AXES, (
+    assert np.abs(t_stat_smin) < MAX_BIAS_AXES_SCALED, (
         f"Convolved semi-minor axes severely biased: t_statistic ="
         f" {t_stat_smin :.3f}"
     )
@@ -859,7 +877,7 @@ def test_measured_vectorized_free_shape(
     t_stat_theta = ttest_1samp(
         norm_theta_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_theta) < MAX_BIAS_SCALED, (
+    assert np.abs(t_stat_theta) < MAX_BIAS_PAS_SCALED, (
         f"Convolved position angles severely biased: t_statistic ="
         f" {t_stat_theta :.3f}"
     )
@@ -887,7 +905,7 @@ def test_measured_vectorized_free_shape(
     t_stat_smaj_dc = ttest_1samp(
         norm_smaj_dc_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_smaj_dc) < MAX_BIAS_AXES, (
+    assert np.abs(t_stat_smaj_dc) < MAX_BIAS_AXES_SCALED, (
         f"Deconvolved semi-major axes severely biased: t_statistic ="
         f" {t_stat_smaj_dc :.3f}"
     )
@@ -915,7 +933,7 @@ def test_measured_vectorized_free_shape(
     t_stat_smin_dc = ttest_1samp(
         norm_smin_dc_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_smin_dc) < MAX_BIAS_AXES, (
+    assert np.abs(t_stat_smin_dc) < MAX_BIAS_AXES_SCALED, (
         f"Deconvolved semi-minor axes severely biased: t_statistic ="
         f" {t_stat_smin_dc :.3f}"
     )
@@ -943,7 +961,7 @@ def test_measured_vectorized_free_shape(
     t_stat_theta_dc = ttest_1samp(
         norm_theta_dc_resid, popmean=0, nan_policy="raise"
     )[0]
-    assert np.abs(t_stat_theta_dc) < MAX_BIAS_SCALED, (
+    assert np.abs(t_stat_theta_dc) < MAX_BIAS_PAS_SCALED, (
         f"Deconvolved position angles severely biased: t_statistic ="
         f" {t_stat_theta_dc :.3f}"
     )
