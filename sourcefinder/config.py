@@ -179,7 +179,7 @@ class ImgConf(_Validate):
 
     """
 
-    vectorized: bool = False
+    vectorized: bool = True
     """Measure sources in a vectorized way. Expect peak spectral
     brightnesses with a lower bias (downwards) than for Gaussian fits
     (also downwards), but with a higher bias (upwards for both) for
