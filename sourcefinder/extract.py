@@ -2222,7 +2222,7 @@ def source_measurements_vectorised(
     try:
         max_pixels = npixs.max()
     except ValueError:
-        # In this case, npixs is empty, i.e. there are no islands,
+        # In this case, npixs is an empty ndarray, i.e. there are no islands,
         # no sources have been detected.
         max_pixels = 0
 
