@@ -958,14 +958,14 @@ class ImageData(object):
         if not len(self.rmsmap.compressed()):
             logging.warning("RMS map masked; sourcefinding skipped")
             return (
-                [],
+                np.zeros(0, dtype=np.int32),
                 np.zeros(self.data_bgsubbed.shape, dtype=np.int32),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
+                0,
+                np.zeros((0, 2), dtype=np.int32),
+                np.zeros(0, dtype=np.float32),
+                np.zeros(0, dtype=np.int32),
+                np.zeros((0, 4), dtype=np.int32),
+                [],
             )
 
         # At this point, we select all the data which is eligible for
