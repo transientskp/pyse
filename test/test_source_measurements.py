@@ -80,7 +80,10 @@ class SourceParameters(unittest.TestCase):
             fitsfile.beam,
             fitsfile.wcs,
             conf=Conf(
-                ImgConf(detection_thr=10.0, analysis_thr=6.0), ExportSettings()
+                ImgConf(
+                    detection_thr=10.0, analysis_thr=6.0, vectorized=False
+                ),
+                ExportSettings(),
             ),
         )
 
