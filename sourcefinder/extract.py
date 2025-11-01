@@ -2298,6 +2298,7 @@ def source_measurements_vectorised(
 
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
+    # https://numpy.org/neps/nep-0020-gufunc-signature-enhancement.html
     # The output shape can apparently not be set as fixed numbers.
     # So we will add a dummy array with shape corresponding
     # to the output array (moments_of_sources), as (useless) input
