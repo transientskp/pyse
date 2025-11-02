@@ -1121,6 +1121,7 @@ class ImageData(object):
             )
         ],
         "(n, m), (l), (n, m), " + "(), (k) -> (k), (), ()",
+        target="parallel",
     )
     def extract_parms_image_slice(
         some_image, inds, labelled_data, label, dummy, maxpos, maxi, npix

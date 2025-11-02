@@ -1694,6 +1694,7 @@ class Detection(object):
     [(float64[:], float64[:], float32[:], float32[:], float32[:], float32[:])],
     "(n), (n), (n), (l), (m) -> (m)",
     nopython=True,
+    target="parallel",
 )
 def first_part_of_celestial_coordinates(
     ra_dec,
@@ -1879,6 +1880,7 @@ def first_part_of_celestial_coordinates(
         )
     ],
     "(n, m), (n, m), (l), (n, m), (), (), (k) -> (k), (k), (k), ()",
+    target="parallel",
 )
 def insert_sources_and_noise(
     some_image,
