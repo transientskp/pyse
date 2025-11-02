@@ -1410,7 +1410,7 @@ class ImageData(object):
             if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
-            if not self.conf.export.reconvert:
+            if self.conf.export.pandas_df:
                 sources_df = make_measurements_dataframe(
                     moments_of_sources,
                     sky_barycenters,

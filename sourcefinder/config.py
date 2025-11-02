@@ -438,14 +438,12 @@ class ExportSettings(_Validate):
     islands: bool = False
     """Generate island maps."""
 
-    reconvert: bool = True
-    """ Only applies to vectorized source meaurements,
-    i.e. when both ImgConf.vectorized==True and ImgConf.deblend_thresholds=0.
-    If True, the results will be converted to the same format as
-    for non-vectorized source measurements, i.e. a
-    `utility.containers.ExtractionResults` object. If False,
-    the results will be stored in a Pandas DataFrame, which is much
-    faster. """
+    pandas_df: bool = True
+    """ If True, the measured and derived source parameters will be returned 
+    as a Pandas DataFrame. If false, they will be returned as a
+    `utility.containers.ExtractionResults` object.
+    
+    """
 
     source_params: list[str] = field(default_factory=lambda: _source_params)
     """Collect all possible source parameters."""
