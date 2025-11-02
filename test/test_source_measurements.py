@@ -484,7 +484,8 @@ def test_measured_vectorized_forced_beam(
     )
     # For vectorized source measurements, we apply "tweaked moments",
     # which results in smaller biases on the brightnesses - compared to
-    # Gaussian fits, but still lower than the true values.
+    # Gaussian fits. Both methods give, on average, lower values than the true
+    # values.
     MAX_BIAS_BRIGHTNESSES_SCALED /= 5.0
 
     generate_artificial_image_fixture(
@@ -503,7 +504,7 @@ def test_measured_vectorized_forced_beam(
             back_size_y=256,
             force_beam=True,
         ),
-        export=ExportSettings(reconvert=False),
+        export=ExportSettings(),
     )
     fits_img = FitsImage(image_path)
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
@@ -663,9 +664,9 @@ def test_measured_vectorized_free_shape(
     MAX_BIAS_PAS_SCALED = np.sqrt(num_sources / NUMBER_INSERTED) * MAX_BIAS_PAS
     # For vectorized source measurements, we apply "tweaked moments",
     # which results in smaller biases on the brightnesses - compared to
-    # Gaussian fits, but still lower than the true values - and larger
-    # biases on the elliptical axes than from Gaussian fits, although both
-    # methods overestimate the axes.
+    # Gaussian fits, both methods give, on avarage, lower values than the true
+    # values - and larger biases on the elliptical axes than from Gaussian
+    # fits, although both methods overestimate the axes.
     MAX_BIAS_BRIGHTNESSES_SCALED /= 5.0
     MAX_BIAS_AXES_SCALED *= 1.5
     MAX_BIAS_PAS_SCALED *= 3.0
@@ -694,7 +695,7 @@ def test_measured_vectorized_free_shape(
             back_size_y=256,
             force_beam=False,
         ),
-        export=ExportSettings(reconvert=False),
+        export=ExportSettings(),
     )
     fits_img = FitsImage(image_path)
     img = sourcefinder_image_from_accessor(fits_img, conf=conf)
