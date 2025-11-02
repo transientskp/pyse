@@ -419,7 +419,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
         conf = Conf(
             image=ImgConf(detection_thr=5, force_beam=True),
-            export=ExportSettings(),
+            export=ExportSettings(pandas_df=False),
         )
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A), conf=conf
@@ -477,7 +477,8 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A),
-            conf=Conf(ImgConf(detection_thr=5e10, analysis_thr=5e10), {}),
+            conf=Conf(ImgConf(detection_thr=5e10, analysis_thr=5e10),
+                      export=ExportSettings(pandas_df=False)),
         )
         results = image.extract()
         results = [result.serialize() for result in results]
