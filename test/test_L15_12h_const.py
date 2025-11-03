@@ -75,7 +75,7 @@ class L15_12hConstCor(unittest.TestCase):
             image=ImgConf(
                 vectorized=False,
             ),
-            export=ExportSettings(),
+            export=ExportSettings(pandas_df=False),
         )
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
