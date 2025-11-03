@@ -465,7 +465,10 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         same dataset gives the same results (especially, RA and Dec).
         """
 
-        conf = Conf(image=ImgConf(detection_thr=5), export=ExportSettings())
+        conf = Conf(
+            image=ImgConf(detection_thr=5),
+            export=ExportSettings(pandas_df=False),
+        )
         fits_image = accessors.sourcefinder_image_from_accessor(
             FitsImage(os.path.join(DATAPATH, "SWIFT_554620-130504.fits")),
             conf=conf,
@@ -533,7 +536,11 @@ class TestMaskedSource(unittest.TestCase):
         """
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=Conf(ImgConf(detection_thr=5), {})
+            FitsImage(GRB120422A),
+            conf=Conf(
+                ImgConf(detection_thr=5),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
@@ -563,7 +570,10 @@ class TestMaskedBackground(unittest.TestCase):
     def testMaskedBackgroundBlind(self):
         image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(
+                ImgConf(radius=1.0),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         result = image.extract()
         self.assertFalse(result)
