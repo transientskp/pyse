@@ -386,7 +386,7 @@ def summary(filename, sourcelist):
     sourcelist.
     """
     output = StringIO()
-    print("** %s **\n" % (filename), file=output)
+    print("** %s **\n" % filename, file=output)
     for source in sourcelist:
         print(
             "RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output
@@ -472,7 +472,7 @@ def handle_args(args=None):
 
     # We have four potential modes, of which we choose only one to run:
     #
-    # 1. Blind sourcefinding
+    # 1. Blind source finding
     #  1.1 Thresholding, no detection image (no extra cmd line options)
     #  1.2 Thresholding, detection image (--detection-image)
     #  1.3 FDR (--fdr)
