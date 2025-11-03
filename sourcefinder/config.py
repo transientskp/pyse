@@ -451,7 +451,7 @@ class ExportSettings(_Validate):
     source_params_file: list[str] = field(
         default_factory=lambda: _source_params_file
     )
-    """ Source parameters to include a file for storage."""
+    """ Source parameters to include in a file for storage."""
 
 
 @dataclass(frozen=True)
