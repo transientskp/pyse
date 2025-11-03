@@ -305,7 +305,7 @@ def construct_argument_parser():
         "--islands", action="store_true", help="Generate island maps"
     )
 
-    # Finally, positional arguments- the file list:
+    # Finally, as positional arguments, the file list:
     parser.add_argument("files", nargs="+", help="Image files for processing")
     return parser
 
@@ -457,6 +457,8 @@ def handle_args(args=None):
     #       defaults.
     conf_image = replace(conf.image, **cli_args["Image parameters"])
     conf_export = replace(conf.export, **cli_args["Export parameters"])
+    no_pandas_df_dict = {"pandas_df": False}
+    conf_export = replace(conf_export, **no_pandas_df_dict)
     conf = replace(conf, image=conf_image, export=conf_export)
 
     # Overwrite 'fixed_coords' with a parsed list of coords
