@@ -218,7 +218,7 @@ for member in SourceParams:
     member.__doc__ = SourceParams.describe(member)
 
 # Set default set of source parameters to store in a file, e.g. a .csv file.
-_file_fields = [
+file_fields = [
     "PEAK",
     "PEAK_ERR",
     "FLUX",

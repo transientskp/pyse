@@ -20,7 +20,7 @@ from typing import Type
 from typing import TypeVar
 from warnings import warn
 
-from sourcefinder.utility.sourceparams import SourceParams, _file_fields
+from sourcefinder.utility.sourceparams import SourceParams, file_fields
 
 T = TypeVar("T")
 
@@ -121,7 +121,7 @@ _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 _source_params = [p.value for p in SourceParams.__members__.values()]
 
-_source_params_file = [SourceParams[field].value for field in _file_fields]
+_source_params_file = [SourceParams[field].value for field in file_fields]
 
 
 @dataclass(frozen=True)
