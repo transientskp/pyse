@@ -68,7 +68,7 @@ class SourceParameters(unittest.TestCase):
     It also tests the accuracy of the peak brightness measurements.
     Bias up to 5 sigma is allowed.
     Note that oversampling of the synthesized beam will likely reduce bias,
-    i.e. pixellation effects will become apparent.
+    i.e. pixelation effects will become apparent.
     """
 
     def setUp(self):
@@ -83,7 +83,7 @@ class SourceParameters(unittest.TestCase):
                 ImgConf(
                     detection_thr=10.0, analysis_thr=6.0, vectorized=False
                 ),
-                ExportSettings(),
+                ExportSettings(pandas_df=False),
             ),
         )
 
