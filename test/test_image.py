@@ -57,7 +57,8 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=Conf(ImgConf(margin=10), {})
+            FitsImage(GRB120422A),
+            conf=Conf(ImgConf(margin=10), export=ExportSettings()),
         )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
@@ -105,7 +106,10 @@ class TestFitFixedPositions(unittest.TestCase):
                     ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits"),
                 )
             ),
-            conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
+            conf=Conf(
+                ImgConf(back_size_x=64, back_size_y=64),
+                export=ExportSettings(),
+            ),
         )
 
     def testSourceAtGivenPosition(self):
@@ -561,7 +565,7 @@ class TestMaskedBackground(unittest.TestCase):
         """
         image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(ImgConf(radius=1.0), export=ExportSettings()),
         )
         result = image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
@@ -588,7 +592,7 @@ class TestFailureModes(unittest.TestCase):
     def testFlatImage(self):
         sfimage = accessors.sourcefinder_image_from_accessor(
             SyntheticImage(data=np.zeros((512, 512))),
-            conf=Conf(ImgConf(detection_thr=5), {}),
+            conf=Conf(ImgConf(detection_thr=5), export=ExportSettings()),
         )
         self.assertTrue(
             np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
@@ -614,7 +618,10 @@ class TestNegationImage(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            conf=Conf(ImgConf(detection_thr=5, analysis_thr=4), {}),
+            conf=Conf(
+                ImgConf(detection_thr=5, analysis_thr=4),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
@@ -656,7 +663,10 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
+            Conf(
+                ImgConf(back_size_x=128, back_size_y=51),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
@@ -789,7 +799,10 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
+            Conf(
+                ImgConf(back_size_x=128, back_size_y=128, radius=1000),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
