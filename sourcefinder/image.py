@@ -8,6 +8,7 @@ import logging
 
 import numpy as np
 from numba import guvectorize, float32, int32
+import pandas as pd
 
 from sourcefinder import extract
 from sourcefinder import stats
@@ -1521,5 +1522,15 @@ class ImageData(object):
                     return False
             return True
 
-        # Filter will return a list; ensure we return an ExtractionResults.
-        return containers.ExtractionResults(list(filter(is_usable, results)))
+        filtered_results = containers.ExtractionResults(
+            list(filter(is_usable, results))
+        )
+        if self.conf.export.pandas_df:
+            serialized_filtered_results = [
+                r.serialize(self.conf, every_parm=True)
+                for r in filtered_results
+            ]
+            return pd.DataFrame(serialized_filtered_results)
+        else:
+            # Filter will return a list; ensure we return an ExtractionResults.
+            return filtered_results
