@@ -496,7 +496,7 @@ class ImageData(object):
             labelled_data is not None
             and labelled_data.shape != self.data.shape
         ):
-            raise ValueError("Labelled map is wrong shape")
+            raise ValueError("Labelled map has wrong shape")
 
         return self._pyse(
             self.conf.image.detection_thr * self.rmsmap,
