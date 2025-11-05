@@ -8,6 +8,7 @@ import logging
 
 import numpy as np
 from numba import guvectorize, float32, int32
+import pandas as pd
 
 from sourcefinder import extract
 from sourcefinder import stats
@@ -958,14 +959,14 @@ class ImageData(object):
         if not len(self.rmsmap.compressed()):
             logging.warning("RMS map masked; sourcefinding skipped")
             return (
-                [],
+                np.zeros(0, dtype=np.int32),
                 np.zeros(self.data_bgsubbed.shape, dtype=np.int32),
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
+                0,
+                np.zeros((0, 2), dtype=np.int32),
+                np.zeros(0, dtype=np.float32),
+                np.zeros(0, dtype=np.int32),
+                np.zeros((0, 4), dtype=np.int32),
+                [],
             )
 
         # At this point, we select all the data which is eligible for
@@ -1121,6 +1122,7 @@ class ImageData(object):
             )
         ],
         "(n, m), (l), (n, m), " + "(), (k) -> (k), (), ()",
+        target="parallel",
     )
     def extract_parms_image_slice(
         some_image, inds, labelled_data, label, dummy, maxpos, maxi, npix
@@ -1409,7 +1411,7 @@ class ImageData(object):
             if self.conf.export.residuals:
                 self.Gaussian_residuals = Gaussian_residuals
 
-            if not self.conf.export.reconvert:
+            if self.conf.export.pandas_df:
                 sources_df = make_measurements_dataframe(
                     moments_of_sources,
                     sky_barycenters,
@@ -1520,5 +1522,15 @@ class ImageData(object):
                     return False
             return True
 
-        # Filter will return a list; ensure we return an ExtractionResults.
-        return containers.ExtractionResults(list(filter(is_usable, results)))
+        filtered_results = containers.ExtractionResults(
+            list(filter(is_usable, results))
+        )
+        if self.conf.export.pandas_df:
+            serialized_filtered_results = [
+                r.serialize(self.conf, every_parm=True)
+                for r in filtered_results
+            ]
+            return pd.DataFrame(serialized_filtered_results)
+        else:
+            # Filter will return a list; ensure we return an ExtractionResults.
+            return filtered_results

@@ -305,7 +305,7 @@ def construct_argument_parser():
         "--islands", action="store_true", help="Generate island maps"
     )
 
-    # Finally, positional arguments- the file list:
+    # Finally, as positional arguments, the file list:
     parser.add_argument("files", nargs="+", help="Image files for processing")
     return parser
 
@@ -386,7 +386,7 @@ def summary(filename, sourcelist):
     sourcelist.
     """
     output = StringIO()
-    print("** %s **\n" % (filename), file=output)
+    print("** %s **\n" % filename, file=output)
     for source in sourcelist:
         print(
             "RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output
@@ -457,6 +457,8 @@ def handle_args(args=None):
     #       defaults.
     conf_image = replace(conf.image, **cli_args["Image parameters"])
     conf_export = replace(conf.export, **cli_args["Export parameters"])
+    no_pandas_df_dict = {"pandas_df": False}
+    conf_export = replace(conf_export, **no_pandas_df_dict)
     conf = replace(conf, image=conf_image, export=conf_export)
 
     # Overwrite 'fixed_coords' with a parsed list of coords
@@ -472,7 +474,7 @@ def handle_args(args=None):
 
     # We have four potential modes, of which we choose only one to run:
     #
-    # 1. Blind sourcefinding
+    # 1. Blind source finding
     #  1.1 Thresholding, no detection image (no extra cmd line options)
     #  1.2 Thresholding, detection image (--detection-image)
     #  1.3 FDR (--fdr)

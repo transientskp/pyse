@@ -8,7 +8,12 @@ import scipy.optimize
 
 from .gaussian import gaussian, jac_gaussian
 from .stats import indep_pixels
-from sourcefinder.deconv import deconv
+from sourcefinder.deconv import (
+    deconv,
+    cov_p_to_cov_S,
+    covariance_matrix,
+    cov_S_to_cov_r,
+)
 from numba import guvectorize, float64, float32, int32, boolean, njit
 from sourcefinder.utils import (
     newton_raphson_root_finder,
@@ -30,6 +35,8 @@ class MomentParam(str, Enum):
 FIT_PARAMS = tuple(
     member.value for member in MomentParam if member.value != "flux"
 )
+
+sigma_to_ax = np.sqrt(2.0 * np.log(2.0))
 
 
 @njit
@@ -745,9 +752,9 @@ def moments_enhanced(
     if smaj > smin:
         errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho
     else:
-        errortheta = np.pi
-    if errortheta > np.pi:
-        errortheta = np.pi
+        errortheta = np.pi / 2.0
+    if errortheta > np.pi / 2.0:
+        errortheta = np.pi / 2.0
 
     # This should reflect the equivalent of equation 37 of the NVSS paper for
     # moments calculations. The middle term in that equation 37 is heuristically
@@ -775,115 +782,75 @@ def moments_enhanced(
     fminerror = 2.0 * errorsmin
     fpa = np.degrees(theta)
     fpaerror = np.degrees(errortheta)
-    cmaj = 2.0 * beam[0]
-    cmin = 2.0 * beam[1]
-    cpa = np.degrees(beam[2])
+    cmaj = float(2.0 * beam[0])
+    cmin = float(2.0 * beam[1])
+    cpa = float(np.degrees(beam[2]))
 
     rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
+    if rpa > 90:
+        rpa = -np.mod(-rpa, 180.0)
     # This parameter gives the number of components that could not be
     # deconvolved, IERR from deconf.f.
     deconv_imposs = ierr
     # Now, figure out the error bars.
-    if rmaj > 0:
-        # In this case the deconvolved position angle is defined.
-        # For convenience, we reset rpa to the interval [-90, 90].
-        if rpa > 90:
-            rpa = -np.mod(-rpa, 180.0)
-        theta_deconv = rpa
+    # Start with the case that all elliptical components can be deconvolved.
+    if ierr == 0:
+        # Need to convert half axes to widths first.
+        # Will use underscore _ to denote widths instead of half axes.
+        meas_ = (smaj / sigma_to_ax, smin / sigma_to_ax, theta)
+        beam_ = (
+            beam[0] / sigma_to_ax,
+            beam[1] / sigma_to_ax,
+            beam[2],
+        )
+        C_p_ = np.zeros((3, 3), dtype=np.float64)
+        C_p_[0, 0] = (errorsmaj / sigma_to_ax) ** 2
+        C_p_[1, 1] = (errorsmin / sigma_to_ax) ** 2
+        C_p_[2, 2] = errortheta**2
 
-        # In the general case, where the restoring beam is elliptic,
-        # calculating the error bars of the deconvolved position angle
-        # is more complicated than in the NVSS case, where a circular
-        # restoring beam was used.
-        # In the NVSS case the error bars of the deconvolved angle are
-        # equal to the fitted angle.
-        rmaj1, rmin1, rpa1, ierr1 = deconv(
-            fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa
+        C_s_ = cov_p_to_cov_S(C_p_, meas_[0], meas_[1], meas_[2])
+
+        Sigma_meas_ = covariance_matrix(*meas_)
+        Sigma_beam_ = covariance_matrix(*beam_)
+        Sigma_dec_ = Sigma_meas_ - Sigma_beam_
+
+        S_dec_ = np.array(
+            [Sigma_dec_[0, 0], Sigma_dec_[1, 1], Sigma_dec_[0, 1]]
         )
-        if ierr1 < 2:
-            if rpa1 > 90:
-                rpa1 = -np.mod(-rpa1, 180.0)
-            rpaerror1 = np.abs(rpa1 - rpa)
-            # An angle error can never be more than 90 degrees.
-            if rpaerror1 > 90.0:
-                rpaerror1 = np.mod(-rpaerror1, 180.0)
-        else:
-            rpaerror1 = np.nan
-        rmaj2, rmin2, rpa2, ierr2 = deconv(
-            fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa
-        )
-        if ierr2 < 2:
-            if rpa2 > 90:
-                rpa2 = -np.mod(-rpa2, 180.0)
-            rpaerror2 = np.abs(rpa2 - rpa)
-            # An angle error can never be more than 90 degrees.
-            if rpaerror2 > 90.0:
-                rpaerror2 = np.mod(-rpaerror2, 180.0)
-        else:
-            rpaerror2 = np.nan
-        if np.isnan(rpaerror1) or np.isnan(rpaerror2):
-            theta_deconv_error = np.nansum(np.array([rpaerror1, rpaerror2]))
-        else:
-            theta_deconv_error = np.mean(np.array([rpaerror1, rpaerror2]))
-        semimaj_deconv = rmaj / 2.0
-        rmaj3, rmin3, rpa3, ierr3 = deconv(
-            fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa
-        )
-        # If rmaj>0, then rmaj3 should also be > 0,
-        # if I am not mistaken, see the formulas at
-        # the end of ch.2 of Spreeuw's Ph.D. thesis.
-        if fmaj - fmajerror > fmin:
-            rmaj4, rmin4, rpa4, ierr4 = deconv(
-                fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa
-            )
-            if rmaj4 > 0:
-                semimaj_deconv_error = np.mean(
-                    np.array([np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)])
+        r_vec_, C_r_, ok = cov_S_to_cov_r(S_dec_, C_s_)
+        if ok:
+            # Convert back to HWHM axes instead of sigma axes.
+            semimaj_deconv = r_vec_[0] * sigma_to_ax
+            semimin_deconv = r_vec_[1] * sigma_to_ax
+            theta_deconv = np.rad2deg(r_vec_[2])
+            if theta_deconv > 90:
+                theta_deconv = -np.mod(-theta_deconv, 180.0)
+            # Check that we find the same deconvolved components as
+            # returned by the deconv function.
+            if not (
+                np.isclose(semimaj_deconv * 2.0, rmaj)
+                and np.isclose(semimin_deconv * 2.0, rmin)
+                and np.isclose(theta_deconv, rpa)
+            ):
+                raise RuntimeError(
+                    "Deconvolved parameters from covariance "
+                    "matrices do not match those from deconv."
                 )
-            else:
-                semimaj_deconv_error = np.abs(rmaj3 - rmaj)
-        else:
-            rmin4, rmaj4, rpa4, ierr4 = deconv(
-                fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa
-            )
-            if rmaj4 > 0:
-                semimaj_deconv_error = np.mean(
-                    np.array([np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)])
-                )
-            else:
-                semimaj_deconv_error = np.abs(rmaj3 - rmaj)
-        if rmin > 0:
-            semimin_deconv = rmin / 2.0
-            if fmin + fminerror < fmaj:
-                rmaj5, rmin5, rpa5, ierr5 = deconv(
-                    fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa
-                )
-            else:
-                rmin5, rmaj5, rpa5, ierr5 = deconv(
-                    fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa
-                )
-            # If rmin > 0, then rmin5 should also be > 0,
-            # if I am not mistaken, see the formulas at
-            # the end of ch.2 of Spreeuw's Ph.D. thesis.
-            rmaj6, rmin6, rpa6, ierr6 = deconv(
-                fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa
-            )
-            if rmin6 > 0:
-                semimin_deconv_error = np.mean(
-                    np.array([np.abs(rmin6 - rmin), np.abs(rmin5 - rmin)])
-                )
-            else:
-                semimin_deconv_error = np.abs(rmin5 - rmin)
-        else:
-            semimin_deconv = np.nan
-            semimin_deconv_error = np.nan
+            # Now the errors.
+            semimaj_deconv_error = np.sqrt(C_r_[0, 0]) * sigma_to_ax
+            semimin_deconv_error = np.sqrt(C_r_[1, 1]) * sigma_to_ax
+            theta_deconv_error = min(np.rad2deg(np.sqrt(C_r_[2, 2])), 90.0)
     else:
-        semimaj_deconv = np.nan
+        # In this case at least one of the elliptical components could not be
+        # deconvolved. This makes any kind of error analysis on the remaining
+        # components dubious. Therefore, we set all three error bars to NaN.
         semimaj_deconv_error = np.nan
-        semimin_deconv = np.nan
         semimin_deconv_error = np.nan
-        theta_deconv = np.nan
         theta_deconv_error = np.nan
+        dec_components = (rmaj / 2.0, rmin / 2.0, rpa)
+        semimaj_deconv, semimin_deconv, theta_deconv = [
+            dc if dc != 0 else np.nan for dc in dec_components
+        ]
 
     computed_moments[0, :] = np.array(
         [

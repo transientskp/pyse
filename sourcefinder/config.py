@@ -20,7 +20,7 @@ from typing import Type
 from typing import TypeVar
 from warnings import warn
 
-from sourcefinder.utility.sourceparams import SourceParams, _file_fields
+from sourcefinder.utility.sourceparams import SourceParams, file_fields
 
 T = TypeVar("T")
 
@@ -121,7 +121,7 @@ _structuring_element = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
 
 _source_params = [p.value for p in SourceParams.__members__.values()]
 
-_source_params_file = [SourceParams[field].value for field in _file_fields]
+_source_params_file = [SourceParams[field].value for field in file_fields]
 
 
 @dataclass(frozen=True)
@@ -179,7 +179,7 @@ class ImgConf(_Validate):
 
     """
 
-    vectorized: bool = False
+    vectorized: bool = True
     """Measure sources in a vectorized way. Expect peak spectral
     brightnesses with a lower bias (downwards) than for Gaussian fits
     (also downwards), but with a higher bias (upwards for both) for
@@ -438,14 +438,12 @@ class ExportSettings(_Validate):
     islands: bool = False
     """Generate island maps."""
 
-    reconvert: bool = True
-    """ Only applies to vectorized source meaurements,
-    i.e. when both ImgConf.vectorized==True and ImgConf.deblend_thresholds=0.
-    If True, the results will be converted to the same format as
-    for non-vectorized source measurements, i.e. a
-    `utility.containers.ExtractionResults` object. If False,
-    the results will be stored in a Pandas DataFrame, which is much
-    faster. """
+    pandas_df: bool = True
+    """ If True, the measured and derived source parameters will be returned 
+    as a Pandas DataFrame. If false, they will be returned as a
+    `utility.containers.ExtractionResults` object.
+    
+    """
 
     source_params: list[str] = field(default_factory=lambda: _source_params)
     """Collect all possible source parameters."""
@@ -453,7 +451,7 @@ class ExportSettings(_Validate):
     source_params_file: list[str] = field(
         default_factory=lambda: _source_params_file
     )
-    """ Source parameters to include a file for storage."""
+    """ Source parameters to include in a file for storage."""
 
 
 @dataclass(frozen=True)

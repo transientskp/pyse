@@ -4,14 +4,13 @@ import gc
 import os
 import unittest
 
-from sourcefinder.config import Conf, ImgConf
-
 from .conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data
 
 import sourcefinder.accessors.fitsimage
 import sourcefinder.image as image
 import sourcefinder.utility.coordinates as coords
+from sourcefinder.config import Conf, ImgConf, ExportSettings
 
 # The simulation code causes a factor of 2 difference in the
 # measured flux.
@@ -36,12 +35,18 @@ class L15_12hConstObs(unittest.TestCase):
     @requires_data(observed_fits)
     @classmethod
     def setUpClass(cls):
+        conf = Conf(
+            image=ImgConf(),
+            export=ExportSettings(pandas_df=False),
+        )
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
             observed_fits, beam=(0.2299, 0.1597, -23.87)
         )
-        cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.image = image.ImageData(
+            fitsfile.data, fitsfile.beam, fitsfile.wcs, conf=conf
+        )
         cls.results = cls.image.extract()
 
     @classmethod
@@ -66,12 +71,20 @@ class L15_12hConstCor(unittest.TestCase):
     # Cross shape of 5 sources, 2 degrees apart, at centre of image.
     @classmethod
     def setUpClass(cls):
+        conf = Conf(
+            image=ImgConf(
+                vectorized=False,
+            ),
+            export=ExportSettings(pandas_df=False),
+        )
         # Beam here is derived from a Gaussian fit to the central (unresolved)
         # source.
         fitsfile = sourcefinder.accessors.fitsimage.FitsImage(
             corrected_fits, beam=(0.2299, 0.1597, -23.87)
         )
-        cls.image = image.ImageData(fitsfile.data, fitsfile.beam, fitsfile.wcs)
+        cls.image = image.ImageData(
+            fitsfile.data, fitsfile.beam, fitsfile.wcs, conf=conf
+        )
         cls.results = cls.image.extract()
 
     @classmethod
@@ -128,7 +141,10 @@ class L15_12hConstMod(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            conf=Conf(ImgConf(detection_thr=5, radius=100), {}),
+            conf=Conf(
+                ImgConf(detection_thr=5, radius=100),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         cls.results = cls.image.extract()
 

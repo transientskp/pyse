@@ -10,7 +10,12 @@ from collections.abc import MutableMapping
 import numpy as np
 from numba import guvectorize, float64, float32, int32
 
-from sourcefinder.deconv import deconv
+from sourcefinder.deconv import (
+    deconv,
+    covariance_matrix,
+    cov_p_to_cov_S,
+    cov_S_to_cov_r,
+)
 from sourcefinder.utility import coordinates
 from sourcefinder.utility.uncertain import Uncertain
 from . import measuring
@@ -32,6 +37,8 @@ logger = logging.getLogger(__name__)
 # since we will get negative values representing real data after
 # background subtraction, etc.
 BIGNUM = 99999.0
+
+sigma_to_ax = np.sqrt(2.0 * np.log(2.0))
 
 
 class Island(object):
@@ -675,9 +682,9 @@ class ParamSet(MutableMapping):
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho2
         else:
-            errortheta = np.pi
-        if errortheta > np.pi:
-            errortheta = np.pi
+            errortheta = np.pi / 2.0
+        if errortheta > np.pi / 2.0:
+            errortheta = np.pi / 2.0
 
         # Formula (34) of the NVSS paper, without the general fitting bias,
         # since we don't observe that. On the contrary, there may be peak
@@ -801,9 +808,9 @@ class ParamSet(MutableMapping):
         if smaj > smin:
             errortheta = 2.0 * (smaj * smin / (smaj**2 - smin**2)) / rho
         else:
-            errortheta = np.pi
-        if errortheta > np.pi:
-            errortheta = np.pi
+            errortheta = np.pi / 2.0
+        if errortheta > np.pi / 2.0:
+            errortheta = np.pi / 2.0
 
         # The peak from "moments" is just the value of the maximum pixel
         # times a correction, fudge_max_pix, for the fact that the
@@ -871,106 +878,85 @@ class ParamSet(MutableMapping):
         cpa = np.degrees(beam[2])
 
         rmaj, rmin, rpa, ierr = deconv(fmaj, fmin, fpa, cmaj, cmin, cpa)
+        if rpa > 90:
+            rpa = -np.mod(-rpa, 180.0)
         # This parameter gives the number of components that could not be
-        # deconvolved, IERR from deconf.f.
+        # deconvolved, IERR from DECONV.FOR.
         self.deconv_imposs = ierr
         # Now, figure out the error bars.
-        if rmaj > 0:
-            # In this case the deconvolved position angle is defined.
-            # For convenience we reset rpa to the interval [-90, 90].
-            if rpa > 90:
-                rpa = -np.mod(-rpa, 180.0)
-            self["theta_deconv"].value = rpa
+        # Start with the case that all elliptical components can be deconvolved.
+        if ierr == 0:
+            # Need to convert half axes to widths first.
+            # Will use underscore _ to denote widths instead of half axes.
+            meas_ = (
+                self["semimajor"].value / sigma_to_ax,
+                self["semiminor"].value / sigma_to_ax,
+                self["theta"].value,
+            )
+            beam_ = (
+                beam[0] / sigma_to_ax,
+                beam[1] / sigma_to_ax,
+                beam[2],
+            )
+            C_p_ = np.zeros((3, 3), dtype=np.float64)
+            C_p_[0, 0] = (self["semimajor"].error / sigma_to_ax) ** 2
+            C_p_[1, 1] = (self["semiminor"].error / sigma_to_ax) ** 2
+            C_p_[2, 2] = self["theta"].error ** 2
 
-            # In the general case, where the restoring beam is elliptic,
-            # calculating the error bars of the deconvolved position angle
-            # is more complicated than in the NVSS case, where a circular
-            # restoring beam was used.
-            # In the NVSS case the error bars of the deconvolved angle are
-            # equal to the fitted angle.
-            rmaj1, rmin1, rpa1, ierr1 = deconv(
-                fmaj, fmin, fpa + fpaerror, cmaj, cmin, cpa
+            C_s_ = cov_p_to_cov_S(C_p_, meas_[0], meas_[1], meas_[2])
+
+            Sigma_meas_ = covariance_matrix(*meas_)
+            Sigma_beam_ = covariance_matrix(*beam_)
+            Sigma_dec_ = Sigma_meas_ - Sigma_beam_
+
+            S_dec_ = np.array(
+                [Sigma_dec_[0, 0], Sigma_dec_[1, 1], Sigma_dec_[0, 1]]
             )
-            if ierr1 < 2:
-                if rpa1 > 90:
-                    rpa1 = -np.mod(-rpa1, 180.0)
-                rpaerror1 = np.abs(rpa1 - rpa)
-                # An angle error can never be more than 90 degrees.
-                if rpaerror1 > 90.0:
-                    rpaerror1 = np.mod(-rpaerror1, 180.0)
-            else:
-                rpaerror1 = np.nan
-            rmaj2, rmin2, rpa2, ierr2 = deconv(
-                fmaj, fmin, fpa - fpaerror, cmaj, cmin, cpa
-            )
-            if ierr2 < 2:
-                if rpa2 > 90:
-                    rpa2 = -np.mod(-rpa2, 180.0)
-                rpaerror2 = np.abs(rpa2 - rpa)
-                # An angle error can never be more than 90 degrees.
-                if rpaerror2 > 90.0:
-                    rpaerror2 = np.mod(-rpaerror2, 180.0)
-            else:
-                rpaerror2 = np.nan
-            if np.isnan(rpaerror1) or np.isnan(rpaerror2):
-                self["theta_deconv"].error = np.nansum([rpaerror1, rpaerror2])
-            else:
-                self["theta_deconv"].error = np.mean([rpaerror1, rpaerror2])
-            self["semimaj_deconv"].value = rmaj / 2.0
-            rmaj3, rmin3, rpa3, ierr3 = deconv(
-                fmaj + fmajerror, fmin, fpa, cmaj, cmin, cpa
-            )
-            # If rmaj>0, then rmaj3 should also be > 0,
-            # if I am not mistaken, see the formulas at
-            # the end of ch.2 of Spreeuw's Ph.D. thesis.
-            if fmaj - fmajerror > fmin:
-                rmaj4, rmin4, rpa4, ierr4 = deconv(
-                    fmaj - fmajerror, fmin, fpa, cmaj, cmin, cpa
+            r_vec_, C_r_, ok = cov_S_to_cov_r(S_dec_, C_s_)
+            if ok:
+                # Convert back to HWHM axes instead of sigma axes.
+                self["semimaj_deconv"].value = r_vec_[0] * sigma_to_ax
+                self["semimin_deconv"].value = r_vec_[1] * sigma_to_ax
+                self["theta_deconv"].value = np.rad2deg(r_vec_[2])
+                if self["theta_deconv"].value > 90:
+                    self["theta_deconv"].value = -np.mod(
+                        -self["theta_deconv"].value, 180.0
+                    )
+                # Check that we find the same deconvolved components as
+                # returned by the deconv function.
+                if not (
+                    np.isclose(self["semimaj_deconv"].value * 2.0, rmaj)
+                    and np.isclose(self["semimin_deconv"].value * 2.0, rmin)
+                    and np.isclose(self["theta_deconv"].value, rpa)
+                ):
+                    raise RuntimeError(
+                        "Deconvolved parameters from covariance "
+                        "matrices do not match those from deconv."
+                    )
+
+                # Now the errors.
+                self["semimaj_deconv"].error = (
+                    np.sqrt(C_r_[0, 0]) * sigma_to_ax
                 )
-                if rmaj4 > 0:
-                    self["semimaj_deconv"].error = np.mean(
-                        [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)]
-                    )
-                else:
-                    self["semimaj_deconv"].error = np.abs(rmaj3 - rmaj)
-            else:
-                rmin4, rmaj4, rpa4, ierr4 = deconv(
-                    fmin, fmaj - fmajerror, fpa, cmaj, cmin, cpa
+                self["semimin_deconv"].error = (
+                    np.sqrt(C_r_[1, 1]) * sigma_to_ax
                 )
-                if rmaj4 > 0:
-                    self["semimaj_deconv"].error = np.mean(
-                        [np.abs(rmaj3 - rmaj), np.abs(rmaj - rmaj4)]
-                    )
-                else:
-                    self["semimaj_deconv"].error = np.abs(rmaj3 - rmaj)
-            if rmin > 0:
-                self["semimin_deconv"].value = rmin / 2.0
-                if fmin + fminerror < fmaj:
-                    rmaj5, rmin5, rpa5, ierr5 = deconv(
-                        fmaj, fmin + fminerror, fpa, cmaj, cmin, cpa
-                    )
-                else:
-                    rmin5, rmaj5, rpa5, ierr5 = deconv(
-                        fmin + fminerror, fmaj, fpa, cmaj, cmin, cpa
-                    )
-                # If rmin > 0, then rmin5 should also be > 0,
-                # if I am not mistaken, see the formulas at
-                # the end of ch.2 of Spreeuw's Ph.D. thesis.
-                rmaj6, rmin6, rpa6, ierr6 = deconv(
-                    fmaj, fmin - fminerror, fpa, cmaj, cmin, cpa
+                self["theta_deconv"].error = min(
+                    np.rad2deg(np.sqrt(C_r_[2, 2])), 90.0
                 )
-                if rmin6 > 0:
-                    self["semimin_deconv"].error = np.mean(
-                        [np.abs(rmin6 - rmin), np.abs(rmin5 - rmin)]
-                    )
-                else:
-                    self["semimin_deconv"].error = np.abs(rmin5 - rmin)
-            else:
-                self["semimin_deconv"] = Uncertain(np.nan, np.nan)
         else:
-            self["semimaj_deconv"] = Uncertain(np.nan, np.nan)
-            self["semimin_deconv"] = Uncertain(np.nan, np.nan)
-            self["theta_deconv"] = Uncertain(np.nan, np.nan)
+            # In this case at least one of the elliptical components could not be
+            # deconvolved. This makes any kind of error analysis on the remaining
+            # components dubious. Therefore, we set all three error bars to NaN.
+            self["semimaj_deconv"].error = np.nan
+            self["semimin_deconv"].error = np.nan
+            self["theta_deconv"].error = np.nan
+            dec_components = (rmaj / 2.0, rmin / 2.0, rpa)
+            (
+                self["semimaj_deconv"].value,
+                self["semimin_deconv"].value,
+                self["theta_deconv"].value,
+            ) = [dc if dc != 0 else np.nan for dc in dec_components]
 
         return self
 
@@ -1469,7 +1455,11 @@ class Detection(object):
         # The formula above is commented out because the angle computed
         # in this way will always be 0<=yoffset_angle<=90.
         # We'll use the dotproduct instead.
-        yoffs_rad = np.arccos(np.dot(diff1, diff2) / np.sqrt(normalization))
+        arg_for_arccos = np.dot(diff1, diff2) / np.sqrt(normalization)
+        if np.abs(arg_for_arccos) > 1.000001:
+            raise ValueError("arccos argument outside valid domain by >1e-6")
+        arg_for_arccos = min(1.0, max(-1.0, arg_for_arccos))
+        yoffs_rad = np.arccos(arg_for_arccos)
 
         # The multiplication with -sign_cor makes sure that the angle
         # is measured eastwards (increasing RA), not westwards.
@@ -1704,6 +1694,7 @@ class Detection(object):
     [(float64[:], float64[:], float32[:], float32[:], float32[:], float32[:])],
     "(n), (n), (n), (l), (m) -> (m)",
     nopython=True,
+    target="parallel",
 )
 def first_part_of_celestial_coordinates(
     ra_dec,
@@ -1817,7 +1808,11 @@ def first_part_of_celestial_coordinates(
     # The formula above is commented out because the angle computed
     # in this way will always be 0<=yoffset_angle<=90.
     # We'll use the dotproduct instead.
-    yoffs_rad = np.arccos(np.dot(diff1, diff2) / np.sqrt(normalization))
+    arg_for_arccos = np.dot(diff1, diff2) / np.sqrt(normalization)
+    if np.abs(arg_for_arccos) > 1.000001:
+        raise ValueError("arccos argument outside valid domain by >1e-6")
+    arg_for_arccos = min(1.0, max(-1.0, arg_for_arccos))
+    yoffs_rad = np.arccos(arg_for_arccos)
 
     # The multiplication with -sign_cor makes sure that the angle
     # is measured eastwards (increasing RA), not westwards.
@@ -1885,6 +1880,7 @@ def first_part_of_celestial_coordinates(
         )
     ],
     "(n, m), (n, m), (l), (n, m), (), (), (k) -> (k), (k), (k), ()",
+    target="parallel",
 )
 def insert_sources_and_noise(
     some_image,
@@ -2228,7 +2224,7 @@ def source_measurements_vectorised(
     try:
         max_pixels = npixs.max()
     except ValueError:
-        # In this case, npixs is empty, i.e. there are no islands,
+        # In this case, npixs is an empty ndarray, i.e. there are no islands,
         # no sources have been detected.
         max_pixels = 0
 
@@ -2304,11 +2300,13 @@ def source_measurements_vectorised(
 
     # This is a workaround for an unresolved issue:
     # https://github.com/numba/numba/issues/6690
+    # https://numpy.org/neps/nep-0020-gufunc-signature-enhancement.html
     # The output shape can apparently not be set as fixed numbers.
     # So we will add a dummy array with shape corresponding
     # to the output array (moments_of_sources), as (useless) input
     # array. In this way Numba can infer the shape of the output array.
     with np.errstate(invalid="ignore"):
+        # Context manager added to fix issue #165.
         measuring.moments_enhanced(
             sources,
             noises,

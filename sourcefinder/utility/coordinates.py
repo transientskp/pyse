@@ -28,7 +28,7 @@ ITRF_Y = 461022.947639000
 ITRF_Z = 5064892.786
 
 # Useful constants
-SECONDS_IN_HOUR = 60 ** 2
+SECONDS_IN_HOUR = 60**2
 SECONDS_IN_DAY = 24 * SECONDS_IN_HOUR
 
 
@@ -55,8 +55,11 @@ def julian_date(time=None, modified=False):
         time = datetime.datetime.now(pytz.utc)
     mjdstart = datetime.datetime(1858, 11, 17, tzinfo=pytz.utc)
     mjd = time - mjdstart
-    mjd_daynumber = (mjd.days + mjd.seconds / (24. * 60 ** 2) +
-                     mjd.microseconds / (24. * 60 ** 2 * 1000 ** 2))
+    mjd_daynumber = (
+        mjd.days
+        + mjd.seconds / (24.0 * 60**2)
+        + mjd.microseconds / (24.0 * 60**2 * 1000**2)
+    )
     if modified:
         return mjd_daynumber
     return 2400000.5 + mjd_daynumber
@@ -106,7 +109,7 @@ def mjd2lst(mjd, position=None):
     )
     dm.do_frame(position)
     last = dm.measure(dm.epoch("UTC", "%fd" % mjd), "LAST")
-    fractional_day = last['m0']['value'] % 1
+    fractional_day = last["m0"]["value"] % 1
     return fractional_day * 24 * SECONDS_IN_HOUR
 
 
@@ -162,7 +165,7 @@ def jd2lst(jd, position=None):
 # unix_epoch = 3506716800
 
 # The above is equivalent to this:
-unix_epoch = quantity("1970-01-01T00:00:00").get_value('s')
+unix_epoch = quantity("1970-01-01T00:00:00").get_value("s")
 
 
 def julian2unix(timestamp):
@@ -248,7 +251,7 @@ def sec2hms(seconds):
     seconds : float
 
     """
-    hours, seconds = divmod(seconds, 60 ** 2)
+    hours, seconds = divmod(seconds, 60**2)
     minutes, seconds = divmod(seconds, 60)
     return int(hours), int(minutes), seconds
 
@@ -280,21 +283,23 @@ def altaz(mjds, ra, dec, lat=CORE_LAT):
 
     # compute hour angle in degrees
     ha = mjds2lst(mjds) - ra
-    if (ha < 0):
+    if ha < 0:
         ha = ha + 360
 
     # convert degrees to radians
     ha, dec, lat = [math.radians(value) for value in (ha, dec, lat)]
 
     # compute altitude in radians
-    sin_alt = (math.sin(dec) * math.sin(lat) +
-               math.cos(dec) * math.cos(lat) * math.cos(ha))
+    sin_alt = math.sin(dec) * math.sin(lat) + math.cos(dec) * math.cos(
+        lat
+    ) * math.cos(ha)
     alt = math.asin(sin_alt)
 
     # compute azimuth in radians
     # divide by zero error at poles or if alt = 90 deg
-    cos_az = ((math.sin(dec) - math.sin(alt) * math.sin(lat)) /
-              (math.cos(alt) * math.cos(lat)))
+    cos_az = (math.sin(dec) - math.sin(alt) * math.sin(lat)) / (
+        math.cos(alt) * math.cos(lat)
+    )
     az = math.acos(cos_az)
     # convert radians to degrees
     hrz_altitude, hrz_azimuth = [math.degrees(value) for value in (alt, az)]
@@ -516,7 +521,8 @@ def angsep(ra1, dec1, ra2, dec2):
     b = (math.pi / 2) - math.radians(dec1)
     c = (math.pi / 2) - math.radians(dec2)
     temp = (math.cos(b) * math.cos(c)) + (
-    math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2)))
+        math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2))
+    )
 
     # Truncate the value of temp at +- 1: it makes no sense to do math.acos()
     # of a value outside this range, but occasionally we might get one due to
@@ -549,8 +555,12 @@ def cmp_jitted(a, b):
     return bool(a > b) - bool(a < b)
 
 
-@guvectorize([(float64[:], float64[:], float64[:])],
-             '(n), (n) -> ()', nopython=True)
+@guvectorize(
+    [(float64[:], float64[:], float64[:])],
+    "(n), (n) -> ()",
+    target="parallel",
+    nopython=True,
+)
 def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
     """Find the angular separation of two sources, in arcseconds,
     using the proper spherical trigonometry formula.
@@ -578,7 +588,8 @@ def angsep_vectorized(ra_dec1, ra_dec2, angular_separation):
     b = (math.pi / 2) - math.radians(dec1)
     c = (math.pi / 2) - math.radians(dec2)
     temp = (math.cos(b) * math.cos(c)) + (
-            math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2)))
+        math.sin(b) * math.sin(c) * math.cos(math.radians(ra1 - ra2))
+    )
 
     # Truncate the value of temp at +- 1: it makes no sense to do math.acos()
     # of a value outside this range, but occasionally we might get one due to
@@ -657,9 +668,20 @@ def alpha(l, m, alpha0, delta0):
         Right Ascension (RA) in decimal degrees.
 
     """
-    return (alpha0 + (math.degrees(math.atan2(l, (
-        (math.sqrt(1 - (l * l) - (m * m)) * math.cos(math.radians(delta0))) -
-        (m * math.sin(math.radians(delta0))))))))
+    return alpha0 + (
+        math.degrees(
+            math.atan2(
+                l,
+                (
+                    (
+                        math.sqrt(1 - (l * l) - (m * m))
+                        * math.cos(math.radians(delta0))
+                    )
+                    - (m * math.sin(math.radians(delta0)))
+                ),
+            )
+        )
+    )
 
 
 def alpha_inflate(theta, decl):
@@ -687,10 +709,19 @@ def alpha_inflate(theta, decl):
     if abs(decl) + theta > 89.9:
         return 180.0
     else:
-        return math.degrees(abs(math.atan(
-            math.sin(math.radians(theta)) / math.sqrt(abs(
-                math.cos(math.radians(decl - theta)) * math.cos(
-                    math.radians(decl + theta)))))))
+        return math.degrees(
+            abs(
+                math.atan(
+                    math.sin(math.radians(theta))
+                    / math.sqrt(
+                        abs(
+                            math.cos(math.radians(decl - theta))
+                            * math.cos(math.radians(decl + theta))
+                        )
+                    )
+                )
+            )
+        )
 
 
 def delta(l, m, delta0):
@@ -713,9 +744,15 @@ def delta(l, m, delta0):
         Declination in decimal degrees.
 
     """
-    return math.degrees(math.asin(m * math.cos(math.radians(delta0)) +
-                                  (math.sqrt(1 - (l * l) - (m * m)) *
-                                   math.sin(math.radians(delta0)))))
+    return math.degrees(
+        math.asin(
+            m * math.cos(math.radians(delta0))
+            + (
+                math.sqrt(1 - (l * l) - (m * m))
+                * math.sin(math.radians(delta0))
+            )
+        )
+    )
 
 
 def l(ra, dec, cra, incr):
@@ -738,8 +775,9 @@ def l(ra, dec, cra, incr):
         Direction cosine l.
 
     """
-    return ((math.cos(math.radians(dec)) * math.sin(math.radians(ra - cra))) /
-            (math.radians(incr)))
+    return (math.cos(math.radians(dec)) * math.sin(math.radians(ra - cra))) / (
+        math.radians(incr)
+    )
 
 
 def m(ra, dec, cra, cdec, incr):
@@ -764,9 +802,14 @@ def m(ra, dec, cra, cdec, incr):
         Direction cosine m.
 
     """
-    return ((math.sin(math.radians(dec)) * math.cos(math.radians(cdec))) -
-            (math.cos(math.radians(dec)) * math.sin(math.radians(cdec)) *
-             math.cos(math.radians(ra - cra)))) / math.radians(incr)
+    return (
+        (math.sin(math.radians(dec)) * math.cos(math.radians(cdec)))
+        - (
+            math.cos(math.radians(dec))
+            * math.sin(math.radians(cdec))
+            * math.cos(math.radians(ra - cra))
+        )
+    ) / math.radians(incr)
 
 
 def lm_to_radec(ra0, dec0, l, m):
@@ -854,11 +897,12 @@ def radec_to_lmn(ra0, dec0, ra, dec):
     sind0 = math.sin(dec0)
     if sind0 != 0:
         # from pandey;  gives same results for casa and cyga
-        m = (math.sin(dec) * math.cos(dec0) -
-             math.cos(dec) * math.sin(dec0) * math.cos(ra - ra0))
+        m = math.sin(dec) * math.cos(dec0) - math.cos(dec) * math.sin(
+            dec0
+        ) * math.cos(ra - ra0)
     else:
         m = 0
-    n = math.sqrt(1 - l ** 2 - m ** 2)
+    n = math.sqrt(1 - l**2 - m**2)
     return l, m, n
 
 
@@ -884,11 +928,10 @@ def eq_to_gal(ra, dec):
     dm = measures()
 
     result = dm.measure(
-        dm.direction("J200", "%fdeg" % ra, "%fdeg" % dec),
-        "GALACTIC"
+        dm.direction("J200", "%fdeg" % ra, "%fdeg" % dec), "GALACTIC"
     )
-    lon_l = math.degrees(result['m0']['value']) % 360  # 0 < ra < 360
-    lat_b = math.degrees(result['m1']['value'])
+    lon_l = math.degrees(result["m0"]["value"]) % 360  # 0 < ra < 360
+    lat_b = math.degrees(result["m1"]["value"])
 
     return lon_l, lat_b
 
@@ -915,11 +958,10 @@ def gal_to_eq(lon_l, lat_b):
     dm = measures()
 
     result = dm.measure(
-        dm.direction("GALACTIC", "%fdeg" % lon_l, "%fdeg" % lat_b),
-        "J2000"
+        dm.direction("GALACTIC", "%fdeg" % lon_l, "%fdeg" % lat_b), "J2000"
     )
-    ra = math.degrees(result['m0']['value']) % 360  # 0 < ra < 360
-    dec = math.degrees(result['m1']['value'])
+    ra = math.degrees(result["m0"]["value"]) % 360  # 0 < ra < 360
+    dec = math.degrees(result["m1"]["value"])
 
     return ra, dec
 
@@ -946,9 +988,12 @@ def eq_to_cart(ra, dec):
 
     """
     return (
-    math.cos(math.radians(dec)) * math.cos(math.radians(ra)),  # Cartesian x
-    math.cos(math.radians(dec)) * math.sin(math.radians(ra)),  # Cartesian y
-    math.sin(math.radians(dec)))  # Cartesian z
+        math.cos(math.radians(dec))
+        * math.cos(math.radians(ra)),  # Cartesian x
+        math.cos(math.radians(dec))
+        * math.sin(math.radians(ra)),  # Cartesian y
+        math.sin(math.radians(dec)),
+    )  # Cartesian z
 
 
 class CoordSystem:
@@ -956,6 +1001,7 @@ class CoordSystem:
     coordinate systems.
 
     """
+
     FK4 = "B1950 (FK4)"
     FK5 = "J2000 (FK5)"
 
@@ -982,12 +1028,12 @@ def coordsystem(name):
 
     """
     mappings = {
-        'j2000': CoordSystem.FK5,
-        'fk5': CoordSystem.FK5,
+        "j2000": CoordSystem.FK5,
+        "fk5": CoordSystem.FK5,
         CoordSystem.FK5.lower(): CoordSystem.FK5,
-        'b1950': CoordSystem.FK4,
-        'fk4': CoordSystem.FK4,
-        CoordSystem.FK4.lower(): CoordSystem.FK4
+        "b1950": CoordSystem.FK4,
+        "fk4": CoordSystem.FK4,
+        CoordSystem.FK4.lower(): CoordSystem.FK4,
     }
     return mappings[name.lower()]
 
@@ -1040,12 +1086,11 @@ def convert_coordsystem(ra, dec, insys, outsys):
         raise Exception("Unknown Coordinate System")
 
     result = dm.measure(
-        dm.direction(insys, "%fdeg" % ra, "%fdeg" % dec),
-        outsys
+        dm.direction(insys, "%fdeg" % ra, "%fdeg" % dec), outsys
     )
 
-    ra = math.degrees(result['m0']['value']) % 360  # 0 < ra < 360
-    dec = math.degrees(result['m1']['value'])
+    ra = math.degrees(result["m0"]["value"]) % 360  # 0 < ra < 360
+    dec = math.degrees(result["m1"]["value"])
 
     return ra, dec
 
@@ -1060,6 +1105,7 @@ class WCS:
       * Raises ValueError if coordinates are invalid.
 
     """
+
     # ORIGIN is the upper-left corner of the image. pywcs supports both 0
     # (NumPy, C-style) or 1 (FITS, Fortran-style). The TraP uses 1.
     ORIGIN = 1
@@ -1079,7 +1125,8 @@ class WCS:
             # infinitesimally less than 90 degrees to avoid any ambiguity. See
             # discussion at #4599.
             if attrname == "crval" and (
-                    value[1] == 90 or value[1] == math.pi / 2):
+                value[1] == 90 or value[1] == math.pi / 2
+            ):
                 value = (value[0], value[1] * (1 - sys.float_info.epsilon))
             self.wcs.wcs.__setattr__(attrname, value)
         else:
@@ -1088,7 +1135,9 @@ class WCS:
     def __getattr__(self, attrname):
         if attrname in self.WCS_ATTRS:
             return getattr(self.wcs.wcs, attrname)
-        raise AttributeError(f"{type(self)!r} object has no attribute {attrname!r}")
+        raise AttributeError(
+            f"{type(self)!r} object has no attribute {attrname!r}"
+        )
 
     def p2s(self, pixpos):
         """Convert pixel coordinates to spatial coordinates.
@@ -1139,7 +1188,9 @@ class WCS:
 
         """
 
-        x, y = self.wcs.wcs_world2pix(spatialpos[0], spatialpos[1], self.ORIGIN)
+        x, y = self.wcs.wcs_world2pix(
+            spatialpos[0], spatialpos[1], self.ORIGIN
+        )
         if math.isnan(x) or math.isnan(y):
             raise RuntimeError("Pixel position is not a number")
         return float(x), float(y)
@@ -1162,8 +1213,7 @@ class WCS:
             - Declination (float) in decimal degrees.
 
         """
-        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos,
-                                                 self.ORIGIN)
+        sky_coordinates = self.wcs.all_pix2world(array_of_pixpos, self.ORIGIN)
         if numpy.isnan(sky_coordinates).any():
             raise RuntimeError("Spatial position is not a number")
         # Mimic conditional from extract.Detection._physical_coordinates

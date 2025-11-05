@@ -57,7 +57,8 @@ class TestMapsType(unittest.TestCase):
     @requires_data(GRB120422A)
     def testmaps_array_type(self):
         self.image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=Conf(ImgConf(margin=10), {})
+            FitsImage(GRB120422A),
+            conf=Conf(ImgConf(margin=10), export=ExportSettings()),
         )
         self.assertIsInstance(self.image.rmsmap, np.ma.MaskedArray)
         self.assertIsInstance(self.image.backmap, np.ma.MaskedArray)
@@ -105,7 +106,10 @@ class TestFitFixedPositions(unittest.TestCase):
                     ("GRB201006A_final_2min_srcs-t0002-image-pb_cutout.fits"),
                 )
             ),
-            conf=Conf(ImgConf(back_size_x=64, back_size_y=64), {}),
+            conf=Conf(
+                ImgConf(back_size_x=64, back_size_y=64),
+                export=ExportSettings(),
+            ),
         )
 
     def testSourceAtGivenPosition(self):
@@ -310,39 +314,12 @@ class TestSimpleImageSourceFind(unittest.TestCase):
 
     @requires_data(GRB120422A)
     def testSingleSourceExtraction(self):
-        """
-        Single source extaction
+        """Single source extraction
 
         From visual inspection we only expect a single source in the image,
         at around 5 or 6 sigma detection level."""
 
-        conf = Conf(
-            image=ImgConf(),
-            export=ExportSettings(
-                source_params=[
-                    "ra",
-                    "dec",
-                    "ra_err",
-                    "dec_err",
-                    "peak",
-                    "peak_err",
-                    "flux",
-                    "flux_err",
-                    "sig",
-                    "smaj_asec",
-                    "smin_asec",
-                    "theta_celes",
-                    "ew_sys_err",
-                    "ns_sys_err",
-                    "error_radius",
-                    "gaussian",
-                    "chisq",
-                    "reduced_chisq",
-                ]
-            ),
-        )
-
-        known_result_fit = [
+        known_result_fitting = [
             1.36896042e02,
             1.40221872e01,  # RA (deg), DEC (deg)
             5.06084005e-04,
@@ -388,25 +365,81 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             9.1803038e-01,
         ]  # chisq, reduced chisq
 
-        image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A),
-            conf=Conf(image=ImgConf(detection_thr=5), export=ExportSettings()),
+        source_params = [
+            "ra",
+            "dec",
+            "ra_err",
+            "dec_err",
+            "peak",
+            "peak_err",
+            "flux",
+            "flux_err",
+            "sig",
+            "smaj_asec",
+            "smin_asec",
+            "theta_celes",
+            "ew_sys_err",
+            "ns_sys_err",
+            "error_radius",
+            "gaussian",
+            "chisq",
+            "reduced_chisq",
+        ]
+
+        # Start with comparing results from fitting with ground truth results
+        # from fitting. This implies "vectorized==False".
+        conf_fitting = Conf(
+            image=ImgConf(detection_thr=5, vectorized=False),
+            export=ExportSettings(
+                source_params=source_params, pandas_df=False
+            ),
         )
 
-        results = image.extract()
-        results = [
-            result.serialize(conf, every_parm=True) for result in results
+        image = accessors.sourcefinder_image_from_accessor(
+            FitsImage(GRB120422A), conf=conf_fitting
+        )
+
+        results_fitting = image.extract()
+        results_fitting = [
+            result.serialize(conf_fitting, every_parm=True)
+            for result in results_fitting
         ]
-        self.assertEqual(len(results), 2)
-        r = np.array(results[1], dtype=np.float32)
-        # Check if we derived source parameters from a fit or from moments.
-        if r[-3] == 1:
-            known_result = np.array(known_result_fit, dtype=np.float32)
-        else:
-            known_result = np.array(known_result_moments, dtype=np.float32)
-        self.assertEqual(r.size, known_result.size)
+        self.assertEqual(len(results_fitting), 2)
+        r = np.array(results_fitting[1], dtype=np.float32)
+        known_result_fitting = np.array(known_result_fitting, dtype=np.float32)
+        self.assertEqual(r.size, known_result_fitting.size)
         self.assertTrue(
-            np.allclose(r, known_result, rtol=1e-4, atol=0, equal_nan=True)
+            np.allclose(
+                r, known_result_fitting, rtol=1e-4, atol=0, equal_nan=True
+            )
+        )
+
+        # Next, compare results from "tweaked moments" with ground truth results
+        # from "tweaked moments". This implies "vectorized==True".
+        conf_moments = Conf(
+            image=ImgConf(detection_thr=5, vectorized=True),
+            export=ExportSettings(
+                source_params=source_params, pandas_df=False
+            ),
+        )
+
+        image = accessors.sourcefinder_image_from_accessor(
+            FitsImage(GRB120422A), conf=conf_moments
+        )
+
+        results_moments = image.extract()
+        results_moments = [
+            result.serialize(conf_moments, every_parm=True)
+            for result in results_moments
+        ]
+        self.assertEqual(len(results_moments), 2)
+        r = np.array(results_moments[1], dtype=np.float32)
+        known_result_moments = np.array(known_result_moments, dtype=np.float32)
+        self.assertEqual(r.size, known_result_moments.size)
+        self.assertTrue(
+            np.allclose(
+                r, known_result_moments, rtol=1e-4, atol=0, equal_nan=True
+            )
         )
 
     @requires_data(GRB120422A)
@@ -419,7 +452,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
         conf = Conf(
             image=ImgConf(detection_thr=5, force_beam=True),
-            export=ExportSettings(),
+            export=ExportSettings(pandas_df=False),
         )
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A), conf=conf
@@ -436,7 +469,10 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         same dataset gives the same results (especially, RA and Dec).
         """
 
-        conf = Conf(image=ImgConf(detection_thr=5), export=ExportSettings())
+        conf = Conf(
+            image=ImgConf(detection_thr=5),
+            export=ExportSettings(pandas_df=False),
+        )
         fits_image = accessors.sourcefinder_image_from_accessor(
             FitsImage(os.path.join(DATAPATH, "SWIFT_554620-130504.fits")),
             conf=conf,
@@ -477,7 +513,10 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A),
-            conf=Conf(ImgConf(detection_thr=5e10, analysis_thr=5e10), {}),
+            conf=Conf(
+                ImgConf(detection_thr=5e10, analysis_thr=5e10),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         results = image.extract()
         results = [result.serialize() for result in results]
@@ -501,7 +540,11 @@ class TestMaskedSource(unittest.TestCase):
         """
 
         image = accessors.sourcefinder_image_from_accessor(
-            FitsImage(GRB120422A), conf=Conf(ImgConf(detection_thr=5), {})
+            FitsImage(GRB120422A),
+            conf=Conf(
+                ImgConf(detection_thr=5),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         # FIXME: the line below was in a shadowed method with an identical name
         # self.image.data[250:280, 250:280] = np.ma.masked
@@ -522,7 +565,7 @@ class TestMaskedBackground(unittest.TestCase):
         """
         image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(ImgConf(radius=1.0), export=ExportSettings()),
         )
         result = image.fit_to_point(256, 256, 10, 0, None)
         self.assertFalse(result)
@@ -531,7 +574,10 @@ class TestMaskedBackground(unittest.TestCase):
     def testMaskedBackgroundBlind(self):
         image = accessors.sourcefinder_image_from_accessor(
             accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
-            conf=Conf(ImgConf(radius=1.0), {}),
+            conf=Conf(
+                ImgConf(radius=1.0),
+                export=ExportSettings(pandas_df=False),
+            ),
         )
         result = image.extract()
         self.assertFalse(result)
@@ -546,7 +592,7 @@ class TestFailureModes(unittest.TestCase):
     def testFlatImage(self):
         sfimage = accessors.sourcefinder_image_from_accessor(
             SyntheticImage(data=np.zeros((512, 512))),
-            conf=Conf(ImgConf(detection_thr=5), {}),
+            conf=Conf(ImgConf(detection_thr=5), export=ExportSettings()),
         )
         self.assertTrue(
             np.ma.max(sfimage.data) == np.ma.min(sfimage.data),
@@ -572,7 +618,10 @@ class TestNegationImage(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            conf=Conf(ImgConf(detection_thr=5, analysis_thr=4), {}),
+            conf=Conf(
+                ImgConf(detection_thr=5, analysis_thr=4),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
@@ -614,7 +663,10 @@ class TestBackgroundCharacteristicsSimple(unittest.TestCase):
             fitsfile.data,
             fitsfile.beam,
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=51), {}),
+            Conf(
+                ImgConf(back_size_x=128, back_size_y=51),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
@@ -747,7 +799,10 @@ class TestBackgroundCharacteristicsComplex(unittest.TestCase):
             fitsfile.data,
             (0.208, 0.136, 15.619),
             fitsfile.wcs,
-            Conf(ImgConf(back_size_x=128, back_size_y=128, radius=1000), {}),
+            Conf(
+                ImgConf(back_size_x=128, back_size_y=128, radius=1000),
+                export=ExportSettings(),
+            ),
         )
 
     @classmethod
