@@ -1002,6 +1002,7 @@ class ImageData(object):
                 self.data_bgsubbed > analysisthresholdmap, 1, 0
             )
 
+        clipped_data_mask = clipped_data.mask
         # Treat masked pixels as source pixels, by setting "fill_value=1"
         # instead of "fill_value=0". In this way, we can figure out if
         # some source pixels were connected to masked pixels and should
@@ -1016,7 +1017,7 @@ class ImageData(object):
         # masked pixels, i.e. sources that we do not want to measure, since
         # the pixels will be distributed asymmmetrically around the source's
         # barycenter and the measurement will be compromised.
-        masked_labels = np.unique(labelled_data[clipped_data.mask])
+        masked_labels = np.unique(labelled_data[clipped_data_mask])
         # The background label (0) does not relate to source pixels and should
         # therefore be excluded when we want to remove sources near masked
         # pixels.
