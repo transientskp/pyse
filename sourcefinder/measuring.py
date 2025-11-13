@@ -306,7 +306,7 @@ def moments_enhanced(
     significance,
     chisq,
     reduced_chisq,
-):
+):  # pragma: no cover
     """Calculate source properties using moments.
 
     Vectorized using the `guvectorize` decorator. Also calculates the
