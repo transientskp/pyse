@@ -1166,7 +1166,7 @@ class ImageData(object):
     )
     def extract_parms_image_slice(
         some_image, inds, labelled_data, label, dummy, maxpos, maxi, npix
-    ):
+    ):  # pragma: no cover
         """Find the highest pixel value and its position.
 
         For an island, indicated by a group of pixels with the same label,
