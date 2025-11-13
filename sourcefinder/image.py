@@ -1014,10 +1014,12 @@ class ImageData(object):
 
         # "masked_labels" should contain the labels of sources connected to
         # masked pixels, i.e. sources that we do not want to measure, since
-        # these measurements would be dubious.
+        # the pixels will be distributed asymmmetrically around the source's
+        # barycenter and the measurement will be compromised.
         masked_labels = np.unique(labelled_data[clipped_data.mask])
         # The background label (0) does not relate to source pixels and should
-        # therefore be excluded when we want to remove sources near borders.
+        # therefore be excluded when we want to remove sources near masked
+        # pixels.
         masked_labels = np.delete(
             masked_labels, (masked_labels == 0).nonzero()
         )
@@ -1026,6 +1028,10 @@ class ImageData(object):
         # 1,2,3,4...N.
         labelled_data[np.isin(labelled_data, masked_labels)] = 0
 
+        # np.arange(1, num_labels + 1)) to discard the zero label
+        # (background).
+        # Will break in the pathological case that all the image pixels
+        # are covered by sources, but we will take that risk.
         labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
         # Delete masked labels from the labels array.
         labels_arr = np.delete(labels_arr, np.isin(labels_arr, masked_labels))
@@ -1079,10 +1085,6 @@ class ImageData(object):
 
         num_islands_above_detection_threshold = above_det_thr.sum()
 
-        # np.arange(1, num_labels + 1)) to discard the zero label
-        # (background).
-        # Will break in the pathological case that all the image pixels
-        # are covered by sources, but we will take that risk.
         labels_above_det_thr = np.extract(above_det_thr, labels_arr)
 
         maxposs_above_det_thr = np.compress(above_det_thr, maxposs, axis=0)
