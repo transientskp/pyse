@@ -996,20 +996,59 @@ class ImageData(object):
                 ),
                 1,
                 0,
-            ).filled(fill_value=0)
+            )
         else:
             clipped_data = np.ma.where(
                 self.data_bgsubbed > analysisthresholdmap, 1, 0
-            ).filled(fill_value=0)
+            )
+
+        # Treat masked pixels as source pixels, by setting "fill_value=1"
+        # instead of "fill_value=0". In this way, we can figure out if
+        # some source pixels were connected to masked pixels and should
+        # therefore not be included in the source extraction process.
+        clipped_data = clipped_data.filled(fill_value=1)
 
         labelled_data, num_labels = ndimage.label(
             clipped_data, self.conf.image.structuring_element
         )
 
+        # "masked_labels" should contain the labels of sources connected to
+        # masked pixels, i.e. sources that we do not want to measure, since
+        # these measurements would be dubious.
+        masked_labels = np.unique(labelled_data[clipped_data.mask])
+        # The background label (0) does not relate to source pixels and should
+        # therefore be excluded when we want to remove sources near borders.
+        masked_labels = np.delete(
+            masked_labels, (masked_labels == 0).nonzero()
+        )
+        # Replace bad labels by zeroes. Consequently, the labels in
+        # labelled_data may no longer form a consecutive sequence of integers
+        # 1,2,3,4...N.
+        labelled_data[np.isin(labelled_data, masked_labels)] = 0
+
+        labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
+        # Delete masked labels from the labels array.
+        labels_arr = np.delete(labels_arr, np.isin(labels_arr, masked_labels))
+        num_labels -= masked_labels.size
+
+        try:
+            check = np.unique(labelled_data).size
+            assert check == labels_arr.size + 1
+            assert check == num_labels + 1
+            assert num_labels == labels_arr.size
+        except AssertionError:
+            print(
+                "Something has gone wrong in removing sources close to "
+                "borders"
+            )
+
         # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
+        # NB Slices ordered by label value (1...N,), although some labels
+        # may have been removed.
         slices = ndimage.find_objects(labelled_data)
+        # 'None' is returned for each removed (bad) label. We remove them from
+        # "slices".
+        slices = [x for x in slices if x is not None]
 
         # Derive all indices than correspond to the slices
         all_indices = ImageData.slices_to_indices(slices)
@@ -1025,7 +1064,7 @@ class ImageData(object):
             self.data_bgsubbed.data.astype(dtype=np.float32, copy=False),
             all_indices,
             labelled_data,
-            np.arange(1, num_labels + 1, dtype=np.int32),
+            labels_arr,
             dummy,
             maxposs,
             maxis,
@@ -1044,9 +1083,7 @@ class ImageData(object):
         # (background).
         # Will break in the pathological case that all the image pixels
         # are covered by sources, but we will take that risk.
-        labels_above_det_thr = np.extract(
-            above_det_thr, np.arange(1, num_labels + 1)
-        )
+        labels_above_det_thr = np.extract(above_det_thr, labels_arr)
 
         maxposs_above_det_thr = np.compress(above_det_thr, maxposs, axis=0)
         maxis_above_det_thr = np.extract(above_det_thr, maxis)
