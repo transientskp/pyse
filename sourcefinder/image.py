@@ -1008,7 +1008,7 @@ class ImageData(object):
             clipped_data, self.conf.image.structuring_element
         )
 
-        # masked_labels should contain the labels of sources connected to
+        # "masked_labels" should contain the labels of sources connected to
         # masked pixels, i.e. sources that we do not want to measure, since
         # the pixels will be distributed asymmmetrically around the source's
         # barycenter and the measurement will be compromised.
