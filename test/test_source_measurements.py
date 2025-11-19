@@ -503,6 +503,7 @@ def test_measured_vectorized_forced_beam(
             back_size_x=256,
             back_size_y=256,
             force_beam=True,
+            remove_edge_sources=False,
         ),
         export=ExportSettings(),
     )

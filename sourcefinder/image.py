@@ -997,69 +997,80 @@ class ImageData(object):
                 self.data_bgsubbed > analysisthresholdmap, 1, 0
             )
 
-        clipped_data_mask = clipped_data.mask
-        # Treat masked pixels as source pixels, by setting "fill_value=1"
-        # instead of "fill_value=0". In this way, we can figure out if
-        # some source pixels were connected to masked pixels and should
-        # therefore not be included in the source extraction process.
-        clipped_data = clipped_data.filled(fill_value=1)
+        if self.conf.image.remove_edge_sources:
+            clipped_data_mask = clipped_data.mask
+            # Treat masked pixels as source pixels, by setting "fill_value=1"
+            # instead of "fill_value=0". In this way, we can figure out if
+            # some source pixels were connected to masked pixels and should
+            # therefore not be included in the source extraction process.
+            clipped_data = clipped_data.filled(fill_value=1)
 
-        labelled_data, num_labels = ndimage.label(
-            clipped_data, self.conf.image.structuring_element
-        )
+            labelled_data, num_labels = ndimage.label(
+                clipped_data, self.conf.image.structuring_element
+            )
 
-        # "masked_labels" should contain the labels of sources connected to
-        # masked pixels, i.e. sources that we do not want to measure, since
-        # the pixels will be distributed asymmmetrically around the source's
-        # barycenter and the measurement will be compromised.
-        masked_labels = np.unique(labelled_data[clipped_data_mask])
-        # Also exclude sources with pixels - with values above the analysis
-        # threshold - touching the edges of the image, for the same reason.
-        edge_labels = np.unique(
-            np.concatenate(
-                (
-                    labelled_data[0, :],
-                    labelled_data[-1, :],
-                    labelled_data[:, 0],
-                    labelled_data[:, -1],
+            # "masked_labels" should contain the labels of sources connected to
+            # masked pixels, i.e. sources that we do not want to measure, since
+            # the pixels will be distributed asymmmetrically around the source's
+            # barycenter and the measurement will be compromised.
+            masked_labels = np.unique(labelled_data[clipped_data_mask])
+            # Also exclude sources with pixels - with values above the analysis
+            # threshold - touching the edges of the image, for the same reason.
+            edge_labels = np.unique(
+                np.concatenate(
+                    (
+                        labelled_data[0, :],
+                        labelled_data[-1, :],
+                        labelled_data[:, 0],
+                        labelled_data[:, -1],
+                    )
                 )
             )
-        )
-        # Unite the labels corresponding to sources touching masked pixels
-        # with the labels corresponding to sources touching the edges of the
-        # image.
-        discarded_labels = np.unique(
-            np.concatenate((edge_labels, masked_labels))
-        )
-        # The background label (0) does not relate to source pixels and should
-        # therefore be excluded when we want to remove sources near masked
-        # pixels.
-        discarded_labels = np.delete(
-            discarded_labels, (discarded_labels == 0).nonzero()
-        )
-        # Replace bad labels by zeroes. Consequently, the labels in
-        # labelled_data may no longer form a consecutive sequence of integers
-        # 1,2,3,4...N.
-        labelled_data[np.isin(labelled_data, discarded_labels)] = 0
+            # Unite the labels corresponding to sources touching masked pixels
+            # with the labels corresponding to sources touching the edges of the
+            # image.
+            discarded_labels = np.unique(
+                np.concatenate((edge_labels, masked_labels))
+            )
+            # The background label (0) does not relate to source pixels and should
+            # therefore be excluded when we want to remove sources near masked
+            # pixels.
+            discarded_labels = np.delete(
+                discarded_labels, (discarded_labels == 0).nonzero()
+            )
+            # Replace bad labels by zeroes. Consequently, the labels in
+            # labelled_data may no longer form a consecutive sequence of integers
+            # 1,2,3,4...N.
+            labelled_data[np.isin(labelled_data, discarded_labels)] = 0
 
-        # np.arange(1, num_labels + 1)) to discard the zero label
-        # (background).
-        # Will break in the pathological case that all the image pixels
-        # are covered by sources, but we will take that risk.
-        labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
-        # Delete masked labels from the labels array.
-        labels_arr = np.delete(
-            labels_arr, np.isin(labels_arr, discarded_labels)
-        )
-        num_labels -= discarded_labels.size
+            # np.arange(1, num_labels + 1)) to discard the zero label
+            # (background).
+            # Will break in the pathological case that all the image pixels
+            # are covered by sources, but we will take that risk.
+            labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
+            # Delete masked labels from the labels array.
+            labels_arr = np.delete(
+                labels_arr, np.isin(labels_arr, discarded_labels)
+            )
+            num_labels -= discarded_labels.size
 
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,), although some labels
-        # may have been removed.
-        slices = ndimage.find_objects(labelled_data)
-        # 'None' is returned for each removed (bad) label. We remove them from
-        # "slices".
-        slices = [x for x in slices if x is not None]
+            # Get a bounding box for each island:
+            # NB Slices ordered by label value (1...N,), although some labels
+            # may have been removed.
+            slices = ndimage.find_objects(labelled_data)
+            # 'None' is returned for each removed (bad) label. We remove them from
+            # "slices".
+            slices = [x for x in slices if x is not None]
+        else:
+            clipped_data = clipped_data.filled(fill_value=0)
+
+            labelled_data, num_labels = ndimage.label(
+                clipped_data, self.conf.image.structuring_element
+            )
+            labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
+            # Get a bounding box for each island:
+            # NB Slices ordered by label value (1...N,)
+            slices = ndimage.find_objects(labelled_data)
 
         # Derive all indices than correspond to the slices
         all_indices = ImageData.slices_to_indices(slices)
