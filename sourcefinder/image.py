@@ -1542,52 +1542,10 @@ class ImageData(object):
                     det = extract.Detection(param, self, chunk=chunk)
                     results.append(det)
 
-        def is_usable(det):
-            """Check that both ends of each axis are usable.
-
-            I.e., they fall within an unmasked part of the image. The
-            axis will not likely fall exactly on a pixel number, so
-            check all the surroundings.
-
-            """
-
-            def check_point(x, y):
-                x = (int(x), int(np.ceil(x)))
-                y = (int(y), int(np.ceil(y)))
-                for position in itertools.product(x, y):
-                    try:
-                        if self.data.mask[position[0], position[1]]:
-                            # Point falls in mask
-                            return False
-                    except IndexError:
-                        # Point falls completely outside image
-                        return False
-                # Point is ok
-                return True
-
-            for point in (
-                (det.start_smaj_x, det.start_smaj_y),
-                (det.start_smin_x, det.start_smin_y),
-                (det.end_smaj_x, det.end_smaj_y),
-                (det.end_smin_x, det.end_smin_y),
-            ):
-                if not check_point(*point):
-                    logger.debug(
-                        "Unphysical source at pixel %f, %f"
-                        % (det.x.value, det.y.value)
-                    )
-                    return False
-            return True
-
-        filtered_results = containers.ExtractionResults(
-            list(filter(is_usable, results))
-        )
         if self.conf.export.pandas_df:
-            serialized_filtered_results = [
-                r.serialize(self.conf, every_parm=True)
-                for r in filtered_results
+            serialized_results = [
+                r.serialize(self.conf, every_parm=True) for r in results
             ]
             return pd.DataFrame(serialized_filtered_results)
         else:
-            # Filter will return a list; ensure we return an ExtractionResults.
-            return filtered_results
+            return results
