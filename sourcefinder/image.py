@@ -1546,6 +1546,6 @@ class ImageData(object):
             serialized_results = [
                 r.serialize(self.conf, every_parm=True) for r in results
             ]
-            return pd.DataFrame(serialized_filtered_results)
+            return pd.DataFrame(serialized_results)
         else:
             return results
