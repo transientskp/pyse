@@ -407,8 +407,8 @@ class ImgConf(_Validate):
 
     remove_edge_sources: bool = True
     """When source pixels - with values above the analysis threshold - 
-    touch the edge of a map or masked pixels, do not measure the source 
-    properties. Consequently, the parameters of this source will not be 
+    connect with the edge of a map or with masked pixels, do not measure the 
+    source properties. Consequently, the parameters of this source will not be 
     returned. The idea here is that, when source pixels are adjacent to 
     edges or masked pixels, we'll likely be missing some pixels and any 
     source measurement will be compromised.
