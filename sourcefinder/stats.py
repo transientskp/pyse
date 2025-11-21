@@ -9,12 +9,12 @@ from numba import njit, guvectorize, int32, float32
 from sourcefinder.utils import newton_raphson_root_finder
 
 
-@njit
+@njit  # pragma: no cover
 def erf(val):
     return math.erf(val)
 
 
-@njit
+@njit  # pragma: no cover
 def find_true_std(sigma, clipped_std, clip_limit):
     """
     This function defines the transcendental equation 2.25 from Spreeuw's
@@ -44,11 +44,13 @@ def find_true_std(sigma, clipped_std, clip_limit):
     """
     help1 = clip_limit / (sigma * np.sqrt(2))
     help2 = np.sqrt(2 * np.pi) * erf(help1)
-    return (sigma ** 2 * (help2 - 2 * np.sqrt(2) * help1 *
-            np.exp(-help1 ** 2)) - clipped_std ** 2 * help2)
+    return (
+        sigma**2 * (help2 - 2 * np.sqrt(2) * help1 * np.exp(-(help1**2)))
+        - clipped_std**2 * help2
+    )
 
 
-@njit
+@njit  # pragma: no cover
 def indep_pixels(n, correlation_lengths):
     """Calculate the number of independent pixels given the total
     number of pixels and the correlation lengths.
@@ -71,9 +73,14 @@ def indep_pixels(n, correlation_lengths):
     return n / correlated_area
 
 
-@guvectorize([(float32[:], int32[:], float32[:], float32[:])],
-             '(k), () -> (), ()', target="parallel")
-def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
+@guvectorize(
+    [(float32[:], int32[:], float32[:], float32[:])],
+    "(k), () -> (), ()",
+    target="parallel",
+)
+def data_clipper_dynamic(
+    flat_data, number_of_non_nan_elements, mean, std
+):  # pragma: no cover
     """Perform dynamic data clipping.
 
     Perform dynamic data clipping to calculate the mean and standard
@@ -135,10 +142,16 @@ def data_clipper_dynamic(flat_data, number_of_non_nan_elements, mean, std):
             if limit:
                 # The standard deviation of clipped data will be biased low,
                 # correct for that.
-                std[0], iterations = (
-                    newton_raphson_root_finder(find_true_std, regular_std,
-                                               0, limit,1e-8,100, regular_std,
-                                               limit))
+                std[0], iterations = newton_raphson_root_finder(
+                    find_true_std,
+                    regular_std,
+                    0,
+                    limit,
+                    1e-8,
+                    100,
+                    regular_std,
+                    limit,
+                )
             else:
                 std[0] = regular_std
 

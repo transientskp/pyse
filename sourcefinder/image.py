@@ -950,10 +950,6 @@ class ImageData(object):
               (num_islands_above_detection_threshold, 4) and dtype
               np.int32.
 
-            - slices (list): List of slices encompassing all islands
-              in labelled_data, i.e.  encompassing all islands above
-              the analysis threshold.
-
         """
         # If there is no usable data, we return an empty set of islands.
         if not len(self.rmsmap.compressed()):
@@ -966,7 +962,6 @@ class ImageData(object):
                 np.zeros(0, dtype=np.float32),
                 np.zeros(0, dtype=np.int32),
                 np.zeros((0, 4), dtype=np.int32),
-                [],
             )
 
         # At this point, we select all the data which is eligible for
@@ -996,20 +991,86 @@ class ImageData(object):
                 ),
                 1,
                 0,
-            ).filled(fill_value=0)
+            )
         else:
             clipped_data = np.ma.where(
                 self.data_bgsubbed > analysisthresholdmap, 1, 0
-            ).filled(fill_value=0)
+            )
 
-        labelled_data, num_labels = ndimage.label(
-            clipped_data, self.conf.image.structuring_element
-        )
+        if self.conf.image.remove_edge_sources:
+            clipped_data_mask = clipped_data.mask
+            # Treat masked pixels as source pixels, by setting "fill_value=1"
+            # instead of "fill_value=0". In this way, we can figure out if
+            # some source pixels were connected to masked pixels and should
+            # therefore not be included in the source extraction process.
+            clipped_data = clipped_data.filled(fill_value=1)
 
-        # Get a bounding box for each island:
-        # NB Slices ordered by label value (1...N,)
-        # 'None' returned for missing label indices.
-        slices = ndimage.find_objects(labelled_data)
+            labelled_data, num_labels = ndimage.label(
+                clipped_data, self.conf.image.structuring_element
+            )
+
+            # "masked_labels" should contain the labels of sources connected to
+            # masked pixels, i.e. sources that we do not want to measure, since
+            # the pixels will be distributed asymmmetrically around the source's
+            # barycenter and the measurement will be compromised.
+            masked_labels = np.unique(labelled_data[clipped_data_mask])
+            # Also exclude sources with pixels - with values above the analysis
+            # threshold - touching the edges of the image, for the same reason.
+            edge_labels = np.unique(
+                np.concatenate(
+                    (
+                        labelled_data[0, :],
+                        labelled_data[-1, :],
+                        labelled_data[:, 0],
+                        labelled_data[:, -1],
+                    )
+                )
+            )
+            # Unite the labels corresponding to sources touching masked pixels
+            # with the labels corresponding to sources touching the edges of the
+            # image.
+            discarded_labels = np.unique(
+                np.concatenate((edge_labels, masked_labels))
+            )
+            # The background label (0) does not relate to source pixels and should
+            # therefore be excluded when we want to remove sources near masked
+            # pixels.
+            discarded_labels = np.delete(
+                discarded_labels, (discarded_labels == 0).nonzero()
+            )
+            # Replace bad labels by zeroes. Consequently, the labels in
+            # labelled_data may no longer form a consecutive sequence of integers
+            # 1,2,3,4...N.
+            labelled_data[np.isin(labelled_data, discarded_labels)] = 0
+
+            # np.arange(1, num_labels + 1)) to discard the zero label
+            # (background).
+            # Will break in the pathological case that all the image pixels
+            # are covered by sources, but we will take that risk.
+            labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
+            # Delete masked labels from the labels array.
+            labels_arr = np.delete(
+                labels_arr, np.isin(labels_arr, discarded_labels)
+            )
+            num_labels -= discarded_labels.size
+
+            # Get a bounding box for each island:
+            # NB Slices ordered by label value (1...N,), although some labels
+            # may have been removed.
+            slices = ndimage.find_objects(labelled_data)
+            # 'None' is returned for each removed (bad) label. We remove them from
+            # "slices".
+            slices = [x for x in slices if x is not None]
+        else:
+            clipped_data = clipped_data.filled(fill_value=0)
+
+            labelled_data, num_labels = ndimage.label(
+                clipped_data, self.conf.image.structuring_element
+            )
+            labels_arr = np.arange(1, num_labels + 1, dtype=np.int32)
+            # Get a bounding box for each island:
+            # NB Slices ordered by label value (1...N,)
+            slices = ndimage.find_objects(labelled_data)
 
         # Derive all indices than correspond to the slices
         all_indices = ImageData.slices_to_indices(slices)
@@ -1025,7 +1086,7 @@ class ImageData(object):
             self.data_bgsubbed.data.astype(dtype=np.float32, copy=False),
             all_indices,
             labelled_data,
-            np.arange(1, num_labels + 1, dtype=np.int32),
+            labels_arr,
             dummy,
             maxposs,
             maxis,
@@ -1040,13 +1101,7 @@ class ImageData(object):
 
         num_islands_above_detection_threshold = above_det_thr.sum()
 
-        # np.arange(1, num_labels + 1)) to discard the zero label
-        # (background).
-        # Will break in the pathological case that all the image pixels
-        # are covered by sources, but we will take that risk.
-        labels_above_det_thr = np.extract(
-            above_det_thr, np.arange(1, num_labels + 1)
-        )
+        labels_above_det_thr = np.extract(above_det_thr, labels_arr)
 
         maxposs_above_det_thr = np.compress(above_det_thr, maxposs, axis=0)
         maxis_above_det_thr = np.extract(above_det_thr, maxis)
@@ -1068,7 +1123,6 @@ class ImageData(object):
             maxis_above_det_thr,
             npixs_above_det,
             all_indices_above_det_thr,
-            slices,
         )
 
     @staticmethod
@@ -1099,11 +1153,11 @@ class ImageData(object):
         num_slices = len(slices)
         all_indices = np.empty((num_slices, 4), dtype=np.int32)
 
-        # Extract start and stop indices for rows and columns
-        all_indices[:, 0] = [s[0].start for s in slices]  # Row start
-        all_indices[:, 1] = [s[0].stop for s in slices]  # Row stop
-        all_indices[:, 2] = [s[1].start for s in slices]  # Column start
-        all_indices[:, 3] = [s[1].stop for s in slices]  # Column stop
+        for index, (r, c) in enumerate(slices):
+            all_indices[index, 0] = r.start  # Row start
+            all_indices[index, 1] = r.stop  # Row stop
+            all_indices[index, 2] = c.start  # Column start
+            all_indices[index, 3] = c.stop  # Column stop
 
         return all_indices
 
@@ -1126,7 +1180,7 @@ class ImageData(object):
     )
     def extract_parms_image_slice(
         some_image, inds, labelled_data, label, dummy, maxpos, maxi, npix
-    ):
+    ):  # pragma: no cover
         """Find the highest pixel value and its position.
 
         For an island, indicated by a group of pixels with the same label,
@@ -1250,16 +1304,16 @@ class ImageData(object):
                 maxis,
                 npixs,
                 indices,
-                slices,
             ) = self.label_islands(detectionthresholdmap, analysisthresholdmap)
-
-        num_islands = len(labels)
 
         if self.conf.image.deblend_nthresh or not self.conf.image.vectorized:
             results = containers.ExtractionResults()
             island_list = []
-            for label in labels:
-                chunk = slices[label - 1]
+            for index, label in enumerate(labels):
+                chunk = (
+                    slice(indices[index, 0], indices[index, 1]),
+                    slice(indices[index, 2], indices[index, 3]),
+                )
                 # In selected_data only the pixels with the "correct"
                 # (see above) labels are retained. Other pixel values are
                 # set to -(bignum).
@@ -1433,8 +1487,11 @@ class ImageData(object):
                 return sources_df[self.conf.export.source_params]
             else:
                 results = containers.ExtractionResults()
-                for count, label in enumerate(labels):
-                    chunk = slices[label - 1]
+                for count, _ in enumerate(labels):
+                    chunk = (
+                        slice(indices[count, 0], indices[count, 1]),
+                        slice(indices[count, 2], indices[count, 3]),
+                    )
 
                     param = extract.ParamSet()
                     param.sig = sig[count]
@@ -1485,52 +1542,10 @@ class ImageData(object):
                     det = extract.Detection(param, self, chunk=chunk)
                     results.append(det)
 
-        def is_usable(det):
-            """Check that both ends of each axis are usable.
-
-            I.e., they fall within an unmasked part of the image. The
-            axis will not likely fall exactly on a pixel number, so
-            check all the surroundings.
-
-            """
-
-            def check_point(x, y):
-                x = (int(x), int(np.ceil(x)))
-                y = (int(y), int(np.ceil(y)))
-                for position in itertools.product(x, y):
-                    try:
-                        if self.data.mask[position[0], position[1]]:
-                            # Point falls in mask
-                            return False
-                    except IndexError:
-                        # Point falls completely outside image
-                        return False
-                # Point is ok
-                return True
-
-            for point in (
-                (det.start_smaj_x, det.start_smaj_y),
-                (det.start_smin_x, det.start_smin_y),
-                (det.end_smaj_x, det.end_smaj_y),
-                (det.end_smin_x, det.end_smin_y),
-            ):
-                if not check_point(*point):
-                    logger.debug(
-                        "Unphysical source at pixel %f, %f"
-                        % (det.x.value, det.y.value)
-                    )
-                    return False
-            return True
-
-        filtered_results = containers.ExtractionResults(
-            list(filter(is_usable, results))
-        )
         if self.conf.export.pandas_df:
-            serialized_filtered_results = [
-                r.serialize(self.conf, every_parm=True)
-                for r in filtered_results
+            serialized_results = [
+                r.serialize(self.conf, every_parm=True) for r in results
             ]
-            return pd.DataFrame(serialized_filtered_results)
+            return pd.DataFrame(serialized_results)
         else:
-            # Filter will return a list; ensure we return an ExtractionResults.
-            return filtered_results
+            return results

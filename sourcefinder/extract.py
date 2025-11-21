@@ -1703,7 +1703,7 @@ def first_part_of_celestial_coordinates(
     xbar_ybar_smaj_smin_theta,
     dummy,
     return_values,
-):
+):  # pragma: no cover
     """First part of celestial coordinates.
 
     Similar to func:`extract.Detection._physical_coordinates`, but vectorized and
@@ -1894,7 +1894,7 @@ def insert_sources_and_noise(
     xpos,
     ypos,
     min_width,
-):
+):  # pragma: no cover
     """Insert sources and noise.
 
     We want to copy the relevant source and noise data into input arrays for

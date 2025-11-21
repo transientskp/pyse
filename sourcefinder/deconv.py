@@ -11,7 +11,7 @@ from numba import njit, float64, int64, types, f8, b1
         float64, float64, float64, float64, float64, float64
     )
 )
-def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
+def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):  # pragma: no cover
     """Deconvolve a Gaussian "beam" from a Gaussian component.
 
     When we fit an elliptical Gaussian to a point in our image, we are
@@ -106,7 +106,7 @@ def deconv(fmaj, fmin, fpa, cmaj, cmin, cpa):
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
 @njit
-def covariance_matrix(sigma_maj, sigma_min, theta):
+def covariance_matrix(sigma_maj, sigma_min, theta):  # pragma: no cover
     """
     Build covariance matrix for an anisotropic Gaussian.
 
@@ -140,7 +140,7 @@ def covariance_matrix(sigma_maj, sigma_min, theta):
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
 @njit
-def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):
+def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):  # pragma: no cover
     """
     Jacobian d(sxx, syy, sxy)/d(sigma_maj, sigma_min, theta).
 
@@ -197,7 +197,7 @@ def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
 @njit
-def cov_p_to_cov_S(C_p, sigma_maj, sigma_min, theta):
+def cov_p_to_cov_S(C_p, sigma_maj, sigma_min, theta):  # pragma: no cover
     """
     Propagate covariance C_p (3x3) on parameters p=(sigma_maj, sigma_min,
     theta)
@@ -229,7 +229,7 @@ def cov_p_to_cov_S(C_p, sigma_maj, sigma_min, theta):
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
 @njit(types.Tuple((f8, f8, f8, f8[:, ::1], b1))(f8, f8, f8))
-def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):
+def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):  # pragma: no cover
     """
     From covariance elements sxx, syy, sxy return (sigma_maj, sigma_min, theta,
     J, ok)
@@ -343,7 +343,7 @@ def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):
 # been verified for correctness, accuracy and completeness, adapted where
 # needed, and approved by the author.”
 @njit
-def cov_S_to_cov_r(S_dec, C_S_dec):
+def cov_S_to_cov_r(S_dec, C_S_dec):  # pragma: no cover
     """
     Convert covariance on S = [sxx, syy, sxy] to covariance on
     r = [a_dec, b_dec, phi_dec] using analytic Jacobian.

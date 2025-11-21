@@ -436,7 +436,9 @@ def nearest_nonzero(some_arr, rms):
 # Its AI-output has been verified for correctness, accuracy and
 # completeness, adapted where needed, and approved by the author.”
 @njit(parallel=True)
-def make_subimages(a_data, a_mask, back_size_x, back_size_y):
+def make_subimages(
+    a_data, a_mask, back_size_x, back_size_y
+):  # pragma: no cover
     """Make subimages.
 
     Reshape the image data such that it is suitable for guvectorized
@@ -522,7 +524,9 @@ def make_subimages(a_data, a_mask, back_size_x, back_size_y):
     nopython=True,
     cache=True,
 )
-def interp_per_row(grid_row, y_initial, y_sought, interp_row):
+def interp_per_row(
+    grid_row, y_initial, y_sought, interp_row
+):  # pragma: no cover
     """Interpolate one row of the grid along the second dimension
     (y-axis).
 
@@ -608,7 +612,7 @@ def two_step_interp(grid, new_xdim, new_ydim):
 @njit
 def newton_raphson_root_finder(
     f, sigma0, min_sigma, max_sigma, tol=1e-8, max_iter=100, *args
-):
+):  # pragma: no cover
     """Solve the transcendental equation for sigma using Newton's
     method with interval safeguards.
 
