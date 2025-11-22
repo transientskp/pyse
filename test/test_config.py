@@ -10,10 +10,11 @@ from sourcefinder.config import read_conf
 from sourcefinder.config import validate_nested
 from sourcefinder.config import validate_types
 
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 _image = {"rms_filter": 0.1, "structuring_element": [[2] * 3] * 3}
 _export = {"file_type": "hdf5", "source_params": ["foo", "bar"]}
+
 
 @pytest.mark.parametrize(
     "conf_t, conf",
@@ -72,7 +73,12 @@ def test_assert_t_err(key, val, types):
         ("listany", ["a", 1, True], list, ()),
         ("liststr", list("abc"), list, (str,)),
         ("dictionary", {"a": 1, "b": 2}, dict, (str, int)),
-        ("dictionarymixed", {"a": 3.14, "b": 2}, dict, (str, float)),  # compatible
+        (
+            "dictionarymixed",
+            {"a": 3.14, "b": 2},
+            dict,
+            (str, float),
+        ),  # compatible
     ],
 )
 def test_nested(key, value, origin_t, args):
@@ -108,7 +114,11 @@ def test_nested_warn(key, value, origin_t, args):
         ("listany", ["a", 1, True], list),
         ("liststr", list("abc"), list[str,]),
         ("dictionary", {"a": 1, "b": 2}, dict[str, int]),
-        ("dictionarymixed", {"a": 3.14, "b": 2}, dict[str, float]),  # compatible
+        (
+            "dictionarymixed",
+            {"a": 3.14, "b": 2},
+            dict[str, float],
+        ),  # compatible
         ("union", 42, (NoneType | int)),  # uniontype
     ],
 )
