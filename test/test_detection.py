@@ -2,23 +2,29 @@ import os
 
 import unittest
 
-import pytest
 import sourcefinder.accessors as accessors
-from sourcefinder.accessors.detection import isfits, islofarhdf5, detect, iscasa
+from sourcefinder.accessors.detection import (
+    isfits,
+    islofarhdf5,
+    detect,
+    iscasa,
+)
 from sourcefinder.accessors.lofarcasaimage import LofarCasaImage
-from sourcefinder.accessors.casaimage import CasaImage
 from sourcefinder.accessors.fitsimage import FitsImage
 from sourcefinder.accessors.amicasaimage import AmiCasaImage
 from sourcefinder.testutil.decorators import requires_data
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 
-lofarcasatable = os.path.join(DATAPATH, "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr")
-casatable = os.path.join(DATAPATH, 'accessors/casa.table')
-fitsfile = os.path.join(DATAPATH, 'accessors/lofar.fits')
-hdf5file = os.path.join(DATAPATH, 'accessors/lofar.h5')
-antennafile = os.path.join(DATAPATH, 'lofar/CS001-AntennaArrays.conf')
-amicasatable = os.path.join(DATAPATH, 'accessors/ami-la.image')
+lofarcasatable = os.path.join(
+    DATAPATH,
+    "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr",
+)
+casatable = os.path.join(DATAPATH, "accessors/casa.table")
+fitsfile = os.path.join(DATAPATH, "accessors/lofar.fits")
+hdf5file = os.path.join(DATAPATH, "accessors/lofar.h5")
+antennafile = os.path.join(DATAPATH, "lofar/CS001-AntennaArrays.conf")
+amicasatable = os.path.join(DATAPATH, "accessors/ami-la.image")
 
 
 class TestAutodetect(unittest.TestCase):
@@ -55,7 +61,7 @@ class TestAutodetect(unittest.TestCase):
         accessor = accessors.open(lofarcasatable)
         self.assertEqual(accessor.__class__, LofarCasaImage)
         self.assertRaises(OSError, accessors.open, antennafile)
-        self.assertRaises(OSError, accessors.open, 'doesntexists')
+        self.assertRaises(OSError, accessors.open, "doesntexists")
 
     @requires_data(amicasatable)
     def test_isamicasa(self):
