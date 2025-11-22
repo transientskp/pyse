@@ -14,7 +14,7 @@ import astropy.units as u
 
 from sourcefinder.accessors import sourcefinder_image_from_accessor, writefits
 from sourcefinder.accessors.fitsimage import FitsImage
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
