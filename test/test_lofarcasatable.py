@@ -7,10 +7,13 @@ from sourcefinder.accessors.lofaraccessor import LofarAccessor
 from sourcefinder.accessors.lofarcasaimage import LofarCasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr")
+casatable = os.path.join(
+    DATAPATH,
+    "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_npix512_wplanes215.img.restored.corr",
+)
 
 
 @requires_data(casatable)
@@ -49,17 +52,21 @@ class TestLofarCasaImage(unittest.TestCase):
         p1_sky = (self.accessor.centre_ra, self.accessor.centre_decl)
         p1_pix = self.accessor.wcs.s2p(p1_sky)
 
-        pixel_sep = 10 #Along a single axis
+        pixel_sep = 10  # Along a single axis
         p2_pix = (p1_pix[0], p1_pix[1] + pixel_sep)
         p2_sky = self.accessor.wcs.p2s(p2_pix)
 
-        coord_dist_deg = angsep(p1_sky[0], p1_sky[1], p2_sky[0], p2_sky[1]) / 3600.0
+        coord_dist_deg = (
+            angsep(p1_sky[0], p1_sky[1], p2_sky[0], p2_sky[1]) / 3600.0
+        )
         pix_dist_deg = pixel_sep * self.accessor.pixelsize[1]
 
-        #6 decimal places => 1e-6*degree / 10pix => 1e-7*degree / 1pix
+        # 6 decimal places => 1e-6*degree / 10pix => 1e-7*degree / 1pix
         #  => Approx 0.15 arcseconds drift across 512 pixels
         # (Probably OK).
-        self.assertAlmostEqual(abs(coord_dist_deg), abs(pix_dist_deg), places=6)
+        self.assertAlmostEqual(
+            abs(coord_dist_deg), abs(pix_dist_deg), places=6
+        )
 
     def test_stations(self):
         self.assertEqual(self.accessor.ncore, 42)
@@ -67,9 +74,20 @@ class TestLofarCasaImage(unittest.TestCase):
         self.assertEqual(self.accessor.nintl, 0)
 
     def test_overlapping_time(self):
-        series = [(0, 10), (5, 20), (15, 30), (35, 60), (40, 50), (200, 300),
-                  (290, 300), (310, 320), (310, 311), (315, 320), (319, 320),
-                  (319, 320)]
+        series = [
+            (0, 10),
+            (5, 20),
+            (15, 30),
+            (35, 60),
+            (40, 50),
+            (200, 300),
+            (290, 300),
+            (310, 320),
+            (310, 311),
+            (315, 320),
+            (319, 320),
+            (319, 320),
+        ]
         answer = 165
         self.assertEqual(LofarCasaImage.non_overlapping_time(series), answer)
 
@@ -77,9 +95,13 @@ class TestLofarCasaImage(unittest.TestCase):
         """
         Insert some mock data in self.subtables, check it parses correctly.
         """
+
         class MockOriginTable:
             def col(self, name):
-                if name == 'START': return [100, 100, 200]
-                elif name == 'END': return [150, 175, 300]
-        subtables = {'LOFAR_ORIGIN': MockOriginTable()}
+                if name == "START":
+                    return [100, 100, 200]
+                elif name == "END":
+                    return [150, 175, 300]
+
+        subtables = {"LOFAR_ORIGIN": MockOriginTable()}
         self.assertEqual(self.accessor.parse_tautime(subtables), 175)

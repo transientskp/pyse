@@ -6,10 +6,10 @@ from sourcefinder import accessors
 from sourcefinder.accessors.aartfaaccasaimage import AartfaacCasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 
-casatable = os.path.join(DATAPATH, 'accessors/aartfaac.table')
+casatable = os.path.join(DATAPATH, "accessors/aartfaac.table")
 
 
 class TestAartfaacCasaImage(unittest.TestCase):
@@ -51,11 +51,14 @@ class TestAartfaacCasaImage(unittest.TestCase):
         p2_pix = (p1_pix[0], p1_pix[1] + pixel_sep)
         p2_sky = self.accessor.wcs.p2s(p2_pix)
 
-        coord_dist_deg = angsep(p1_sky[0], p1_sky[1], p2_sky[0], p2_sky[1]) / 3600.0
+        coord_dist_deg = (
+            angsep(p1_sky[0], p1_sky[1], p2_sky[0], p2_sky[1]) / 3600.0
+        )
         pix_dist_deg = pixel_sep * self.accessor.pixelsize[1]
 
         # 6 decimal places => 1e-6*degree / 10pix => 1e-7*degree / 1pix
         #  => Approx 0.15 arcseconds drift across 512 pixels
         # (Probably OK).
-        self.assertAlmostEqual(abs(coord_dist_deg), abs(pix_dist_deg), places=3)
-
+        self.assertAlmostEqual(
+            abs(coord_dist_deg), abs(pix_dist_deg), places=3
+        )

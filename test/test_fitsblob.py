@@ -8,9 +8,9 @@ from astropy.io.fits import open as fitsopen
 from sourcefinder.accessors import open as tkpopen
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.accessors.fitsimageblob import FitsImageBlob
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
-FITS_FILE = os.path.join(DATAPATH, 'accessors/aartfaac.fits')
+FITS_FILE = os.path.join(DATAPATH, "accessors/aartfaac.fits")
 
 
 @requires_data(FITS_FILE)

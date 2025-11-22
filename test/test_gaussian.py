@@ -8,7 +8,7 @@ import numpy as np
 
 from sourcefinder.config import ImgConf
 from sourcefinder.extract import source_profile_and_errors
-from sourcefinder.measuring import moments, fitgaussian, FIT_PARAMS
+from sourcefinder.measure import moments, fitgaussian, FIT_PARAMS
 from sourcefinder.gaussian import gaussian
 from sourcefinder.utils import (
     fudge_max_pix,

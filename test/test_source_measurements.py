@@ -14,7 +14,7 @@ import astropy.units as u
 
 from sourcefinder.accessors import sourcefinder_image_from_accessor, writefits
 from sourcefinder.accessors.fitsimage import FitsImage
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 import sourcefinder.accessors
 from sourcefinder import image
@@ -446,6 +446,13 @@ def generate_artificial_image(tmp_path):
             truth_dict[SourceParams.THETA] = theta_convolved * np.ones(
                 len(coords_px)
             )
+            truth_dict[SourceParams.FLUX] = (
+                truth_dict[SourceParams.PEAK]
+                * truth_dict[SourceParams.SMAJ]
+                * truth_dict[SourceParams.SMIN]
+                * np.ones(len(coords_px))
+                / (psf_im.beam[0] * psf_im.beam[1])
+            )
 
         truth_df = pd.DataFrame(truth_dict)
 
@@ -820,6 +827,34 @@ def test_measured_vectorized_free_shape(
     assert 1.0 / STD_MAX_BIAS_FACTOR < std_peak < STD_MAX_BIAS_FACTOR, (
         f"Uncertainties in peak brightnesses not realistic: std="
         f"{std_peak :.3f}"
+    )
+
+    true_flux_densities = truth_df[SourceParams.FLUX].to_numpy()[idx]
+    measured_flux_densities = source_params_df[SourceParams.FLUX].to_numpy()
+    measured_flux_densities_err = source_params_df[
+        SourceParams.FLUX_ERR
+    ].to_numpy()
+
+    # Compute normalized residuals
+    norm_flux_density_resid = (
+        measured_flux_densities - true_flux_densities
+    ) / measured_flux_densities_err
+
+    # Check that the weighted mean of the flux_density brightnesses is not too biased.
+    t_stat_flux_density = ttest_1samp(
+        norm_flux_density_resid, popmean=0, nan_policy="raise"
+    )[0]
+    assert (
+        np.abs(t_stat_flux_density) < MAX_BIAS_AXES_SCALED
+    ), f"Peak brightnesses severely biased: t_statistic = {t_stat_flux_density :.3f}"
+
+    std_flux_density = np.std(norm_flux_density_resid)
+    # Check standard deviation is ~1 (roughly Gaussian-distributed errors)
+    assert (
+        1.0 / STD_MAX_BIAS_FACTOR < std_flux_density < STD_MAX_BIAS_FACTOR
+    ), (
+        f"Uncertainties in flux_density brightnesses not realistic: std="
+        f"{std_flux_density :.3f}"
     )
 
     true_smaj = truth_df[SourceParams.SMAJ].to_numpy()[idx]

@@ -40,16 +40,16 @@ import unittest
 
 from sourcefinder import accessors
 from sourcefinder.config import Conf, ImgConf
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 
 from sourcefinder import image
 
 NUMBER_INSERTED = float(3969)
 
-uncorr_path = os.path.join(DATAPATH, 'uncorrelated_noise.fits')
-corr_path = os.path.join(DATAPATH, 'correlated_noise.fits')
-deconv_path = os.path.join(DATAPATH, 'deconvolved.fits')
+uncorr_path = os.path.join(DATAPATH, "uncorrelated_noise.fits")
+corr_path = os.path.join(DATAPATH, "correlated_noise.fits")
+deconv_path = os.path.join(DATAPATH, "deconvolved.fits")
 
 
 @requires_data(uncorr_path)
@@ -108,22 +108,29 @@ class test_maps(unittest.TestCase):
 
     def test_alpha0_1(self):
         self.number_alpha_10pc = len(
-            self.image_with_sources.fd_extract(alpha=0.1))
-        self.assertTrue((self.number_alpha_10pc - NUMBER_INSERTED) /
-                        NUMBER_INSERTED < 0.1)
+            self.image_with_sources.fd_extract(alpha=0.1)
+        )
+        self.assertTrue(
+            (self.number_alpha_10pc - NUMBER_INSERTED) / NUMBER_INSERTED < 0.1
+        )
 
     def test_alpha0_01(self):
         self.number_alpha_1pc = len(
-            self.image_with_sources.fd_extract(alpha=0.01))
-        self.assertTrue((self.number_alpha_1pc - NUMBER_INSERTED) /
-                        NUMBER_INSERTED < 0.01)
+            self.image_with_sources.fd_extract(alpha=0.01)
+        )
+        self.assertTrue(
+            (self.number_alpha_1pc - NUMBER_INSERTED) / NUMBER_INSERTED < 0.01
+        )
 
     def test_alpha0_001(self):
         self.number_alpha_point1pc = len(
-            self.image_with_sources.fd_extract(alpha=0.001))
-        self.assertTrue((self.number_alpha_point1pc - NUMBER_INSERTED) /
-                        NUMBER_INSERTED < 0.001)
+            self.image_with_sources.fd_extract(alpha=0.001)
+        )
+        self.assertTrue(
+            (self.number_alpha_point1pc - NUMBER_INSERTED) / NUMBER_INSERTED
+            < 0.001
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

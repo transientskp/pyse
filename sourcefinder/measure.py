@@ -757,10 +757,10 @@ def moments_enhanced(
         errortheta = np.pi / 2.0
 
     # This should reflect the equivalent of equation 37 of the NVSS paper for
-    # moments calculations. The middle term in that equation 37 is heuristically
-    # replaced by noise**2 since the threshold should not affect the error from
-    # the (corrected) maximum pixel method, while it is part of the expression
-    # for rho_sq above.
+    # moments calculations. The middle term of the rhs of that equation is
+    # heuristically replaced by noise**2 since the threshold is not expected to
+    # affect the error on peak brightnesses from tweaked moments, while it
+    # is part of the expression for rho_sq above.
     errorpeaksq = (
         (frac_flux_cal_error * peak) ** 2 + clean_bias_error**2 + noise**2
     )
