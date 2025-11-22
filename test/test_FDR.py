@@ -40,7 +40,7 @@ import unittest
 
 from sourcefinder import accessors
 from sourcefinder.config import Conf, ImgConf
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 from sourcefinder.testutil.decorators import requires_data, duration
 
 from sourcefinder import image

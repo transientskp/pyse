@@ -4,7 +4,7 @@ from numpy.testing import assert_almost_equal
 
 from sourcefinder import accessors
 
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 lofar_casatable = os.path.join(
     DATAPATH,

@@ -6,7 +6,7 @@ from sourcefinder import accessors
 from sourcefinder.accessors.amicasaimage import AmiCasaImage
 from sourcefinder.testutil.decorators import requires_data
 from sourcefinder.utility.coordinates import angsep
-from .conftest import DATAPATH
+from test.conftest import DATAPATH
 
 
 casatable = os.path.join(DATAPATH, 'accessors/ami-la.image')
