@@ -8,8 +8,10 @@ from test.conftest import DATAPATH
 
 lofar_casatable = os.path.join(
     DATAPATH,
-    ("casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_" +
-     "npix512_wplanes215.img.restored.corr"),
+    (
+        "casatable/L55596_000TO009_skymodellsc_wmax6000_noise_mult10_cell40_"
+        + "npix512_wplanes215.img.restored.corr"
+    ),
 )
 
 
