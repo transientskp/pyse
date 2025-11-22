@@ -6,7 +6,7 @@ import sourcefinder.accessors as accessors
 from sourcefinder.testutil.decorators import requires_data
 from test.conftest import DATAPATH
 
-casatable = os.path.join(DATAPATH, 'accessors/casa.table')
+casatable = os.path.join(DATAPATH, "accessors/casa.table")
 
 
 @requires_data(casatable)
