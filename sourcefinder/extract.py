@@ -812,18 +812,11 @@ class ParamSet(MutableMapping):
         if errortheta > np.pi / 2.0:
             errortheta = np.pi / 2.0
 
-        # The peak from "moments" is just the value of the maximum pixel
-        # times a correction, fudge_max_pix, for the fact that the
-        # centre of the Gaussian is not at the centre of the pixel.
-        # This correction is performed in measure.py. The maximum pixel
-        # method introduces a peak dependent error corresponding to the last
-        # term in the expression below for errorpeaksq.
-        # To this, we add, in quadrature, the errors corresponding
-        # to the first and last term of the rhs of equation 37 of the
-        # NVSS paper. The middle term in that equation 37 is heuristically
-        # replaced by noise**2 since the threshold should not affect
-        # the error from the (corrected) maximum pixel method,
-        # while it is part of the expression for rho_sq above.
+        # Basically, this is equation 37 of the NVSS paper, with the middle
+        # term of the rhs of that equation heuristically replaced by
+        # noise**2 since the threshold is not expected to affect the error
+        # on peak brightnesses from tweaked moments, while it is part of the
+        # expression for rho_sq above.
         errorpeaksq = (
             (frac_flux_cal_error * peak) ** 2 + clean_bias_error**2 + noise**2
         )
