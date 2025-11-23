@@ -142,20 +142,24 @@ def covariance_matrix(sigma_maj, sigma_min, theta):  # pragma: no cover
 @njit
 def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):  # pragma: no cover
     """
-    Jacobian d(sxx, syy, sxy)/d(sigma_maj, sigma_min, theta).
+    Jacobian ``d(sxx, syy, sxy) / d(sigma_maj, sigma_min, theta)``.
 
-    Parameters:
+    Parameters
     ----------
-      sigma_maj, sigma_min : float
-          standard-deviations along the elliptical axes
-      theta : float
-          angle in radians, CCW from +Y axis
+    sigma_maj : float
+        Standard deviation along the major axis of the ellipse.
+    sigma_min : float
+        Standard deviation along the minor axis of the ellipse.
+    theta : float
+        Orientation angle in radians, counter-clockwise from the +Y axis.
 
-    Returns:
-      J : (3,3) ndarray
-          rows [dsxx/d*, dsyy/d*, dsxy/d*] and columns corresponding to [
-          sigma_maj, sigma_min, theta].
+    Returns
+    -------
+    J : ndarray of shape (3, 3)
+        Jacobian matrix. Rows correspond to ``[dsxx/d*, dsyy/d*, dsxy/d*]`` and
+        columns to ``[sigma_maj, sigma_min, theta]``.
     """
+
     phi = theta + np.pi / 2.0  # convert to math convention (CCW from +x)
 
     c = np.cos(phi)
