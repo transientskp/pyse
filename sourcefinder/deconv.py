@@ -151,7 +151,8 @@ def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):  # pragma: no cover
     sigma_min : float
         Standard deviation along the minor axis of the ellipse.
     theta : float
-        Orientation angle in radians, counter-clockwise from the +Y axis.
+        Major axis position angle in radians, counter-clockwise from the +Y
+        axis.
 
     Returns
     -------
