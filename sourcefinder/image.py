@@ -825,8 +825,8 @@ class ImageData(object):
             List of identifiers. If not None, must match the length and order of
             the requested fits.
 
-        Note
-        ----
+        Notes
+        -----
         boxsize is in pixel coordinates, not in sky coordinates.
 
         Returns

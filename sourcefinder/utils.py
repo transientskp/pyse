@@ -722,8 +722,8 @@ def complement_gaussian_args(initial_params, fixed_params, fit_params):
         either a fixed value or an initial value from `initial_params`.
         len(gaussian_args) == 6.
 
-    Example
-    -------
+    Examples
+    --------
     >>> initial_parms = np.array([1.0, 4.0, 5.0, 6.0])
     >>> fixed_parms = {'center_x': 2.5, 'center_y': 3.5}
     >>> fit_parms = ('peak', 'center_x', 'center_y', 'semi-major axis',
