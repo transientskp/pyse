@@ -192,7 +192,7 @@ def params_from_sigma(Sigma):
       eigenvalues of Sigma.
     - The position angle theta is derived from the eigenvector
       corresponding to the largest eigenvalue.
-      
+
     """
     # Symmetrize for numerical safety
     S = 0.5 * (Sigma + Sigma.T)
