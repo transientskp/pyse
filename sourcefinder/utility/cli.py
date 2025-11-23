@@ -160,15 +160,19 @@ def construct_argument_parser():
         "--structuring-element",
         type=ast.literal_eval,
         help="""
-        Structuring element for morphological operations, provided as a Python-style nested list (e.g. '[[1,1,1],[1,1,1],[1,1,1]]').
-        This is used for defining the connectivity in source detection.
+        Structuring element for morphological operations, provided as a 
+        Python-style nested list, e.g. '[[1,1,1], [1,1,1], [1,1,1]]' for 
+        8-connectivity and '[[0,1,0], [1,1,1], [0,1,0]]' for 4-connectivity.
+        This is used for defining the connectivity in connected-component 
+        labelling.
         """,
     )
 
     image_group.add_argument(
         "--vectorized",
         action="store_true",
-        help="Use vectorized operations where applicable.",
+        help="Measure sources vectorized, this implies using 'tweaked "
+        "moments' instead of Gaussian fits.",
     )
 
     image_group.add_argument(

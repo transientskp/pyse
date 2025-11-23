@@ -11,7 +11,7 @@ def gaussian_from_Sigma_matrix(x, y, I0, mu, Sigma):
     """
     Evaluate a 2D anisotropic Gaussian defined by its covariance matrix.
 
-    The Gaussian is given by
+    The Gaussian is given by::
 
         G(x, y) = I₀ * exp[-½ (r - μ)ᵀ Σ⁻¹ (r - μ)],
 
@@ -59,6 +59,7 @@ def gaussian_from_Sigma_matrix(x, y, I0, mu, Sigma):
     >>> G = gaussian_from_Sigma_matrix(x, y, I0=1.0, mu=mu, Sigma=Sigma)
     >>> G.shape
     (101, 101)
+
     """
     pos = np.stack((x - mu[0], y - mu[1]), axis=0)
     invSigma = np.linalg.inv(Sigma)
@@ -77,11 +78,13 @@ def convolve_gaussians(I1, mu1, Sigma1, I2, mu2, Sigma2):
     """
     Analytically convolve two 2D anisotropic Gaussian profiles.
 
-    The convolution of two Gaussians
-    G₁(r) = I₁ exp[-½ (r − μ₁)ᵀ Σ₁⁻¹ (r − μ₁)]
-    and
-    G₂(r) = I₂ exp[-½ (r − μ₂)ᵀ Σ₂⁻¹ (r − μ₂)]
-    yields another Gaussian with parameters:
+    The convolution of two Gaussians::
+
+        G₁(r) = I₁ exp[-½ (r − μ₁)ᵀ Σ₁⁻¹ (r − μ₁)]
+        and
+        G₂(r) = I₂ exp[-½ (r − μ₂)ᵀ Σ₂⁻¹ (r − μ₂)]
+
+    yields another Gaussian with parameters::
 
         Σ_H = Σ₁ + Σ₂
         μ_H = μ₁ + μ₂
@@ -125,8 +128,9 @@ def convolve_gaussians(I1, mu1, Sigma1, I2, mu2, Sigma2):
     >>> I2, mu2, Sigma2 = 1.0, np.array([0.3, -0.2]), np.diag([1.5, 0.5])
     >>> I_H, mu_H, Sigma_H = convolve_gaussians(I1, mu1, Sigma1, I2, mu2, Sigma2)
     >>> I_H, mu_H, Sigma_H
-    (0.707..., array([ 0.3, -0.2]), array([[3.5, 0. ],
-                                           [0. , 1.5]]))
+    (0.707..., array([ 0.3, -0.2]), array([[3.5, 0.],
+                                           [0., 1.5]]))
+
     """
     Sigma_H = Sigma1 + Sigma2
     mu_H = mu1 + mu2
@@ -148,8 +152,7 @@ def convolve_gaussians(I1, mu1, Sigma1, I2, mu2, Sigma2):
 def params_from_sigma(Sigma):
     """
     From covariance matrix Sigma (2x2) return (sigma_maj, sigma_min,
-    theta) with
-    sigma_maj>=sigma_min>=0.
+    theta) with sigma_maj>=sigma_min>=0.
 
     Parameters
     ----------
@@ -158,15 +161,19 @@ def params_from_sigma(Sigma):
         ellipse. Must be symmetric.
         Covariance matrix elements: if sigma_maj is major axis stddev,
         sigma_min is minor axis stddev, and theta the position angle (CCW
-        from +Y), then
+        from +Y), then::
+
             S = [[sxx, sxy],
                  [sxy, syy]] = R @ [[sigma_maj^2, 0],
                                     [0, sigma_min^2]] @ R.T
-        where R = [[-sin(theta), -cos(theta)],
-                   [ cos(theta), -sin(theta)]]
-        i.e. sxx = sigma_maj^2 sin^2(theta) + sigma_min^2 cos^2(theta)
-             syy = sigma_maj^2 cos^2(theta) + sigma_min^2 sin^2(theta)
-             sxy = -(sigma_maj^2 - sigma_min^2) sin(theta) cos(theta)
+
+            where R = [[-sin(theta), -cos(theta)],
+                       [ cos(theta), -sin(theta)]]
+
+            i.e. sxx = sigma_maj^2 sin^2(theta) + sigma_min^2 cos^2(theta)
+                 syy = sigma_maj^2 cos^2(theta) + sigma_min^2 sin^2(theta)
+                 sxy = -(sigma_maj^2 - sigma_min^2) sin(theta) cos(theta)
+
     Returns
     -------
     sigma_maj : float
@@ -176,6 +183,7 @@ def params_from_sigma(Sigma):
     theta : float
         Position angle of the major axis in radians, in [0, pi).
         Measured from the positive y-axis toward the negative-axis.
+
     Notes
     -----
     - The covariance matrix Sigma is related to the ellipse parameters
@@ -184,6 +192,7 @@ def params_from_sigma(Sigma):
       eigenvalues of Sigma.
     - The position angle theta is derived from the eigenvector
       corresponding to the largest eigenvalue.
+
     """
     # Symmetrize for numerical safety
     S = 0.5 * (Sigma + Sigma.T)

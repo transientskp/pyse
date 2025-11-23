@@ -39,6 +39,7 @@ extensions = [
     "numpydoc",
     "autoapi.extension",
     "enum_tools.autoenum",
+    "sphinxarg.ext",
 ]
 
 autodoc_typehints = "both"

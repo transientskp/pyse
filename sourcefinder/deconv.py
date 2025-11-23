@@ -123,6 +123,7 @@ def covariance_matrix(sigma_maj, sigma_min, theta):  # pragma: no cover
     -------
     Sigma : (2,2) ndarray
         Covariance matrix.
+
     """
     c, s = np.cos(theta), np.sin(theta)
     R = np.array([[-s, -c], [c, -s]])
@@ -142,20 +143,26 @@ def covariance_matrix(sigma_maj, sigma_min, theta):  # pragma: no cover
 @njit
 def J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta):  # pragma: no cover
     """
-    Jacobian d(sxx, syy, sxy)/d(sigma_maj, sigma_min, theta).
+    Jacobian ``d(sxx, syy, sxy) / d(sigma_maj, sigma_min, theta)``.
 
-    Parameters:
+    Parameters
     ----------
-      sigma_maj, sigma_min : float
-          standard-deviations along the elliptical axes
-      theta : float
-          angle in radians, CCW from +Y axis
+    sigma_maj : float
+        Standard deviation along the major axis of the ellipse.
+    sigma_min : float
+        Standard deviation along the minor axis of the ellipse.
+    theta : float
+        Major axis position angle in radians, counter-clockwise from the +Y
+        axis.
 
-    Returns:
-      J : (3,3) ndarray
-          rows [dsxx/d*, dsyy/d*, dsxy/d*] and columns corresponding to [
-          sigma_maj, sigma_min, theta].
+    Returns
+    -------
+    J : ndarray of shape (3, 3)
+        Jacobian matrix. Rows correspond to ``[dsxx/d*, dsyy/d*, dsxy/d*]`` and
+        columns to ``[sigma_maj, sigma_min, theta]``.
+
     """
+
     phi = theta + np.pi / 2.0  # convert to math convention (CCW from +x)
 
     c = np.cos(phi)
@@ -205,13 +212,14 @@ def cov_p_to_cov_S(C_p, sigma_maj, sigma_min, theta):  # pragma: no cover
 
     Parameters
     ----------
-      C_p : (3,3) ndarray  (covariance in order [sigma_maj, sigma_min, theta])
-      sigma_maj, sigma_min: float
-      theta: float (radians)
+    C_p : (3,3) ndarray  (covariance in order [sigma_maj, sigma_min, theta])
+    sigma_maj, sigma_min: float
+    theta: float (radians)
 
     Returns
     -------
-      C_S : (3,3) ndarray (covariance on [sxx, syy, sxy])
+    C_S : (3,3) ndarray (covariance on [sxx, syy, sxy])
+
     """
     J = J_S_from_stddevs_and_pa(sigma_maj, sigma_min, theta)
     C_S = np.empty((3, 3))
@@ -243,15 +251,19 @@ def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):  # pragma: no cover
     sxx, syy, sxy : float
         Covariance matrix elements: if sigma_maj is major axis stddev,
         sigma_min is minor axis stddev, and theta the position angle (CCW
-        from +Y), then
+        from +Y), then::
+
             S = [[sxx, sxy],
                  [sxy, syy]] = R @ [[sigma_maj^2, 0],
                                     [0, sigma_min^2]] @ R.T
-        where R = [[-sin(theta), -cos(theta)],
-                   [ cos(theta), -sin(theta)]]
-        i.e. sxx = sigma_maj^2 sin^2(theta) + sigma_min^2 cos^2(theta)
-             syy = sigma_maj^2 cos^2(theta) + sigma_min^2 sin^2(theta)
-             sxy = -(sigma_maj^2 - sigma_min^2) sin(theta) cos(theta)
+
+            where R = [[-sin(theta), -cos(theta)],
+                       [ cos(theta), -sin(theta)]]
+
+            i.e. sxx = sigma_maj^2 sin^2(theta) + sigma_min^2 cos^2(theta)
+                 syy = sigma_maj^2 cos^2(theta) + sigma_min^2 sin^2(theta)
+                 sxy = -(sigma_maj^2 - sigma_min^2) sin(theta) cos(theta)
+
     Returns
     -------
     sigma_maj : float
@@ -264,6 +276,7 @@ def sigma_to_stddevs_pa_and_jacobian(sxx, syy, sxy):  # pragma: no cover
         Jacobian d[a,b,phi]/d[sxx,syy,sxy]
     ok : bool
         True if conversion succeeded (Sigma positive definite), else False.
+
     """
     # helpers
     m = 0.5 * (sxx + syy)
@@ -363,6 +376,7 @@ def cov_S_to_cov_r(S_dec, C_S_dec):  # pragma: no cover
         Covariance matrix on (a_dec, b_dec, phi_dec)
     ok : bool
         True if conversion succeeded (Sigma_dec positive definite), else False.
+
     """
     sxx, syy, sxy = S_dec
     a_dec, b_dec, phi_dec, J, ok = sigma_to_stddevs_pa_and_jacobian(
