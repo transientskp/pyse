@@ -6,6 +6,7 @@ Welcome to PySE's documentation!
 
    README
    sourceparams
+   cli
 
 
 Indices and tables
