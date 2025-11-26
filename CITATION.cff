@@ -1,0 +1,78 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: PySE
+message: The Python Source Extractor
+type: software
+authors:
+  - given-names: Hanno
+    family-names: Spreeuw
+    email: h.spreeuw@esciencecenter.nl
+    affiliation: The Netherlands eScience Center
+    orcid: 'https://orcid.org/0000-0002-5057-0322'
+  - orcid: 'https://orcid.org/0000-0001-9445-1846'
+    given-names: John
+    family-names: Swinbank
+    email: john@swinbank.org
+    affiliation: ASTRON
+  - given-names: Gijs
+    family-names: Molenaar
+    email: gijsmolenaar@gmail.com
+    affiliation: 'http://pythonic.nl'
+    orcid: 'https://orcid.org/0000-0002-6136-3724'
+  - given-names: Tim
+    family-names: Staley
+    email: tim.staley@physics.ox.ac.uk
+    orcid: 'https://orcid.org/0000-0002-4474-5253'
+    affiliation: University of Oxford
+  - given-names: Antonia
+    family-names: Rowlinson
+    email: B.A.Rowlinson@uva.nl
+    affiliation: University of Amsterdam
+    orcid: 'https://orcid.org/0000-0002-1195-7022'
+  - given-names: Suvayu
+    family-names: Ali
+    email: s.ali@esciencecenter.nl
+    affiliation: The Netherlands eScience Center
+  - given-names: Timo
+    family-names: Millenaar
+    email: millenaar@astron.nl
+    affiliation: ASTRON
+    orcid: 'https://orcid.org/0009-0006-3600-0477'
+  - given-names: John
+    family-names: Sanders
+identifiers:
+  - type: doi
+    value: 10.1016/j.ascom.2015.03.002
+    description: ' The LOFAR Transients Pipeline '
+  - type: url
+    value: 'http://ascl.net/1412.011'
+    description: ASCL Code Record
+  - type: url
+    value: 'https://ascl.net/1805.026'
+    description: >-
+      PySE: Python Source Extractor for radio astronomical
+      images
+  - type: doi
+    value: 10.1016/j.ascom.2018.02.003
+    description: >-
+      PySE: Software for extracting sources from radio
+      images
+repository-code: 'https://github.com/transientskp/pyse'
+url: 'https://docs.transientskp.org/'
+abstract: ' PySE is a Python software package for finding and measuring sources in radio telescope images. The software was designed to detect sources in the LOFAR telescope images, but can be used with images from other radio telescopes as well. '
+keywords:
+  - Astronomy
+  - Transient detection
+  - Image processing
+license: BSD-2-Clause
+commit: d0d209ae9f6a0cf4c9a15bfc93b57017b10ee4a9
+version: 'v0.6.0 '
+date-released: '2025-11-05'
+preferred-citation:
+    authors: 
+         - family-names: Spreeuw, Swinbank, Molenaar, Staley, Rol, Sanders, Scheers, Kuiack
+    title:  "PySE: Python Source Extractor for radio astronomical images "
+    url:  https://ascl.net/1805.026
+    type: software
