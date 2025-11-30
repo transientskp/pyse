@@ -40,8 +40,6 @@ authors:
     email: millenaar@astron.nl
     affiliation: ASTRON
     orcid: 'https://orcid.org/0009-0006-3600-0477'
-  - given-names: John
-    family-names: Sanders
 identifiers:
   - type: doi
     value: 10.1016/j.ascom.2015.03.002
@@ -61,9 +59,16 @@ identifiers:
       images
 repository-code: 'https://github.com/transientskp/pyse'
 url: 'https://docs.transientskp.org/'
-abstract: ' PySE is a Python software package for finding and measuring sources in radio telescope images. The software was designed to detect sources in the LOFAR telescope images, but can be used with images from other radio telescopes as well. '
+repository: 'https://pyse.readthedocs.io/en/stable/'
+abstract: >-
+  PySE - Python Source Extractor - is a software package for
+  finding and measuring sources in astronomical maps. The
+  software was designed to extract sources from images from
+  aperture synthesis observations, but can be used with
+  images from single-dish telescopes as well. 
 keywords:
   - Astronomy
+  - Source extraction
   - Transient detection
   - Image processing
 license: BSD-2-Clause
