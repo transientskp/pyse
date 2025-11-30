@@ -40,6 +40,8 @@ authors:
     email: millenaar@astron.nl
     affiliation: ASTRON
     orcid: 'https://orcid.org/0009-0006-3600-0477'
+  - given-names: John
+    family-names: Sanders
 identifiers:
   - type: doi
     value: 10.1016/j.ascom.2015.03.002
