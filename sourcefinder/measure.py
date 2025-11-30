@@ -496,7 +496,8 @@ def moments_enhanced(
     # position of the Gaussian peak.
     rounded_barycenter = int(round(xbar)), int(round(ybar))
     mask = (posx == rounded_barycenter[0]) & (posy == rounded_barycenter[1])
-    if mask.any():
+    in_source_island = mask.any()
+    if in_source_island:
         # In this case the rounded barycenter position is in source_island.
         # Note that mask, from the way that posx and posy have been constructed,
         # can have no more than one True value.
@@ -517,16 +518,19 @@ def moments_enhanced(
         smaj = beam[0]
         smin = beam[1]
         theta = beam[2]
-        # Implementation of "tweaked moments", equation 2.66 from
-        # Spreeuw's thesis. In that formula the "base position" was the
-        # maximum pixel position, though. Here that is the rounded
-        # barycenter position, unless it's masked. If it's masked, it
-        # will be the maximum pixel position.
-        exponent = np.log(2.0) * (
-            ((np.cos(theta) * deltax + np.sin(theta) * deltay) / smin) ** 2
-            + ((np.cos(theta) * deltay - np.sin(theta) * deltax) / smaj) ** 2
-        )
-        peak = np.exp(exponent) * basevalue
+
+        if in_source_island:
+            # Implementation of "tweaked moments", equation 2.66 from
+            # Spreeuw's thesis. In that formula the "base position" was the
+            # maximum pixel position, though. Here that is the rounded
+            # barycenter position, unless it's masked. If it's masked, it
+            # will be the maximum pixel position.
+            exponent = np.log(2.0) * (
+                ((np.cos(theta) * deltax + np.sin(theta) * deltay) / smin) ** 2
+                + ((np.cos(theta) * deltay - np.sin(theta) * deltax) / smaj)
+                ** 2
+            )
+            peak = np.exp(exponent) * basevalue
 
     else:
         xxbar, yybar, xybar = 0, 0, 0
