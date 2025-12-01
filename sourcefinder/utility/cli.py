@@ -575,7 +575,6 @@ def run_sourcefinder(files, conf, mode):
         imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
 
         if mode == "fixed":
-            # FIXME: conf.image.fixed_coords does not exist
             sr = imagedata.fit_fixed_positions(
                 eval(conf.image.fixed_posns), # fixed_posns is a string, use eval to obtain it's contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
