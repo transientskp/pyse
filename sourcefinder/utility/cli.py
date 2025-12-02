@@ -493,9 +493,9 @@ def handle_args(args=None):
                 "--detection-image not supported with fixed positions"
             )
         elif conf.export.residuals:
-            parser.error("--fdr not supported with residuals export")
+            parser.error("--residuals not supported with fixed positions")
         elif conf.export.islands:
-            parser.error("--fdr not supported with islands export")
+            parser.error("--islands not supported with fixed positions")
 
         mode = "fixed"  # mode 2 above
     elif conf.image.fdr:
