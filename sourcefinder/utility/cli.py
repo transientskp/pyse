@@ -160,10 +160,10 @@ def construct_argument_parser():
         "--structuring-element",
         type=ast.literal_eval,
         help="""
-        Structuring element for morphological operations, provided as a 
-        Python-style nested list, e.g. '[[1,1,1], [1,1,1], [1,1,1]]' for 
+        Structuring element for morphological operations, provided as a
+        Python-style nested list, e.g. '[[1,1,1], [1,1,1], [1,1,1]]' for
         8-connectivity and '[[0,1,0], [1,1,1], [0,1,0]]' for 4-connectivity.
-        This is used for defining the connectivity in connected-component 
+        This is used for defining the connectivity in connected-component
         labelling.
         """,
     )
@@ -492,6 +492,11 @@ def handle_args(args=None):
             parser.error(
                 "--detection-image not supported with fixed positions"
             )
+        elif conf.export.residuals:
+            parser.error("--residuals not supported with fixed positions")
+        elif conf.export.islands:
+            parser.error("--islands not supported with fixed positions")
+
         mode = "fixed"  # mode 2 above
     elif conf.image.fdr:
         if conf.image.detection_image:
@@ -575,9 +580,8 @@ def run_sourcefinder(files, conf, mode):
         imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
 
         if mode == "fixed":
-            # FIXME: conf.image.fixed_coords does not exist
             sr = imagedata.fit_fixed_positions(
-                conf.image.fixed_coords,
+                eval(conf.image.fixed_posns), # fixed_posns is a string, use eval to obtain it's contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
             )
 
