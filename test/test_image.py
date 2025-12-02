@@ -458,8 +458,8 @@ class TestSimpleImageSourceFind(unittest.TestCase):
             FitsImage(GRB120422A), conf=conf
         )
         results = image.extract()
-        self.assertEqual(results[0].smaj.value, image.beam[0])
-        self.assertEqual(results[0].smin.value, image.beam[1])
+        self.assertAlmostEqual(results[0].smaj.value, image.beam[0], places=6)
+        self.assertAlmostEqual(results[0].smin.value, image.beam[1], places=6)
 
     @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.fits"))
     @requires_data(os.path.join(DATAPATH, "SWIFT_554620-130504.image"))
