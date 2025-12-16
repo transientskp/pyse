@@ -369,8 +369,9 @@ def moments_enhanced(
         island. Units: pixels.
 
     maxi : float
-        Peak pixel value within the island. Units: spectral brightness,
-        typically Jy/beam. To clarify: source_island[maxpos] == maxi.
+        Peak pixel value within the island. Pixel values represent spectral
+        brightness (typically in Jy/beam).
+        For clarity: source_island[maxpos] == maxi.
 
     fudge_max_pix_factor : float
         Correction factor for underestimation of the peak by considering the
@@ -464,6 +465,8 @@ def moments_enhanced(
     # dump the redundant elements that have undetermined values.
     source_island = source_island[:no_pixels]
     noise_island = noise_island[:no_pixels]
+    posx = posx[:no_pixels]
+    posy = posy[:no_pixels]
     # The significance of a source detection is determined in this way.
     significance[0] = (source_island / noise_island).max()
 
@@ -504,13 +507,7 @@ def moments_enhanced(
         i = np.nonzero(mask)[0][0]
         basepos = rounded_barycenter
         basevalue = source_island[i]
-    else:
-        # The rounded barycenter position is not in source_island, so we
-        # revert to the maximum pixel position, which is always included.
-        basepos = maxpos[0] - chunkpos[0], maxpos[1] - chunkpos[1]
-        basevalue = maxi
-
-    deltax, deltay = xbar - basepos[0], ybar - basepos[1]
+        deltax, deltay = xbar - basepos[0], ybar - basepos[1]
 
     if force_beam:
         # If the restoring beam is forced, we use the beam parameters
@@ -595,7 +592,7 @@ def moments_enhanced(
                     else:
                         theta -= math.pi / 2.0
 
-            if np.sign(threshold) == np.sign(basevalue):
+            if np.sign(threshold) == np.sign(basevalue) and in_source_island:
                 # Implementation of "tweaked moments", equation 2.67 from
                 # Spreeuw's thesis. In that formula the "base position" was the
                 # maximum pixel position. Here that is the rounded
@@ -620,9 +617,9 @@ def moments_enhanced(
                 # Gaussian fits.
                 if basevalue > 0:
                     low_bound = 0.5 * basevalue
-                    upp_bound = 1.5 * basevalue
+                    upp_bound = 2.0 * basevalue
                 else:
-                    low_bound = 1.5 * basevalue
+                    low_bound = 2.0 * basevalue
                     upp_bound = 0.5 * basevalue
 
                 # The number of iterations used for the root finder is also
