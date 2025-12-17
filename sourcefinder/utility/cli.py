@@ -34,6 +34,7 @@ from pathlib import Path
 import astropy.io.fits as pyfits
 import numpy
 
+import sourcefinder
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
@@ -122,6 +123,13 @@ def construct_argument_parser():
         help="""
         Enter debug mode when the application crashes. Meant to be used for more comprehensive debugging.
     """,
+    )
+
+    general_group.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"PySE {sourcefinder.__version__} (Python {sys.version.split()[0]})",
     )
 
     image_group = parser.add_argument_group("Image parameters")
@@ -456,11 +464,21 @@ def handle_args(args=None):
                 # command line we get a None value, ignore these
                 cli_args[section_name][arg_name] = cli_value
 
+    image_args = cli_args["Image parameters"]
+    # Handle grid vs back-size-x/y precedence
+    if image_args.get("grid") is not None:
+        if image_args.get("back_size_x") is None:
+            image_args["back_size_x"] = image_args["grid"]
+        if image_args.get("back_size_y") is None:
+            image_args["back_size_y"] = image_args["grid"]
+
     # Note: Dataclass replace is not recursive for stacked dataclasses.
     #       Replace one by one to avoid arguments being reset to their
     #       defaults.
-    conf_image = replace(conf.image, **cli_args["Image parameters"])
+    conf_image = replace(conf.image, **image_args)
     conf_export = replace(conf.export, **cli_args["Export parameters"])
+    # The functions skymodel, csv, summary and regions are currently not able
+    # to handle Pandas DataFrames.
     no_pandas_df_dict = {"pandas_df": False}
     conf_export = replace(conf_export, **no_pandas_df_dict)
     conf = replace(conf, image=conf_image, export=conf_export)
@@ -581,7 +599,9 @@ def run_sourcefinder(files, conf, mode):
 
         if mode == "fixed":
             sr = imagedata.fit_fixed_positions(
-                eval(conf.image.fixed_posns), # fixed_posns is a string, use eval to obtain it's contents
+                eval(
+                    conf.image.fixed_posns
+                ),  # fixed_posns is a string, use eval to obtain it's contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
             )
 

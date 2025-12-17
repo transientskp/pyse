@@ -203,15 +203,22 @@ class ImgConf(_Validate):
 
     """
 
-    back_size_x: int | None = 32
+    back_size_x: int | None = None
     """Subimage size for estimation of background node values (X
     direction). The nodes are centred on the subimages.
 
     """
 
-    back_size_y: int | None = 32
+    back_size_y: int | None = None
     """Subimage size for estimation of background node values (Y
     direction). The nodes are centred on the subimages.
+
+    """
+
+    grid: int | None = 64
+    """Background subimage size used as fallback for back_size_x and
+    back_size_y. If both are not set, this implies
+    back_size_x=backsize_y=grid, i.e. the subimages are squares.
 
     """
 
@@ -325,13 +332,6 @@ class ImgConf(_Validate):
 
     deblend_nthresh: int = 0
     """Number of deblending subthresholds; 0 to disable."""
-
-    grid: int | None = None
-    """Background subimage size used as fallback for back_size_x and
-    back_size_y. If both are not set, this implies
-    back_size_x=backsize_y=grid, i.e. the subimages are squares.
-
-    """
 
     bmaj: float | None = None
     """Set beam: Major axis of restoring beam (degrees)."""

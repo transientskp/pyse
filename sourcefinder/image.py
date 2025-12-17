@@ -10,9 +10,7 @@ import numpy as np
 from numba import guvectorize, float32, int32
 import pandas as pd
 
-from sourcefinder import extract
-from sourcefinder import stats
-from sourcefinder import utils
+from sourcefinder import extract, stats, utils
 from sourcefinder.config import Conf, ImgConf, ExportSettings
 from sourcefinder.utility import containers
 from sourcefinder.utility.uncertain import Uncertain
