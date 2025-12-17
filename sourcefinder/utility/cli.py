@@ -34,6 +34,7 @@ from pathlib import Path
 import astropy.io.fits as pyfits
 import numpy
 
+import sourcefinder
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
@@ -122,6 +123,13 @@ def construct_argument_parser():
         help="""
         Enter debug mode when the application crashes. Meant to be used for more comprehensive debugging.
     """,
+    )
+
+    general_group.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"PySE {sourcefinder.__version__} (Python {sys.version.split()[0]})",
     )
 
     image_group = parser.add_argument_group("Image parameters")
@@ -462,7 +470,7 @@ def handle_args(args=None):
     conf_image = replace(conf.image, **cli_args["Image parameters"])
     conf_export = replace(conf.export, **cli_args["Export parameters"])
     # The functions skymodel, csv, summary and regions are currently not able
-    # to handle Pandas DataFramses.
+    # to handle Pandas DataFrames.
     no_pandas_df_dict = {"pandas_df": False}
     conf_export = replace(conf_export, **no_pandas_df_dict)
     conf = replace(conf, image=conf_image, export=conf_export)
