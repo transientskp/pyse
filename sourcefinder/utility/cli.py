@@ -461,6 +461,8 @@ def handle_args(args=None):
     #       defaults.
     conf_image = replace(conf.image, **cli_args["Image parameters"])
     conf_export = replace(conf.export, **cli_args["Export parameters"])
+    # The functions skymodel, csv, summary and regions are currently not able
+    # to handle Pandas DataFramses.
     no_pandas_df_dict = {"pandas_df": False}
     conf_export = replace(conf_export, **no_pandas_df_dict)
     conf = replace(conf, image=conf_image, export=conf_export)
@@ -581,7 +583,9 @@ def run_sourcefinder(files, conf, mode):
 
         if mode == "fixed":
             sr = imagedata.fit_fixed_positions(
-                eval(conf.image.fixed_posns), # fixed_posns is a string, use eval to obtain it's contents
+                eval(
+                    conf.image.fixed_posns
+                ),  # fixed_posns is a string, use eval to obtain it's contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
             )
 
