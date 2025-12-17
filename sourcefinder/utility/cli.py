@@ -464,10 +464,18 @@ def handle_args(args=None):
                 # command line we get a None value, ignore these
                 cli_args[section_name][arg_name] = cli_value
 
+    image_args = cli_args["Image parameters"]
+    # Handle grid vs back-size-x/y precedence
+    if image_args.get("grid") is not None:
+        if image_args.get("back_size_x") is None:
+            image_args["back_size_x"] = image_args["grid"]
+        if image_args.get("back_size_y") is None:
+            image_args["back_size_y"] = image_args["grid"]
+
     # Note: Dataclass replace is not recursive for stacked dataclasses.
     #       Replace one by one to avoid arguments being reset to their
     #       defaults.
-    conf_image = replace(conf.image, **cli_args["Image parameters"])
+    conf_image = replace(conf.image, **image_args)
     conf_export = replace(conf.export, **cli_args["Export parameters"])
     # The functions skymodel, csv, summary and regions are currently not able
     # to handle Pandas DataFrames.
