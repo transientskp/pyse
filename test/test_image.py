@@ -79,7 +79,8 @@ class TestFitFixedPositions(unittest.TestCase):
         eye in DS9
         """
         self.image = accessors.sourcefinder_image_from_accessor(
-            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits"))
+            accessors.open(os.path.join(DATAPATH, "NCP_sample_image_1.fits")),
+            conf=Conf(ImgConf(grid=32), export=ExportSettings()),
         )
         self.assertListEqual(list(self.image.data.shape), [1024, 1024])
         self.boxsize = BOX_IN_BEAMPIX * max(
@@ -389,7 +390,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         # Start with comparing results from fitting with ground truth results
         # from fitting. This implies "vectorized==False".
         conf_fitting = Conf(
-            image=ImgConf(detection_thr=5, vectorized=False),
+            image=ImgConf(detection_thr=5, grid=32, vectorized=False),
             export=ExportSettings(
                 source_params=source_params, pandas_df=False
             ),
@@ -417,7 +418,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         # Next, compare results from "tweaked moments" with ground truth results
         # from "tweaked moments". This implies "vectorized==True".
         conf_moments = Conf(
-            image=ImgConf(detection_thr=5, vectorized=True),
+            image=ImgConf(detection_thr=5, grid=32, vectorized=True),
             export=ExportSettings(
                 source_params=source_params, pandas_df=False
             ),
@@ -451,7 +452,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         major/minor axes to be held constant when fitting.
         """
         conf = Conf(
-            image=ImgConf(detection_thr=5, force_beam=True),
+            image=ImgConf(detection_thr=5, grid=32, force_beam=True),
             export=ExportSettings(pandas_df=False),
         )
         image = accessors.sourcefinder_image_from_accessor(
@@ -470,7 +471,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         """
 
         conf = Conf(
-            image=ImgConf(detection_thr=5),
+            image=ImgConf(detection_thr=5, grid=32),
             export=ExportSettings(pandas_df=False),
         )
         fits_image = accessors.sourcefinder_image_from_accessor(
@@ -514,7 +515,7 @@ class TestSimpleImageSourceFind(unittest.TestCase):
         image = accessors.sourcefinder_image_from_accessor(
             FitsImage(GRB120422A),
             conf=Conf(
-                ImgConf(detection_thr=5e10, analysis_thr=5e10),
+                ImgConf(detection_thr=5e10, grid=32, analysis_thr=5e10),
                 export=ExportSettings(pandas_df=False),
             ),
         )
