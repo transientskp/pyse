@@ -237,7 +237,7 @@ class ImageData(object):
         assert len(useful_chunk) == 1
         x_dim, y_dim = self.data[useful_chunk[0]].shape
         # Use 'back-size-x' and 'back-size-y' if available, fall back to 'grid'.
-        back_size_x = self.conf.image.back_size_x
+        back_size_x = self.conf.image.back_size_x or self.conf.image.grid
         if back_size_x is None:
             raise ValueError(
                 (
@@ -245,7 +245,7 @@ class ImageData(object):
                     "in the config object"
                 )
             )
-        back_size_y = self.conf.image.back_size_y
+        back_size_y = self.conf.image.back_size_y or self.conf.image.grid
         if back_size_y is None:
             raise ValueError(
                 (
