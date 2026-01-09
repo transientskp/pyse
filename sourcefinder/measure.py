@@ -165,57 +165,61 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
 
     rounded_barycenter = int(round(xbar)), int(round(ybar))
     # basevalue and basepos will be needed for "tweaked moments".
+    in_source_island = False
     try:
         if not data.mask[rounded_barycenter]:
-            basepos = rounded_barycenter
-        else:
-            basepos = maxpos
+            in_source_island = True
     except IndexError:
-        basepos = maxpos
+        # rounded_barycenter is not part of the island.
+        pass
     except AttributeError:
         # If the island is not masked at all, we can safely set basepos to
         # the rounded barycenter position.
+        in_source_island = True
+
+    if in_source_island:
         basepos = rounded_barycenter
-    basevalue = data[basepos]
+        basevalue = data[basepos]
 
-    if np.sign(threshold) == np.sign(basevalue):
-        # Implementation of "tweaked moments", equation 2.67 from
-        # Spreeuw's thesis. In that formula the "base position" was the
-        # maximum pixel position, though. Here that is the rounded
-        # barycenter position, unless it's masked. If it's masked, it
-        # will be the maximum pixel position.
-        deltax, deltay = xbar - basepos[0], ybar - basepos[1]
+        if np.sign(threshold) == np.sign(basevalue):
+            # Implementation of "tweaked moments", equation 2.67 from
+            # Spreeuw's thesis. In that formula the "base position" was the
+            # maximum pixel position, though. Here that is the rounded
+            # barycenter position, unless it's masked or not part of the island.
+            # In those cases no "tweaked moments" extrapolation will be
+            # applied, and we revert to data.max() * fudge_max_pix.
+            deltax, deltay = xbar - basepos[0], ybar - basepos[1]
 
-        epsilon = np.log(2.0) * (
-            (np.cos(theta) * deltax + np.sin(theta) * deltay) ** 2
-            + (np.cos(theta) * deltay - np.sin(theta) * deltax) ** 2
-            * semiminor_tmp
-            / semimajor_tmp
-        )
+            epsilon = np.log(2.0) * (
+                (np.cos(theta) * deltax + np.sin(theta) * deltay) ** 2
+                + (np.cos(theta) * deltay - np.sin(theta) * deltax) ** 2
+                * semiminor_tmp
+                / semimajor_tmp
+            )
 
-        # Set limits for the root finder similar to the bounds for
-        # Gaussian fits.
-        if basevalue > 0:
-            low_bound = 0.5 * basevalue
-            upp_bound = 1.5 * basevalue
-        else:
-            low_bound = 1.5 * basevalue
-            upp_bound = 0.5 * basevalue
+            # Set limits for the root finder similar to the bounds for
+            # Gaussian fits.
+            if basevalue > 0:
+                low_bound = 0.5 * basevalue
+                upp_bound = 1.5 * basevalue
+            else:
+                low_bound = 1.5 * basevalue
+                upp_bound = 0.5 * basevalue
 
-        # The number of iterations used for the root finder is also
-        # returned, but not used here.
-        peak, _ = newton_raphson_root_finder(
-            find_true_peak,
-            basevalue,
-            low_bound,
-            upp_bound,
-            1e-8,
-            100,
-            threshold,
-            epsilon,
-            semiminor_tmp,
-            basevalue,
-        )
+            # The number of iterations used for the root finder is also
+            # returned, but not used here.
+            peak, _ = newton_raphson_root_finder(
+                find_true_peak,
+                basevalue,
+                low_bound,
+                upp_bound,
+                1e-8,
+                100,
+                threshold,
+                epsilon,
+                semiminor_tmp,
+                basevalue,
+            )
 
     if np.sign(threshold) == np.sign(peak):
         # The corrections below for the semi-major and semi-minor axes are
@@ -500,6 +504,7 @@ def moments_enhanced(
     rounded_barycenter = int(round(xbar)), int(round(ybar))
     mask = (posx == rounded_barycenter[0]) & (posy == rounded_barycenter[1])
     in_source_island = mask.any()
+
     if in_source_island:
         # In this case the rounded barycenter position is in source_island.
         # Note that mask, from the way that posx and posy have been constructed,
@@ -520,8 +525,9 @@ def moments_enhanced(
             # Implementation of "tweaked moments", equation 2.66 from
             # Spreeuw's thesis. In that formula the "base position" was the
             # maximum pixel position, though. Here that is the rounded
-            # barycenter position, unless it's masked. If it's masked, it
-            # will be the maximum pixel position.
+            # barycenter position, unless it's not part of the island. In that
+            # case no "tweaked moments" extrapolation will be applied, and we
+            # revert to source_island.max() * fudge_max_pix.
             exponent = np.log(2.0) * (
                 ((np.cos(theta) * deltax + np.sin(theta) * deltay) / smin) ** 2
                 + ((np.cos(theta) * deltay - np.sin(theta) * deltax) / smaj)
@@ -592,50 +598,51 @@ def moments_enhanced(
                     else:
                         theta -= math.pi / 2.0
 
-            if np.sign(threshold) == np.sign(basevalue) and in_source_island:
-                # Implementation of "tweaked moments", equation 2.67 from
-                # Spreeuw's thesis. In that formula the "base position" was the
-                # maximum pixel position. Here that is the rounded
-                # barycenter position, unless it's masked. If it's masked, it
-                # will be the maximum pixel position.
-                # The rounded barycenter position will buy us slightly more
-                # stability (established by testing) than the maximum pixel
-                # position.
-                # The condition is a sanity check for maps other than Stokes I,
-                # where the threshold can be negative. For Stokes I maps, which
-                # will have positive thresholds, at least for all
-                # non-pathological cases, this condition will always be true.
+            if in_source_island:
+                if np.sign(threshold) == np.sign(basevalue):
+                    # Implementation of "tweaked moments", equation 2.67 from
+                    # Spreeuw's thesis. In that formula the "base position" was the
+                    # maximum pixel position. Here that is the rounded
+                    # barycenter position, unless it's not part of the island. In
+                    # that case no "tweaked moments" extrapolation will be
+                    # applied, and we revert to source_island.max() *
+                    # fudge_max_pix.
+                    # The condition is a sanity check for maps other than Stokes I,
+                    # where the threshold can be negative. For Stokes I maps, which
+                    # will have positive thresholds, at least for all
+                    # non-pathological cases, this condition will always be true.
 
-                epsilon = np.log(2.0) * (
-                    (np.cos(theta) * deltax + np.sin(theta) * deltay) ** 2
-                    + (np.cos(theta) * deltay - np.sin(theta) * deltax) ** 2
-                    * semiminor_tmp
-                    / semimajor_tmp
-                )
+                    epsilon = np.log(2.0) * (
+                        (np.cos(theta) * deltax + np.sin(theta) * deltay) ** 2
+                        + (np.cos(theta) * deltay - np.sin(theta) * deltax)
+                        ** 2
+                        * semiminor_tmp
+                        / semimajor_tmp
+                    )
 
-                # Set limits for the root finder similar to the bounds for
-                # Gaussian fits.
-                if basevalue > 0:
-                    low_bound = 0.5 * basevalue
-                    upp_bound = 2.0 * basevalue
-                else:
-                    low_bound = 2.0 * basevalue
-                    upp_bound = 0.5 * basevalue
+                    # Set limits for the root finder similar to the bounds for
+                    # Gaussian fits.
+                    if basevalue > 0:
+                        low_bound = 0.5 * basevalue
+                        upp_bound = 2.0 * basevalue
+                    else:
+                        low_bound = 2.0 * basevalue
+                        upp_bound = 0.5 * basevalue
 
-                # The number of iterations used for the root finder is also
-                # returned, but not used here.
-                peak, _ = newton_raphson_root_finder(
-                    find_true_peak,
-                    basevalue,
-                    low_bound,
-                    upp_bound,
-                    1e-8,
-                    100,
-                    threshold,
-                    epsilon,
-                    semiminor_tmp,
-                    basevalue,
-                )
+                    # The number of iterations used for the root finder is also
+                    # returned, but not used here.
+                    peak, _ = newton_raphson_root_finder(
+                        find_true_peak,
+                        basevalue,
+                        low_bound,
+                        upp_bound,
+                        1e-8,
+                        100,
+                        threshold,
+                        epsilon,
+                        semiminor_tmp,
+                        basevalue,
+                    )
 
             if np.sign(threshold) == np.sign(peak) and abs(peak) > abs(
                 threshold
