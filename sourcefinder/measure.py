@@ -201,9 +201,9 @@ def moments(data, fudge_max_pix_factor, beam, beamsize, threshold=0):
             # Gaussian fits.
             if basevalue > 0:
                 low_bound = 0.5 * basevalue
-                upp_bound = 1.5 * basevalue
+                upp_bound = 2.0 * basevalue
             else:
-                low_bound = 1.5 * basevalue
+                low_bound = 2.0 * basevalue
                 upp_bound = 0.5 * basevalue
 
             # The number of iterations used for the root finder is also
