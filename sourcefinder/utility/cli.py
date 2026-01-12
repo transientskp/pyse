@@ -18,6 +18,7 @@ For help with command line options:
 See chapters 2 & 3 of Spreeuw, PhD Thesis, University of Amsterdam, 2010,
 <http://dare.uva.nl/en/record/340633> for details.
 """
+
 import argparse
 import ast
 import json
@@ -27,7 +28,7 @@ import numbers
 import os.path
 import pdb
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from io import StringIO
 from pathlib import Path
 
@@ -89,8 +90,7 @@ def parse_monitoringlist_positions(
             monitor_coords.extend(mon_list)
         except json.JSONDecodeError:
             logging.error(
-                "Could not parse monitor-coords from file: "
-                + getattr(args, list_name)
+                "Could not parse monitor-coords from file: " + getattr(args, list_name)
             )
             raise
     return monitor_coords
@@ -121,6 +121,14 @@ def construct_argument_parser():
         action="store_true",
         help="""
         Enter debug mode when the application crashes. Meant to be used for more comprehensive debugging.
+    """,
+    )
+    general_group.add_argument(
+        "--show-input",
+        action="store_true",
+        help="""
+        View all arguments pyse will run with in the current configuration after aggregating the command-line
+        arguments, config-file parameters and pyse defaults.
     """,
     )
 
@@ -215,12 +223,8 @@ def construct_argument_parser():
     image_group.add_argument(
         "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
     )
-    image_group.add_argument(
-        "--detection-thr", type=float, help="Detection threshold"
-    )
-    image_group.add_argument(
-        "--analysis-thr", type=float, help="Analysis threshold"
-    )
+    image_group.add_argument("--detection-thr", type=float, help="Detection threshold")
+    image_group.add_argument("--analysis-thr", type=float, help="Analysis threshold")
     image_group.add_argument(
         "--fdr", action="store_true", help="Use False Detection Rate algorithm"
     )
@@ -230,9 +234,7 @@ def construct_argument_parser():
         type=int,
         help="Number of deblending subthresholds; 0 to disable",
     )
-    image_group.add_argument(
-        "--grid", type=int, help="Background grid segment size"
-    )
+    image_group.add_argument("--grid", type=int, help="Background grid segment size")
     image_group.add_argument(
         "--bmaj", type=float, help="Set beam: Major axis of beam (deg)"
     )
@@ -296,9 +298,7 @@ def construct_argument_parser():
     export_group.add_argument(
         "--regions", action="store_true", help="Generate DS9 region file(s)"
     )
-    export_group.add_argument(
-        "--rmsmap", action="store_true", help="Generate RMS map"
-    )
+    export_group.add_argument("--rmsmap", action="store_true", help="Generate RMS map")
     export_group.add_argument(
         "--sigmap", action="store_true", help="Generate significance map"
     )
@@ -310,7 +310,7 @@ def construct_argument_parser():
     )
 
     # Finally, as positional arguments, the file list:
-    parser.add_argument("files", nargs="+", help="Image files for processing")
+    parser.add_argument("files", nargs="*", help="Image files for processing")
     return parser
 
 
@@ -392,9 +392,7 @@ def summary(filename, sourcelist):
     output = StringIO()
     print("** %s **\n" % filename, file=output)
     for source in sourcelist:
-        print(
-            "RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output
-        )
+        print("RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output)
         print(
             "Error radius (arcsec): %s" % (str(source.error_radius)),
             file=output,
@@ -436,6 +434,8 @@ def handle_args(args=None):
 
         sys.excepthook = excepthook
 
+    show_input = unstructured_args.pop("show_input")
+
     # Merge the CLI arguments with the config file parameters
     config_file = unstructured_args.pop("config_file")
     conf = read_conf(config_file)
@@ -470,6 +470,23 @@ def handle_args(args=None):
     fixed_coords = parse_monitoringlist_positions(
         conf.image, str_name="fixed_posns", list_name="fixed_posns_file"
     )
+
+    if show_input:
+
+        def print_dict_content_recursively(dict_, current_depth):
+            for key, value in dict_.items():
+                if isinstance(value, dict):
+                    print(current_depth * "  ", f"=== {key} ===")
+                    print_dict_content_recursively(value, current_depth + 1)
+                else:
+                    print(current_depth * "  ", f"{key}: {value}")
+
+        print_dict_content_recursively(asdict(conf), current_depth=0)
+        sys.exit(0)
+
+    if len(files) == 0:
+        raise ValueError("At least one input file must be supplied")
+
     # Quick & dirty check that the position list looks plausible
     if fixed_coords:
         mlist = numpy.array(fixed_coords)
@@ -489,9 +506,7 @@ def handle_args(args=None):
         if conf.image.fdr:
             parser.error("--fdr not supported with fixed positions")
         elif conf.image.detection_image:
-            parser.error(
-                "--detection-image not supported with fixed positions"
-            )
+            parser.error("--detection-image not supported with fixed positions")
         elif conf.export.residuals:
             parser.error("--residuals not supported with fixed positions")
         elif conf.export.islands:
@@ -571,17 +586,16 @@ def run_sourcefinder(files, conf, mode):
         labels, labelled_data = [], None
 
     for counter, filename in enumerate(files):
-        print(
-            "Processing %s (file %d of %d)."
-            % (filename, counter + 1, len(files))
-        )
+        print("Processing %s (file %d of %d)." % (filename, counter + 1, len(files)))
         imagename = os.path.splitext(os.path.basename(filename))[0]
         ff = open_accessor(filename, beam=beam, plane=0)
         imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
 
         if mode == "fixed":
             sr = imagedata.fit_fixed_positions(
-                eval(conf.image.fixed_posns), # fixed_posns is a string, use eval to obtain it's contents
+                eval(
+                    conf.image.fixed_posns
+                ),  # fixed_posns is a string, use eval to obtain it's contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
             )
 
@@ -653,9 +667,7 @@ def run_sourcefinder(files, conf, mode):
                 pyfits.getheader(filename),
             )
         if conf.export.skymodel:
-            with open(
-                export_dir / (imagename + ".skymodel"), "w"
-            ) as skymodelfile:
+            with open(export_dir / (imagename + ".skymodel"), "w") as skymodelfile:
                 if ff.freq_eff:
                     skymodelfile.write(skymodel(sr, ff.freq_eff))
                 else:
