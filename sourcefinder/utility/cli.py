@@ -124,7 +124,7 @@ def construct_argument_parser():
     """,
     )
     general_group.add_argument(
-        "--show-input",
+        "--show-args",
         action="store_true",
         help="""
         View all arguments pyse will run with in the current configuration after aggregating the command-line
@@ -434,7 +434,7 @@ def handle_args(args=None):
 
         sys.excepthook = excepthook
 
-    show_input = unstructured_args.pop("show_input")
+    show_args = unstructured_args.pop("show_args")
 
     # Merge the CLI arguments with the config file parameters
     config_file = unstructured_args.pop("config_file")
@@ -471,7 +471,7 @@ def handle_args(args=None):
         conf.image, str_name="fixed_posns", list_name="fixed_posns_file"
     )
 
-    if show_input:
+    if show_args:
 
         def print_dict_content_recursively(dict_, current_depth):
             for key, value in dict_.items():
