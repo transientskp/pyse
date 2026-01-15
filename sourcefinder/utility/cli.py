@@ -39,8 +39,38 @@ import sourcefinder
 from sourcefinder.accessors import open as open_accessor
 from sourcefinder.accessors import sourcefinder_image_from_accessor
 from sourcefinder.accessors import writefits as tkp_writefits
-from sourcefinder.config import read_conf
+from sourcefinder.config import (
+    read_conf,
+    ImgConf,
+    ExportSettings,
+    IMGCONF_HELP,
+    EXPORTSETTINGS_HELP,
+)
 from sourcefinder.utils import generate_result_maps
+
+
+def imgconf_help(name: str) -> str:
+    text = IMGCONF_HELP.get(name, "").strip()
+
+    # Retrieve default value from ImgConf dataclass
+    default = getattr(ImgConf, name, None)
+
+    if default is not None:
+        text += f"\n\n[default: {default}]"
+
+    return text
+
+
+def exportsettings_help(name: str) -> str:
+    text = EXPORTSETTINGS_HELP.get(name, "").strip()
+
+    # Retrieve default value from ExportSettings dataclass
+    default = getattr(ExportSettings, name, None)
+
+    if default is not None:
+        text += f"\n\n[default: {default}]"
+
+    return text
 
 
 def parse_monitoringlist_positions(
@@ -91,7 +121,8 @@ def parse_monitoringlist_positions(
             monitor_coords.extend(mon_list)
         except json.JSONDecodeError:
             logging.error(
-                "Could not parse monitor-coords from file: " + getattr(args, list_name)
+                "Could not parse monitor-coords from file: "
+                + getattr(args, list_name)
             )
             raise
     return monitor_coords
@@ -106,23 +137,28 @@ def parse_none(value):
 
 def construct_argument_parser():
     parser = argparse.ArgumentParser(
-        description="PySE image configuration options. These can override the values specified in the TOML config file."
+        description=(
+            "PySE image configuration options. These can override "
+            "the values specified in the TOML config file."
+        ),
     )
 
     general_group = parser.add_argument_group("General")
     general_group.add_argument(
         "--config-file",
-        help="""
-        TOML file containing default input arguments to PySE.
-        This is especially convenient when swapping between configurations for the same project.
-    """,
+        help=(
+            "TOML file containing default input arguments to PySE. "
+            "This is especially convenient when swapping between "
+            "configurations for the same project."
+        ),
     )
     general_group.add_argument(
         "--pdb",
         action="store_true",
-        help="""
-        Enter debug mode when the application crashes. Meant to be used for more comprehensive debugging.
-    """,
+        help=(
+            "Enter debug mode when the application crashes. Meant to be "
+            "used for more comprehensive debugging."
+        ),
     )
     general_group.add_argument(
         "--show-args",
@@ -145,176 +181,197 @@ def construct_argument_parser():
     image_group.add_argument(
         "--interpolate-order",
         type=int,
-        help="Order of interpolation to use (e.g. 1 for linear).",
+        help=imgconf_help("interpolate_order"),
     )
 
     image_group.add_argument(
         "--median-filter",
         type=int,
-        help="Size of the median filter to apply to the image. Use 0 to disable.",
+        help=imgconf_help("median_filter"),
     )
 
     image_group.add_argument(
         "--mf-threshold",
         type=float,
-        help="Threshold used with the median filter. Sources below this value are discarded.",
+        help=imgconf_help("mf_threshold"),
     )
 
     image_group.add_argument(
         "--rms-filter",
         type=float,
-        help="Minimum RMS value to use as filter for the image noise.",
+        help=imgconf_help("rms_filter"),
     )
 
     image_group.add_argument(
         "--deblend-mincont",
         type=float,
-        help="Minimum contrast for deblending islands into separate sources (e.g. 0.005).",
+        help=imgconf_help("deblend_mincont"),
     )
 
     image_group.add_argument(
         "--structuring-element",
         type=ast.literal_eval,
-        help="""
-        Structuring element for morphological operations, provided as a
-        Python-style nested list, e.g. '[[1,1,1], [1,1,1], [1,1,1]]' for
-        8-connectivity and '[[0,1,0], [1,1,1], [0,1,0]]' for 4-connectivity.
-        This is used for defining the connectivity in connected-component
-        labelling.
-        """,
+        help=imgconf_help("structuring_element"),
     )
 
     image_group.add_argument(
         "--vectorized",
         action="store_true",
-        help="Measure sources vectorized, this implies using 'tweaked "
-        "moments' instead of Gaussian fits.",
+        help=imgconf_help("vectorized"),
     )
 
     image_group.add_argument(
         "--nr-threads",
         type=int,
-        help="""The number of threads used to parallelize Gaussian fits to detected
-        sources.
-        Note: this does not change numba's 'num threads' for parallel numba operations.
-        """,
+        help=imgconf_help("nr_threads"),
     )
 
     image_group.add_argument(
         "--margin",
         type=int,
-        help="Margin in pixels to ignore around the edge of the image.",
+        help=imgconf_help("margin"),
     )
 
     image_group.add_argument(
         "--radius",
         type=float,
-        help="Radius in pixels around sources to include in analysis.",
+        help=imgconf_help("radius"),
     )
 
     image_group.add_argument(
         "--back-size-x",
         type=int,
-        help="Size of the background subimage in the X direction.",
+        help=imgconf_help("back_size_x"),
     )
 
     image_group.add_argument(
         "--back-size-y",
         type=int,
-        help="Size of the background subimage in the Y direction.",
+        help=imgconf_help("back_size_y"),
     )
 
     image_group.add_argument(
-        "--eps-ra", type=float, help="RA matching tolerance in arcseconds."
+        "--grid",
+        type=int,
+        help=imgconf_help("grid"),
     )
 
     image_group.add_argument(
-        "--eps-dec", type=float, help="Dec matching tolerance in arcseconds."
+        "--eps-ra",
+        type=float,
+        help=imgconf_help("eps_ra"),
     )
-    image_group.add_argument("--detection-thr", type=float, help="Detection threshold")
-    image_group.add_argument("--analysis-thr", type=float, help="Analysis threshold")
+
     image_group.add_argument(
-        "--fdr", action="store_true", help="Use False Detection Rate algorithm"
+        "--eps-dec",
+        type=float,
+        help=imgconf_help("eps_dec"),
     )
-    image_group.add_argument("--alpha", type=float, help="FDR Alpha")
+    image_group.add_argument(
+        "--detection-thr",
+        type=float,
+        help=imgconf_help("detection_thr"),
+    )
+    image_group.add_argument(
+        "--analysis-thr", type=float, help=imgconf_help("analysis_thr")
+    )
+    image_group.add_argument(
+        "--fdr", action="store_true", help=imgconf_help("fdr")
+    )
+    image_group.add_argument("--alpha", type=float, help=imgconf_help("alpha"))
+
     image_group.add_argument(
         "--deblend-nthresh",
         type=int,
-        help="Number of deblending subthresholds; 0 to disable",
-    )
-    image_group.add_argument("--grid", type=int, help="Background grid segment size")
-    image_group.add_argument(
-        "--bmaj", type=float, help="Set beam: Major axis of beam (deg)"
+        help=imgconf_help("deblend_nthresh"),
     )
     image_group.add_argument(
-        "--bmin", type=float, help="Set beam: Minor axis of beam (deg)"
+        "--bmaj",
+        type=float,
+        help=imgconf_help("bmaj"),
     )
     image_group.add_argument(
-        "--bpa", type=float, help="Set beam: Beam position angle (deg)"
+        "--bmin",
+        type=float,
+        help=imgconf_help("bmin"),
+    )
+    image_group.add_argument(
+        "--bpa",
+        type=float,
+        help=imgconf_help("bpa"),
     )
     image_group.add_argument(
         "--force-beam",
         action="store_true",
-        help="Force fit axis lengths to beam size",
+        help=imgconf_help("force_beam"),
     )
     image_group.add_argument(
-        "--detection-image", type=str, help="Find islands on different image"
+        "--detection-image", type=str, help=imgconf_help("detection_image")
     )
     image_group.add_argument(
         "--fixed-posns",
-        help="List of position coordinates to "
-        "force-fit (decimal degrees, JSON, e.g [[123.4,56.7],[359.9,89.9]]) "
-        "(Will not perform blind extraction in this mode)",
+        help=imgconf_help("fixed_posns"),
     )
     image_group.add_argument(
         "--fixed-posns-file",
-        help="Path to file containing a list of positions to force-fit "
-        "(Will not perform blind extraction in this mode)",
+        help=imgconf_help("fixed_posns_file"),
     )
     image_group.add_argument(
         "--ffbox",
         type=float,
-        help="Forced fitting positional box size as a multiple of beam width.",
+        help=imgconf_help("ffbox"),
     )
     image_group.add_argument(
         "--ew-sys-err",
         type=float,
-        help="Systematic error in east-west direction",
+        help=imgconf_help("ew_sys_err"),
     )
     image_group.add_argument(
         "--ns-sys-err",
         type=float,
-        help="Systematic error in north-south direction",
+        help=imgconf_help("ns_sys_err"),
     )
 
     # Arguments relating to output:
     export_group = parser.add_argument_group("Export parameters")
     export_group.add_argument(
         "--output-dir",
-        help="""
-        The directory in which to store the output files.
-    """,
+        help=exportsettings_help("output_directory"),
     )
     export_group.add_argument(
-        "--skymodel", action="store_true", help="Generate sky model"
+        "--skymodel",
+        action="store_true",
+        help=exportsettings_help("skymodel"),
     )
     export_group.add_argument(
         "--csv",
         action="store_true",
-        help="Generate csv text file for use in programs such as TopCat",
+        help=exportsettings_help("csv"),
     )
     export_group.add_argument(
-        "--regions", action="store_true", help="Generate DS9 region file(s)"
-    )
-    export_group.add_argument("--rmsmap", action="store_true", help="Generate RMS map")
-    export_group.add_argument(
-        "--sigmap", action="store_true", help="Generate significance map"
+        "--regions",
+        action="store_true",
+        help=exportsettings_help("regions"),
     )
     export_group.add_argument(
-        "--residuals", action="store_true", help="Generate residual maps"
+        "--rmsmap",
+        action="store_true",
+        help=exportsettings_help("rmsmap"),
     )
     export_group.add_argument(
-        "--islands", action="store_true", help="Generate island maps"
+        "--sigmap",
+        action="store_true",
+        help=exportsettings_help("sigmap"),
+    )
+    export_group.add_argument(
+        "--residuals",
+        action="store_true",
+        help=exportsettings_help("residuals"),
+    )
+    export_group.add_argument(
+        "--islands",
+        action="store_true",
+        help=exportsettings_help("islands"),
     )
 
     # Finally, as positional arguments, the file list:
@@ -569,7 +626,7 @@ def get_beam(bmaj, bmin, bpa):
         and isinstance(bmin, numbers.Real)
         and isinstance(bpa, numbers.Real)
     ):
-        return (float(bmaj), float(bmin), float(bpa))
+        return float(bmaj), float(bmin), float(bpa)
     if bmaj or bmin or bpa:
         print("WARNING: partial beam specification ignored")
     return None
@@ -577,7 +634,7 @@ def get_beam(bmaj, bmin, bpa):
 
 def bailout(reason):
     # Exit with error
-    print("ERROR: %s" % (reason))
+    print("ERROR: %s" % reason)
     sys.exit(1)
 
 
@@ -586,7 +643,7 @@ def run_sourcefinder(files, conf, mode):
     Iterate over the list of files, running a sourcefinding step on each in
     turn. If specified, a DS9-compatible region file and/or a FITS file
     showing the residuals after Gaussian fitting are dumped for each file.
-    A string containing a human readable list of sources is returned.
+    A string containing a human-readable list of sources is returned.
     """
     output = StringIO()
 
@@ -613,7 +670,7 @@ def run_sourcefinder(files, conf, mode):
             sr = imagedata.fit_fixed_positions(
                 eval(
                     conf.image.fixed_posns
-                ),  # fixed_posns is a string, use eval to obtain it's contents
+                ),  # fixed_posns is a string, use eval to obtain its contents
                 conf.image.ffbox * max(imagedata.beam[0:2]),
             )
 
