@@ -147,7 +147,9 @@ def construct_argument_parser():
     general_group.add_argument(
         "--config-file",
         help=(
-            "TOML file containing default input arguments to PySE. "
+            "TOML file containing input arguments to PySE. Overridden by "
+            "command line arguments, but overrides built-in defaults from "
+            "config.ImgConf and config.ExportSettings. "
             "This is especially convenient when swapping between "
             "configurations for the same project."
         ),
