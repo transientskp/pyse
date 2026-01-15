@@ -494,7 +494,7 @@ def handle_args(args=None):
     debug_on_error = unstructured_args.pop("pdb")
     if debug_on_error:
 
-        def excepthook(type, value, traceback):
+        def excepthook(traceback):
             pdb.post_mortem(traceback)
 
         sys.excepthook = excepthook
