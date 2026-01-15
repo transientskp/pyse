@@ -476,7 +476,7 @@ def summary(filename, sourcelist):
     return output.getvalue()
 
 
-def handle_args(args=None):
+def handle_args():
     """
     Parses command line options & arguments using OptionParser.
     Options & default values for the script are defined herein.
