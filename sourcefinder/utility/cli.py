@@ -28,6 +28,7 @@ import numbers
 import os.path
 import pdb
 import sys
+from types import TracebackType
 from dataclasses import asdict, replace
 from io import StringIO
 from pathlib import Path
@@ -308,7 +309,8 @@ def construct_argument_parser():
         help=imgconf_help("force_beam"),
     )
     image_group.add_argument(
-        "--detection-image", type=str, help=imgconf_help("detection_image")
+        "--detection-image", type=str,
+        help=imgconf_help("detection_image")
     )
     image_group.add_argument(
         "--fixed-posns",
@@ -459,7 +461,8 @@ def summary(filename, sourcelist):
     output = StringIO()
     print("** %s **\n" % filename, file=output)
     for source in sourcelist:
-        print("RA: %s, dec: %s" % (str(source.ra), str(source.dec)), file=output)
+        print("RA: %s, dec: %s" % (str(source.ra), str(source.dec)),
+              file=output)
         print(
             "Error radius (arcsec): %s" % (str(source.error_radius)),
             file=output,
@@ -496,8 +499,14 @@ def handle_args():
     debug_on_error = unstructured_args.pop("pdb")
     if debug_on_error:
 
-        def excepthook(traceback):
-            pdb.post_mortem(traceback)
+        def excepthook(
+            _exc_type: type[BaseException],
+            _exc_value: BaseException,
+            tb: TracebackType | None,
+        ) -> None:
+            """Enter post-mortem debugging on uncaught exceptions."""
+            if tb is not None:
+                pdb.post_mortem(tb)
 
         sys.excepthook = excepthook
 
@@ -583,7 +592,8 @@ def handle_args():
         if conf.image.fdr:
             parser.error("--fdr not supported with fixed positions")
         elif conf.image.detection_image:
-            parser.error("--detection-image not supported with fixed positions")
+            parser.error(
+                "--detection-image not supported with fixed positions")
         elif conf.export.residuals:
             parser.error("--residuals not supported with fixed positions")
         elif conf.export.islands:
@@ -663,7 +673,10 @@ def run_sourcefinder(files, conf, mode):
         labels, labelled_data = [], None
 
     for counter, filename in enumerate(files):
-        print("Processing %s (file %d of %d)." % (filename, counter + 1, len(files)))
+        print(
+            "Processing %s (file %d of %d)."
+            % (filename, counter + 1, len(files))
+        )
         imagename = os.path.splitext(os.path.basename(filename))[0]
         ff = open_accessor(filename, beam=beam, plane=0)
         imagedata = sourcefinder_image_from_accessor(ff, conf=conf)
@@ -744,7 +757,9 @@ def run_sourcefinder(files, conf, mode):
                 pyfits.getheader(filename),
             )
         if conf.export.skymodel:
-            with open(export_dir / (imagename + ".skymodel"), "w") as skymodelfile:
+            with open(
+                export_dir / (imagename + ".skymodel"), "w"
+            ) as skymodelfile:
                 if ff.freq_eff:
                     skymodelfile.write(skymodel(sr, ff.freq_eff))
                 else:
