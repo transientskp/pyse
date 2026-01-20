@@ -44,10 +44,10 @@ class SourceParams(str, Enum):
 
     def describe(self) -> str:
         """Return a description of the source parameter."""
-        return _source_params_descriptions[self.value]
+        return source_params_descriptions[self.value]
 
 
-_source_params_descriptions = {
+source_params_descriptions = {
     "peak": "Peak spectral brightness of the source (Jy/beam)",
     "peak_err": (
         "1-sigma uncertainty in the peak spectral "
@@ -210,9 +210,6 @@ _source_params_descriptions = {
     ),
 }
 
-# Ensure that all source parameters have a description
-assert all(p.value in _source_params_descriptions for p in SourceParams)
-
 # This should render source parameter descriptions in Sphinx/RTD.
 for member in SourceParams:
     member.__doc__ = SourceParams.describe(member)
@@ -307,7 +304,7 @@ def make_measurements_dataframe(
 
 def describe_dataframe_columns(df: pd.DataFrame) -> dict[str, str]:
     return {
-        col: _source_params_descriptions[col]
+        col: source_params_descriptions[col]
         for col in df.columns
-        if col in _source_params_descriptions
+        if col in source_params_descriptions
     }
