@@ -40,6 +40,7 @@ extensions = [
     "autoapi.extension",
     "enum_tools.autoenum",
     "sphinxarg.ext",
+    "sourcefinder.sphinx_ext.render_confs",
 ]
 
 autodoc_typehints = "both"

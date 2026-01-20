@@ -1,11 +1,12 @@
 from types import NoneType
+from dataclasses import fields
 
 import pytest
 
 from sourcefinder.config import assert_t
 from sourcefinder.config import Conf
-from sourcefinder.config import ExportSettings
-from sourcefinder.config import ImgConf
+from sourcefinder.config import ExportSettings, EXPORTSETTINGS_HELP
+from sourcefinder.config import ImgConf, IMGCONF_HELP
 from sourcefinder.config import read_conf
 from sourcefinder.config import validate_nested
 from sourcefinder.config import validate_types
@@ -124,3 +125,39 @@ def test_nested_warn(key, value, origin_t, args):
 )
 def test_validate_types(key, value, type_):
     validate_types(key, value, type_)
+
+
+def expected_names(obj) -> set[str]:
+    """
+    Return the set of names that require a description.
+
+    Supports:
+    - dataclass types
+    """
+    if hasattr(obj, "__dataclass_fields__"):
+        return {f.name for f in fields(obj) if not f.name.startswith("_")}
+
+    raise TypeError(f"Unsupported object type: {obj!r}")
+
+
+@pytest.mark.parametrize(
+    "name, obj, help_dict",
+    [
+        ("ImgConf", ImgConf, IMGCONF_HELP),
+        ("ExportSettings", ExportSettings, EXPORTSETTINGS_HELP),
+    ],
+)
+def test_help_is_complete_and_exact(name, obj, help_dict):
+    expected = expected_names(obj)
+    described = set(help_dict.keys())
+
+    missing = expected - described
+    extra = described - expected
+
+    assert not missing, f"{name}: missing descriptions for " + ", ".join(
+        sorted(missing)
+    )
+
+    assert not extra, f"{name}: obsolete descriptions for " + ", ".join(
+        sorted(extra)
+    )
