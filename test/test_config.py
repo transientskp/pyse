@@ -1,5 +1,4 @@
 from types import NoneType
-from enum import Enum
 from dataclasses import fields
 
 import pytest
@@ -137,9 +136,6 @@ def expected_names(obj) -> set[str]:
     """
     if hasattr(obj, "__dataclass_fields__"):
         return {f.name for f in fields(obj) if not f.name.startswith("_")}
-
-    if isinstance(obj, type) and issubclass(obj, Enum):
-        return {member.name for member in obj}
 
     raise TypeError(f"Unsupported object type: {obj!r}")
 
